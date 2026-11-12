@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,12 +9,13 @@ import { applyCommand, createGame, GameError, names, playerView, policies, roles
 import { requireRule } from '../../packages/engine/errors.mjs';
 import { domesticPriceLevels } from '../../packages/engine/prices.mjs';
 import { summarizeAction } from './action-summary.mjs';
+import { openRoomStore } from './room-store.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const web = join(root, 'apps', 'web');
 const assets = join(root, 'assets', 'prototype');
 const store = process.env.HEGEMONY_STORE ?? join(root, '.runtime');
-const cache = new Map();
+const { readRoom, saveRoom, deleteRoom } = openRoomStore(store);
 const instance = randomBytes(8).toString('hex');
 let reloading = false;
 const types = { html: 'text/html; charset=utf-8', css: 'text/css; charset=utf-8', js: 'text/javascript; charset=utf-8', svg: 'image/svg+xml' };
@@ -32,27 +33,6 @@ function fingerprint(token) {
   return createHash('sha256').update(token).digest('hex');
 }
 
-function readRoom(code) {
-  if (cache.has(code)) return cache.get(code);
-  let room;
-  try {
-    room = JSON.parse(readFileSync(join(store, `${code}.json`), 'utf8'));
-  } catch (error) {
-    if (error.code === 'ENOENT') return null;
-    throw error;
-  }
-  cache.set(code, room);
-  return room;
-}
-
-function saveRoom(room) {
-  mkdirSync(store, { recursive: true });
-  const path = join(store, `${room.code}.json`);
-  writeFileSync(`${path}.tmp`, JSON.stringify(room), { mode: 0o600 });
-  renameSync(`${path}.tmp`, path);
-  cache.set(room.code, room);
-}
-
 const saveVersion = 1;
 
 function saveSignature(game) {
@@ -63,7 +43,6 @@ function saveSignature(game) {
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
     key = randomBytes(32);
-    mkdirSync(store, { recursive: true });
     writeFileSync(path, key, { mode: 0o600, flag: 'wx' });
   }
   return createHmac('sha256', key).update(JSON.stringify([saveVersion, game])).digest();
@@ -221,8 +200,7 @@ async function route(request, response) {
     const room = readRoom(code);
     if (!room) throw new GameError('找不到房間。', 404);
     if (authenticate(room, request) !== room.host) throw new GameError('只有房主可以刪除房間。', 403);
-    unlinkSync(join(store, `${code}.json`));
-    cache.delete(code);
+    deleteRoom(code);
     return json(response, 200, { deleted: code });
   }
   if (request.method === 'POST' && action) {

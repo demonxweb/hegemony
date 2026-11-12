@@ -2,12 +2,22 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { mkdtemp, readFile, readdir, rm, rmdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, rmdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
 const roles = ['working', 'middle', 'capitalist', 'state'];
+
+function storedRoom(store, code) {
+  const db = new DatabaseSync(join(store, 'rooms.sqlite'), { readOnly: true });
+  try {
+    return JSON.parse(db.prepare('SELECT snapshot FROM rooms WHERE code = ?').get(code).snapshot);
+  } finally {
+    db.close();
+  }
+}
 
 async function confirmVote(command, current) {
   const electionId = current.lastVote.id;
@@ -52,8 +62,8 @@ test('four connected seats complete five rounds using the full catalog', { timeo
       const view = await snapshot(role);
       return send(`${path}/command`, { id: randomUUID(), revision: view.revision, cardId: view.hand[0]?.id, ...input }, role, status);
     };
-    const roomFile = join(store, (await readdir(store))[0]);
-    const room = JSON.parse(await readFile(roomFile, 'utf8'));
+    const roomFile = join(store, `${code}.json`);
+    const room = storedRoom(store, code);
     assert.deepEqual(roles.map(role => room.game.decks[role].draw.length), [40, 40, 40, 40]);
     // Arrange a known opening without replacing or adding physical cards.
     const opening = ['fake-news', 'public-opinion-polling', 'offshore-companies', 'foreign-financial-assistance'];
@@ -66,6 +76,7 @@ test('four connected seats complete five rounds using the full catalog', { timeo
     const events = room.game.content.eventDeck;
     events.unshift(...events.splice(events.indexOf('event-fear-of-deflation'), 1));
     await server.stop();
+    await rm(join(store, 'rooms.sqlite'));
     await writeFile(roomFile, JSON.stringify(room));
     server = await startServer(store, false);
     const start = await command('working', { type: 'start' });
@@ -342,7 +353,7 @@ test('Quick creates four seats and reload preserves room state and seat credenti
     assert.deepEqual(Object.keys(save), ['version', 'game', 'signature']);
     assert(roles.every(role => save.game.players[role].hand.length > 0));
     const savedPath = join(store, `${code}.json`);
-    const saved = JSON.parse(await readFile(savedPath, 'utf8'));
+    const saved = storedRoom(store, code);
     await writeFile(savedPath, JSON.stringify({ ...saved, godKey: 'legacy-key', history: [], rewindRevision: 1 }));
     const reload = await post('/api/quick-reload', {});
     assert.equal(reload.status, 202);
@@ -372,7 +383,10 @@ test('Quick creates four seats and reload preserves room state and seat credenti
     assert.equal((await room('middle', 'DELETE')).status, 403);
     assert.equal((await room('working', 'DELETE')).status, 200);
     assert.equal((await room('working')).status, 404);
-    assert.deepEqual(await readdir(store), ['.save-key']);
+    await server.stop();
+    server = await startServer(store, true, 'launcher');
+    assert.equal((await room('working')).status, 404);
+    assert.deepEqual((await readdir(store)).sort(), ['.save-key', `${code}.json`, 'rooms.sqlite'].sort());
   } finally {
     await server?.stop();
     for (const file of await readdir(store)) await rm(join(store, file));
