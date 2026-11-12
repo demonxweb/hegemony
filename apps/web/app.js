@@ -2498,14 +2498,16 @@ function showCardPiles() {
 }
 
 const adjustRoles = ['state', 'working', 'middle', 'capitalist'];
-const adjustRoleLabels = { state: '國家', working: '勞工', middle: '中產', capitalist: '資本家' };
+const adjustTabs = [...adjustRoles, 'policy'];
+const adjustRoleLabels = { state: '國家', working: '勞工', middle: '中產', capitalist: '資本家', policy: '公共政策' };
 const adjustLivingLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育', influence: '個人影響力' };
 const adjustStoredLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育' };
 const adjustPublicLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育', influence: '媒體影響力' };
+const adjustBenefitLabels = { cash: '金錢', food: '食物', luxury: '奢侈品', health: '醫療', education: '教育', influence: '影響力', votes: '投票方塊' };
 
-function adjustInput(label, name, value, { min = 0, hint = '' } = {}) {
+function adjustInput(label, name, value, { min = 0, max = 99999, hint = '' } = {}) {
   return `<label class="adjust-field">${escape(label)}
-    <input type="number" name="${escape(name)}" value="${Number(value) || 0}" min="${min}" max="99999" step="1" inputmode="numeric" required>
+    <input type="number" name="${escape(name)}" value="${Number(value) || 0}" min="${min}" max="${max}" step="1" inputmode="numeric" required>
     ${hint ? `<small>${hint}</small>` : ''}</label>`;
 }
 

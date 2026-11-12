@@ -1101,6 +1101,8 @@ function finishTransaction(game, role, type) {
 const hostAdjustLiving = ['food', 'luxury', 'health', 'education', 'influence'];
 const hostAdjustStored = ['food', 'luxury', 'health', 'education'];
 const hostAdjustPublic = ['food', 'luxury', 'health', 'education', 'influence'];
+const hostAdjustBenefits = ['cash', 'food', 'luxury', 'health', 'education', 'influence', 'votes'];
+const hostAdjustClasses = ['working', 'middle', 'capitalist'];
 
 function hostAdjustCount(value, label, minimum = 0) {
   requireRule(Number.isInteger(value) && value >= minimum, `${label}須為 ${minimum} 以上的整數。`);
@@ -1117,6 +1119,25 @@ function hostAdjustFields(source, allowed, label, apply) {
 }
 
 export function applyHostAdjustment(game, command) {
+  if (command.target === 'policy') {
+    if (command.policies !== undefined) {
+      requireRule(Array.isArray(command.policies) && command.policies.length === game.policies.length, '政策數量不符。');
+      command.policies.forEach((section, index) => {
+        requireRule(sections.includes(section), '請選擇 A、B 或 C 區政策。');
+        game.policies[index] = section;
+      });
+    }
+    if (command.bag !== undefined) {
+      requireRule(command.bag && typeof command.bag === 'object' && !Array.isArray(command.bag), '投票袋格式錯誤。');
+      for (const [role, count] of Object.entries(command.bag)) {
+        requireRule(hostAdjustClasses.includes(role), '投票袋包含未知階級。');
+        game.bag[role] = hostAdjustCount(count, `${names[role]}投票袋`);
+        requireRule(game.bag[role] <= 25, '投票袋方塊數不可超過 25。');
+      }
+    }
+    log(game, '房長調整了公共政策與投票袋。');
+    return;
+  }
   const target = command.target;
   requireRule(roles.includes(target), '請選擇要調整的階級。');
   const player = game.players[target];
@@ -1157,6 +1178,20 @@ export function applyHostAdjustment(game, command) {
     for (const [resource, price] of Object.entries(command.prices)) {
       requireRule(Object.hasOwn(allowed, resource) && allowed[resource].includes(price), '請選擇圖版上的售價。');
       pricesByRole[target][resource] = price;
+    }
+  }
+  if (command.benefits !== undefined) {
+    requireRule(target === 'state', '只有國家可以調整福利區。');
+    requireRule(game.content, '目前對局沒有國家福利資料。');
+    requireRule(command.benefits && typeof command.benefits === 'object' && !Array.isArray(command.benefits), '國家福利格式錯誤。');
+    for (const [role, values] of Object.entries(command.benefits)) {
+      requireRule(hostAdjustClasses.includes(role), '國家福利包含未知階級。');
+      requireRule(values && typeof values === 'object' && !Array.isArray(values), '國家福利格式錯誤。');
+      game.content.benefits[role] ??= {};
+      for (const [resource, amount] of Object.entries(values)) {
+        requireRule(hostAdjustBenefits.includes(resource), '國家福利包含未知項目。');
+        game.content.benefits[role][resource] = hostAdjustCount(amount, `${names[role]}福利的${resource}`);
+      }
     }
   }
   if (command.public !== undefined || command.publicCapacity !== undefined) {
