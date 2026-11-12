@@ -1,0 +1,6078 @@
+{
+  "schemaVersion": 1,
+  "scope": "base game v1.2, with four-player setup",
+  "source": "https://www.ludex.dev/hegemony/cards/",
+  "officialRules": "https://hegemonicproject.com/wp-content/uploads/2023/04/Hegemony-English-Rulebook-v1.2.pdf",
+  "reviewedOn": "2026-11-09",
+  "editionReview": "Complete inventory; card effects are reference summaries pending implementation and edition-specific rulings.",
+  "unresolvedFields": [
+    "eventMinimumRoundForSpecificPrinting",
+    "middleWorkersBySkill",
+    "legitimacyTokensByClass",
+    "moneyTokensByDenomination",
+    "corporateTaxRevenue0To4",
+    "endgameVoteCubeScope"
+  ],
+  "counts": {
+    "workingActions": 40,
+    "middleActions": 40,
+    "capitalistActions": 40,
+    "stateActions": 40,
+    "capitalistCompanies": 28,
+    "middleCompanies": 17,
+    "stateCompanies": 12,
+    "cooperativeFarms": 2,
+    "exports": 16,
+    "businessDeals": 20,
+    "immigration": 25,
+    "agendas": 10,
+    "events": 25,
+    "loans": 10
+  },
+  "distinctRecords": 234,
+  "physicalCards": 325,
+  "decks": {
+    "workingActions": [
+      {
+        "id": "action-working-specialization",
+        "name": "Specialization",
+        "nameZh": "專業化",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-specialization.C9URd7ok_Z1I39R1.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [
+          "7B",
+          "7C"
+        ],
+        "effectZh": "選擇一名己方技術工放入待業區，接著可指派最多 3 名己方工人。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-highlight-social-issues",
+        "name": "Highlight Social Issues",
+        "nameZh": "凸顯社會議題",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-highlight-social-issues.yI21cxUz_2awyYE.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "向國家支付 $15，取得 3 影響力。",
+        "legitimacyZh": "勞工 +1"
+      },
+      {
+        "id": "action-working-cooperative-farm",
+        "name": "Cooperative Farm",
+        "nameZh": "合作農場",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-cooperative-farm.Bg4BSjEn_2g3Gi.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "至少有 3 名待業工人才能建農場，將其中 3 人派入並承諾至生產。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-healthcare-benefits",
+        "name": "Healthcare Benefits",
+        "nameZh": "醫療福利",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-healthcare-benefits.CcrIZL3s_MEzIS.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [
+          "4B",
+          "4C"
+        ],
+        "effectZh": "向國家購買最多人口數的醫療，總價折半後向上取整。",
+        "legitimacyZh": "勞工 +1"
+      },
+      {
+        "id": "action-working-healthcare-movement",
+        "name": "Healthcare Movement",
+        "nameZh": "醫療運動",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-healthcare-movement.oyL_bWrN_1OsLJ8.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "就醫療福利提案，並加入 2 枚己方投票方塊。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-need-for-change",
+        "name": "Need for Change",
+        "nameZh": "改革訴求",
+        "copies": 3,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-need-for-change.sLlMKycx_1JyLCT.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "提出兩項不同政策的法案，可各自選擇是否付費即時投票。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-labor-market-deregulation",
+        "name": "Labor Market Deregulation",
+        "nameZh": "勞動市場鬆綁",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-labor-market-deregulation.DIOb1dJ4_ZUx6op.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [
+          "2B",
+          "2C"
+        ],
+        "effectZh": "指派任意數量待業工人。2C 時也可調動任意數量未承諾的在職工人。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-migration",
+        "name": "Migration",
+        "nameZh": "人口外移",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-migration.q1UVruIn_1u2gPH.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "待業至少 4 人時，移除最多 2 名待業工人，非技術工每人得 $5、技術工每人得 $10。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-workers-movement",
+        "name": "Workers Movement",
+        "nameZh": "工人運動",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-workers-movement.DuFGn2R2_Z17tncP.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "就勞動市場提案，並加入 2 枚己方投票方塊。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-workplace-accident",
+        "name": "Workplace Accident",
+        "nameZh": "職場事故",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-workplace-accident.BE5gFzQt_1wB4Yu.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "選一名其他玩家及一個產業，對方每有一家該產業企業僱用你的工人，便付你 $8。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-proletarians-of-the-world-unite",
+        "name": "Proletarians of the World, Unite!",
+        "nameZh": "全世界無產者聯合起來",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-proletarians-unite.B4rOnlXU_29Msvu.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "加入等同人口數的己方投票方塊。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-boost-domestic-tourism",
+        "name": "Boost Domestic Tourism",
+        "nameZh": "振興國內觀光",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-boost-domestic-tourism.CPtZSpD-_Z2aFvkJ.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [
+          "1A",
+          "1B"
+        ],
+        "effectZh": "向另一玩家購買最多人口數的奢侈品，自己負擔總價一半並向上取整，國家付餘額。",
+        "legitimacyZh": "勞工 +1"
+      },
+      {
+        "id": "action-working-public-opinion-polling",
+        "name": "Public Opinion Polling",
+        "nameZh": "民意調查",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-public-opinion-polling.DecTl3uX_ZQAtpc.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "提案並揭示袋內 5 枚方塊，可用該次結果免費即時投票，否則把方塊放回。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-student-movement",
+        "name": "Student Movement",
+        "nameZh": "學生運動",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-student-movement.DEWF71oG_zLkj0.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "就教育福利提案，並加入 2 枚己方投票方塊。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-supplemental-income-program",
+        "name": "Supplemental Income Program",
+        "nameZh": "收入補助計畫",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-supplemental-income-program.D4KuIpgq_Z1zSo7x.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [
+          "2B",
+          "2C"
+        ],
+        "effectZh": "國家每名已就業的勞工工人支付 $1，然後你可以購買商品與服務。",
+        "legitimacyZh": "勞工每 10 名符合工人 +1"
+      },
+      {
+        "id": "action-working-extra-shift",
+        "name": "Extra Shift",
+        "nameZh": "額外班次",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-extra-shift.DqBRoYgA_ZQY7Q7.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "選公營企業發薪並生產，之後可向國家購買該企業產出的服務，最多人口數。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-affordable-housing",
+        "name": "Affordable Housing",
+        "nameZh": "經濟適用房",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-affordable-housing.MhUGH257_2nbQRw.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "付資本家 $20 得 5 VP，或付中產 $10 得 3 VP。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-immigration-reform",
+        "name": "Immigration Reform",
+        "nameZh": "移民改革",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-immigration-reform.CQWMoVRX_ZLtkal.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "就移民政策提案，並加入 2 枚己方投票方塊。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-signing-bonus",
+        "name": "Signing Bonus",
+        "nameZh": "簽約獎金",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-signing-bonus.ClJTns95_2pnO8R.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [
+          "2B",
+          "2C"
+        ],
+        "effectZh": "指派最多 4 名待業工人，每指派一人由該企業持有者付你 $4。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-general-strike",
+        "name": "General Strike",
+        "nameZh": "大罷工",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-general-strike.D5tOzKq8_kndPI.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [
+          "2B",
+          "2C"
+        ],
+        "effectZh": "執行罷工，每有一個工會可多放 1 枚罷工標記。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-fake-news",
+        "name": "Fake News",
+        "nameZh": "假新聞",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-fake-news.DEpx_f6g_76zc.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "抽 6 枚投票方塊，最多移除其中 4 枚，其餘回袋。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-state-scholarship",
+        "name": "State Scholarship",
+        "nameZh": "國家獎學金",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-state-scholarship.y-6LVN8C_Z170aTs.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [
+          "5B",
+          "5C"
+        ],
+        "effectZh": "向國家購買最多人口數的教育，總價折半後向上取整。",
+        "legitimacyZh": "勞工 +1"
+      },
+      {
+        "id": "action-working-radical-reforms",
+        "name": "Radical Reforms",
+        "nameZh": "激進改革",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-radical-reforms.DSylSs_G_FUTop.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "提案目標可跨越相鄰政策區段，本案不能即時投票。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-working-unemployment-benefits",
+        "name": "Unemployment Benefits",
+        "nameZh": "失業給付",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-unemployment-benefits.CgDwZDMD_RLGA0.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [
+          "4A",
+          "4B"
+        ],
+        "effectZh": "國家每名待業勞工工人付 $5，然後可向國家購買商品與服務。",
+        "legitimacyZh": "勞工每 3 名待業工人 +1"
+      },
+      {
+        "id": "action-working-interest-groups",
+        "name": "Interest Groups",
+        "nameZh": "利益團體",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/wc-interest-groups.BXKLBE1K_Z1bT2I2.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "working",
+        "policyAnyOf": [],
+        "effectZh": "揭示袋內方塊直到找到 3 枚其他階級方塊，以己方方塊替換這 3 枚，將替換後的所有揭示方塊放回袋中。",
+        "legitimacyZh": null
+      }
+    ],
+    "middleActions": [
+      {
+        "id": "action-middle-healthcare-benefits",
+        "name": "Healthcare Benefits",
+        "nameZh": "醫療福利",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-healthcare-benefits.DK6Kcb3U_ZA6Mdq.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [
+          "4B",
+          "4C"
+        ],
+        "effectZh": "向國家購買最多人口數的醫療，總價折半後向上取整。",
+        "legitimacyZh": "中產 +1"
+      },
+      {
+        "id": "action-middle-import-subsidy",
+        "name": "Import Subsidy",
+        "nameZh": "進口補貼",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-import-subsidy.Ct0XU_ec_Z2x54yG.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [
+          "6A",
+          "6B"
+        ],
+        "effectZh": "只向外國市場買食物或奢侈品，最多人口數，免關稅。",
+        "legitimacyZh": "中產每購買 4 單位 +1"
+      },
+      {
+        "id": "action-middle-small-business-grant",
+        "name": "Small Business Grant",
+        "nameZh": "小企業補助",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-small-business-grant.Gzb4H7pK_Z1wo7Yo.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [
+          "1A",
+          "1B"
+        ],
+        "effectZh": "建造一家企業，由國家支付建造費。",
+        "legitimacyZh": "中產 +1"
+      },
+      {
+        "id": "action-middle-land-of-opportunity",
+        "name": "Land of Opportunity",
+        "nameZh": "機會之地",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-land-of-opportunity.hO33hIKs_Z1T8r7r.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [
+          "7B",
+          "7C"
+        ],
+        "effectZh": "建造一家企業，使用從供應區選取的中產技術工。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-investment-opportunities",
+        "name": "Investment Opportunities",
+        "nameZh": "投資機會",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-investment-opportunities.CdoITcOM_2vjcjC.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "市場企業減價 $8 建造，或從企業牌堆找一家加價 $8 建造。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-foreign-market-insight",
+        "name": "Foreign Market Insight",
+        "nameZh": "外國市場洞察",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-foreign-market-insight.u6-PMWIm_1XFhVJ.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "翻下一張出口牌，在新舊兩張擇一後出口，每項交易可做兩次，未採用牌棄置。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-employment-subsidy",
+        "name": "Employment Subsidy",
+        "nameZh": "就業補貼",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-employment-subsidy.B7W45mmO_ZBNfdC.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [
+          "1A",
+          "1B"
+        ],
+        "effectZh": "國家按每家僱有勞工員工的己方企業支付 $5。可再選其中一家加班。",
+        "legitimacyZh": "中產每 3 家符合企業 +1"
+      },
+      {
+        "id": "action-middle-public-opinion-polling",
+        "name": "Public Opinion Polling",
+        "nameZh": "民意調查",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-public-opinion-polling.b3TjC8tU_ZCBv4d.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "提案並揭示袋內 5 枚方塊，可用這 5 枚免費即時投票，否則放回袋中。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-migration",
+        "name": "Migration",
+        "nameZh": "人口外移",
+        "copies": 3,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-migration.BPyHacc8_Z1rUXrU.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "待業至少 4 人時移除最多 2 名待業工人，非技術工每人得 $5、技術工每人得 $10。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-fake-news",
+        "name": "Fake News",
+        "nameZh": "假新聞",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-fake-news.BRGH_WlJ_Z1Jaxsf.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "抽 6 枚投票方塊，最多移除 4 枚，其餘回袋。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-specialization",
+        "name": "Specialization",
+        "nameZh": "專業化",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-specialization.DIODjOMw_Z25MEho.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [
+          "7B",
+          "7C"
+        ],
+        "effectZh": "供應區加入一名自選的勞工技術工至待業區，可再指派最多 3 名待業勞工到中產企業。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-state-scholarship",
+        "name": "State Scholarship",
+        "nameZh": "國家獎學金",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-state-scholarship.Bgd_mLfN_Z2uGofg.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [
+          "5B",
+          "5C"
+        ],
+        "effectZh": "向國家購買最多人口數的教育，總價折半後向上取整。",
+        "legitimacyZh": "中產 +1"
+      },
+      {
+        "id": "action-middle-highlight-social-issues",
+        "name": "Highlight Social Issues",
+        "nameZh": "凸顯社會議題",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-highlight-social-issues.DD6Jeqbu_G6lQx.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "向國家支付 $15 取得 3 影響力。",
+        "legitimacyZh": "中產 +1"
+      },
+      {
+        "id": "action-middle-health-crisis",
+        "name": "Health Crisis",
+        "nameZh": "醫療危機",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-health-crisis.DJ831JYL_1ptF0H.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "向國家出售最多 6 醫療，每單位 $10。受國家庫存容量限制，國家不足可借款。",
+        "legitimacyZh": "中產每售出 3 醫療 +1"
+      },
+      {
+        "id": "action-middle-unemployment-initiative-program",
+        "name": "Unemployment Initiative Program",
+        "nameZh": "就業倡議",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-unemployment-initiative-program.C4hHjxbc_vf630.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [
+          "4A",
+          "4B"
+        ],
+        "effectZh": "派最多 3 名待業勞工到中產企業，國家每派一人付 $5。",
+        "legitimacyZh": "中產 +1"
+      },
+      {
+        "id": "action-middle-higher-education-program",
+        "name": "Higher Education Program",
+        "nameZh": "高等教育計畫",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-higher-education-program.vXrljOxx_1I5isO.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "向國家出售最多 6 教育，每單位 $10。受國家庫存容量限制，國家不足可借款。",
+        "legitimacyZh": "中產每售出 3 教育 +1"
+      },
+      {
+        "id": "action-middle-voice-of-middle-class-workers",
+        "name": "Voice of Middle Class Workers",
+        "nameZh": "中產勞工之聲",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-voice-of-middle-class-workers.Bm6nfMta_1YJ9Sf.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "加入 2 枚己方投票方塊，再依有僱用中產工人的公營或資本家企業數，每家加 1 枚。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-new-theme-park",
+        "name": "New Theme Park",
+        "nameZh": "新主題樂園",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-new-theme-park.BgKi4NgQ_TBI0W.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "支付 $6 × 人口，繁榮提升 1 格。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-interest-groups",
+        "name": "Interest Groups",
+        "nameZh": "利益團體",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-interest-groups.DTOt0XNt_1zNP1P.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "揭示至 3 枚其他階級方塊，以己方方塊替換這 3 枚，將替換後的所有揭示方塊放回袋中。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-export-subsidy",
+        "name": "Export Subsidy",
+        "nameZh": "出口補貼",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-export-subsidy.CVQQZq1y_q7TBR.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [
+          "1A",
+          "1B"
+        ],
+        "effectZh": "執行出口，每筆成功交易另由國家付 $5。",
+        "legitimacyZh": "中產 +1"
+      },
+      {
+        "id": "action-middle-labor-market-deregulation",
+        "name": "Labor Market Deregulation",
+        "nameZh": "勞動市場鬆綁",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-labor-market-deregulation.MsThlfmv_1NQsJT.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [
+          "2B",
+          "2C"
+        ],
+        "effectZh": "指派任意數量待業工人，2C 時亦可調動任意數量未承諾的在職工人。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-personal-consumption",
+        "name": "Personal Consumption",
+        "nameZh": "個人消費",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-personal-consumption.BrgFRVUs_ZhrTHr.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "購買單一資源，可向不限數量來源各買最多人口數，或只向一個來源買最多兩倍人口數。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-immigration-reform",
+        "name": "Immigration Reform",
+        "nameZh": "移民改革",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-immigration-reform.C0G7x7cC_Z1yxt2t.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "就移民政策提案，加入 2 枚己方投票方塊。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-growing-business",
+        "name": "Growing Business",
+        "nameZh": "企業成長",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-growing-business.aJV-3V6w_1AdSXB.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "為一種資源免費加倉，可再建造企業。若企業生產該資源，建造費減 $4。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-public-sector-overtime",
+        "name": "Public Sector Overtime",
+        "nameZh": "公營部門加班",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-public-sector-overtime.COPAPPs5_3y2cc.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [],
+        "effectZh": "選一間營運中的公營企業，由國家發薪及生產，之後可向國家購買最多人口數的該項服務。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-middle-supplemental-income-program",
+        "name": "Supplemental Income Program",
+        "nameZh": "收入補助計畫",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mc-supplemental-income-program.D0FdlQVv_1gRuH3.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "middle",
+        "policyAnyOf": [
+          "2B",
+          "2C"
+        ],
+        "effectZh": "國家按你在公營或資本家企業工作的工人數，每人付 $2，再可購買商品與服務。",
+        "legitimacyZh": "中產每 5 名符合工人 +1"
+      }
+    ],
+    "capitalistActions": [
+      {
+        "id": "action-capitalist-health-crisis",
+        "name": "Health Crisis",
+        "nameZh": "醫療危機",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-health-crisis.Bwy0yAcp_1sNnAm.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "向國家出售最多 9 醫療，每單位 $10。受國家庫存容量限制，國家不足可借款。",
+        "legitimacyZh": "資本家每售出 3 醫療 +1"
+      },
+      {
+        "id": "action-capitalist-higher-education-program",
+        "name": "Higher Education Program",
+        "nameZh": "高等教育計畫",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-higher-education-program.G4B0aKSG_2gNi5Y.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "向國家出售最多 9 教育，每單位 $10。受國家庫存容量限制，國家不足可借款。",
+        "legitimacyZh": "資本家每售出 3 教育 +1"
+      },
+      {
+        "id": "action-capitalist-push-political-agenda",
+        "name": "Push Political Agenda",
+        "nameZh": "推動政治議程",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-push-political-agenda.CKtPCaJQ_ZdMGPE.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "支付 $25，提出兩項不同政策的法案，即時投票費各自計算。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-foreign-recruitment",
+        "name": "Foreign Recruitment",
+        "nameZh": "海外招募",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-foreign-recruitment.BXheZ-wH_On9Jx.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [
+          "7B",
+          "7C"
+        ],
+        "effectZh": "支付 $10，從供應區為一間停業的己方企業補齊相符工人。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-competitive-wages",
+        "name": "Competitive Wages",
+        "nameZh": "競爭薪資",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-competitive-wages.Bc4cfAaT_1s8l7W.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [
+          "2B",
+          "2C"
+        ],
+        "effectZh": "把一家企業調至 L3，從同行業、同工位數且營運中的公營企業移入全組工人。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-global-branding",
+        "name": "Global Branding",
+        "nameZh": "全球品牌",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-global-branding.Ctj84U2S_Z2cGKS4.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "執行出口，另可按單價 $10 出售最多 6 奢侈品。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-interest-groups",
+        "name": "Interest Groups",
+        "nameZh": "利益團體",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-interest-groups.2rmiQwca_1yugwC.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "揭示至 3 枚其他階級方塊，以己方方塊替換這 3 枚，將替換後的所有揭示方塊放回袋中。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-offshore-companies",
+        "name": "Offshore Companies",
+        "nameZh": "境外公司",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-offshore-companies.CtY_eAVd_Z18XfEA.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "將營收的一半向下取整轉入資本。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-foreign-market-insight",
+        "name": "Foreign Market Insight",
+        "nameZh": "外國市場洞察",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-foreign-market-insight.Dz_qMGdV_Z1uGkEl.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "揭示下一批兩張出口牌，可從其中選一張替換當前牌。未保留牌棄置，然後可出口。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-unemployment-initiative-program",
+        "name": "Unemployment Initiative Program",
+        "nameZh": "就業倡議",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-unemployment-initiative-program.BgSF6SjF_RxMR3.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [
+          "4A",
+          "4B"
+        ],
+        "effectZh": "用待業工人補齊一家停業己方企業，國家每僱一人付 $5。",
+        "legitimacyZh": "資本家 +1"
+      },
+      {
+        "id": "action-capitalist-foreign-partner",
+        "name": "Foreign Partner",
+        "nameZh": "外國合作夥伴",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-foreign-partner.rvYU2rJX_1a1yq5.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [
+          "6B",
+          "6C"
+        ],
+        "effectZh": "先做商業交易，可再向外國市場出售食物或奢侈品。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-business-expansion",
+        "name": "Business Expansion",
+        "nameZh": "事業擴張",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-business-expansion.CC0__Lfx_Z21lUYu.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "建造 2 家企業，再等量補充市場。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-investment-opportunities",
+        "name": "Investment Opportunities",
+        "nameZh": "投資機會",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-investment-opportunities.DckkN-ud_Z1xo95U.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "從市場減價 $10 建造，或從企業牌堆挑選一家加價 $10 建造。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-fake-news",
+        "name": "Fake News",
+        "nameZh": "假新聞",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-fake-news.HT8MpYg8_Z2hzCxL.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "抽 6 枚方塊，最多移除 4 枚，其餘回袋。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-global-food-crisis",
+        "name": "Global Food Crisis",
+        "nameZh": "全球糧食危機",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-global-food-crisis.Brb4NMla_Z1hG7Yt.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "執行出口，另可按單價 $15 出售最多 4 食物。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-industrialization",
+        "name": "Industrialization",
+        "nameZh": "工業化",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-industrialization.D_Ccbq4H_Z1oJoTS.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [
+          "1A",
+          "1B"
+        ],
+        "effectZh": "建造一家奢侈品或農業企業，自己支付一半成本，國家付另一半。",
+        "legitimacyZh": "資本家 +1"
+      },
+      {
+        "id": "action-capitalist-bid-rigging",
+        "name": "Bid Rigging",
+        "nameZh": "圍標",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-bid-rigging.Bv8c5e5N_23PhRN.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "向國家以單價 $10 賣最多 6 奢侈品，再得 1 影響力。國家受倉儲限制，資金不足可借款。",
+        "legitimacyZh": "資本家每售出 3 奢侈品 +1"
+      },
+      {
+        "id": "action-capitalist-buy-private-island",
+        "name": "Buy Private Island",
+        "nameZh": "購買私人島嶼",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-buy-private-island.BA3fqikm_Z2lut9x.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "從資本帳戶付國家 $50，獲得 7 VP。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-exit-strategy",
+        "name": "Exit Strategy",
+        "nameZh": "退場策略",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-exit-strategy.D2Souxy4_1vYiRP.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "出售一家沒有機械符號的己方企業，取得其建造成本兩倍。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-business-grants",
+        "name": "Business Grants",
+        "nameZh": "企業補助",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-business-grants.DBAIMCk7_Z1Hr30m.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [
+          "1A",
+          "1B"
+        ],
+        "effectZh": "國家按你擁有的企業每家付 $5。",
+        "legitimacyZh": "資本家每 3 家企業 +1"
+      },
+      {
+        "id": "action-capitalist-tap-into-new-markets",
+        "name": "Tap into New Markets",
+        "nameZh": "開拓新市場",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-tap-into-new-markets.q2knCKpB_g5mz9.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "就外貿提案，加入 2 枚己方投票方塊。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-radical-reforms",
+        "name": "Radical Reforms",
+        "nameZh": "激進改革",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-radical-reforms.CKqyE2Aa_Z2vWr51.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "提案可跨區段，本案不能即時投票。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-extra-shift",
+        "name": "Extra Shift",
+        "nameZh": "額外班次",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-extra-shift.Brlgzk3w_Z1oiTQ5.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "選一家非自動化企業，付得起薪資才可發薪並立即生產。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-taxed-enough-already",
+        "name": "Taxed Enough Already!",
+        "nameZh": "稅負夠重了",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-taxed-enough-already.Cx1LCf9P_Z1cR1XI.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "就稅制提案，加入 2 枚己方投票方塊。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-endorse-political-campaign",
+        "name": "Endorse Political Campaign",
+        "nameZh": "支持政治競選",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-endorse-political-campaign.dxosYEAP_jvrHw.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "支付 $15，加入 6 枚己方投票方塊。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-technological-progress",
+        "name": "Technological Progress",
+        "nameZh": "科技進步",
+        "copies": 3,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-technological-progress.Bjm9X-Cp_ZAKMY2.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "付 $20 得 1 枚機械標記，或付 $45 得 2 枚。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-trade-protectionism-lobby",
+        "name": "Trade Protectionism Lobby",
+        "nameZh": "貿易保護遊說",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-trade-protectionism-lobby.DFLzn6Tu_2zHpI.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [
+          "6A",
+          "6B"
+        ],
+        "effectZh": "按農業企業數每家加 2 枚己方投票方塊，6A 亦計奢侈品企業。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-capitalist-public-opinion-polling",
+        "name": "Public Opinion Polling",
+        "nameZh": "民意調查",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cc-public-opinion-polling.B6fJ5hJS_Z10TopJ.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "capitalist",
+        "policyAnyOf": [],
+        "effectZh": "提案並揭示袋內 5 枚方塊，可用這 5 枚免費即時投票，否則放回袋中。",
+        "legitimacyZh": null
+      }
+    ],
+    "stateActions": [
+      {
+        "id": "action-state-employment-support-scheme",
+        "name": "Employment Support Scheme",
+        "nameZh": "就業支援方案",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-employment-support-scheme.CubJXk0o_Z1ohp5l.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "國家直接給勞工與中產各 $15。",
+        "legitimacyZh": "勞工、中產各 +1"
+      },
+      {
+        "id": "action-state-shift-focus",
+        "name": "Shift Focus",
+        "nameZh": "轉移重點",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-shift-focus.B17c-8_4_1GKTh0.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "看事件牌頂兩張，可用一張替換場上一張且免懲罰，然後執行事件行動。未替換牌留在牌頂。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-denial-of-free-speech",
+        "name": "Denial of Free Speech",
+        "nameZh": "限制言論",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-denial-of-free-speech.Cklem7f__Z1tw6bX.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "拿最多 2 媒體影響力，再向兩名其他玩家各取 1 影響力。",
+        "legitimacyZh": "兩名被選階級各 −1"
+      },
+      {
+        "id": "action-state-step-for-representation",
+        "name": "Step for Representation",
+        "nameZh": "推進代表性",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-step-for-representation.Df0mO2in_Z1u1A2w.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "提供一個階級 1 個人影響力與 2 投票方塊。",
+        "legitimacyZh": "目標 +2"
+      },
+      {
+        "id": "action-state-immediate-response",
+        "name": "Immediate Response",
+        "nameZh": "即時應變",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-immediate-response.CtYV5CUn_14XgQz.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "對同一事件執行兩次，可作不同選擇，保留兩次提供的福利。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-geopolitical-support",
+        "name": "Geopolitical Support",
+        "nameZh": "地緣政治援助",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-geopolitical-support.B5KaRwgK_1NnvwH.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "按外貿區段為國庫加錢，6A／6B／6C 分別為 $15／$30／$45。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-foreign-students",
+        "name": "Foreign Students",
+        "nameZh": "國際學生",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-foreign-students.B41XudKB_MrrGJ.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [
+          "1A",
+          "1B"
+        ],
+        "effectZh": "依公共教育現行單價向國外賣最多 8 教育。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-healthcare-program",
+        "name": "Healthcare Program",
+        "nameZh": "醫療計畫",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-healthcare-program.ChepIusy_ZTeOdL.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [
+          "4A",
+          "4B"
+        ],
+        "effectZh": "提供勞工或中產等同該階級人口的醫療。",
+        "legitimacyZh": "目標得 1 永久合法性標記"
+      },
+      {
+        "id": "action-state-medical-tourism",
+        "name": "Medical Tourism",
+        "nameZh": "醫療觀光",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-medical-tourism.C-xbPOfw_2t4I1K.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [
+          "1A",
+          "1B"
+        ],
+        "effectZh": "依公共醫療現行單價向國外賣最多 8 醫療。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-unemployment-initiative-program",
+        "name": "Unemployment Initiative Program",
+        "nameZh": "就業倡議",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-unemployment-initiative-program.DCOcjrwh_Z1bORn0.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [
+          "4A",
+          "4B"
+        ],
+        "effectZh": "以待業工人補齊一間停業公營企業。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-a-matter-of-high-priority",
+        "name": "A Matter of High Priority",
+        "nameZh": "優先議題",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-a-matter-of-high-priority.BdfVNAHY_2gw5Qf.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "看頂部兩張事件，場上有空位可放入其中一張，再處理任一場上事件。未放置的牌留在頂部。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-emergency-state",
+        "name": "Emergency State",
+        "nameZh": "緊急狀態",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-emergency-state.DIXuVeSX_ZIAgoO.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "至少 3 個政策有待決法案時，將另一個無法案的政策移至相鄰區段，不給政策通過 VP。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-foreign-investment-program",
+        "name": "Foreign Investment Program",
+        "nameZh": "外國投資計畫",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-foreign-investment-program.3C0iNEdN_Z1v3QhQ.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "支付 2 個人影響力，國庫增加 $40。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-literacy-program",
+        "name": "Literacy Program",
+        "nameZh": "識字計畫",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-literacy-program.BAWe659O_Z1SV24H.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [
+          "5A",
+          "5B"
+        ],
+        "effectZh": "提供勞工或中產等同該階級人口的教育。",
+        "legitimacyZh": "目標得 1 永久合法性標記"
+      },
+      {
+        "id": "action-state-growth-in-tourism",
+        "name": "Growth in Tourism",
+        "nameZh": "觀光成長",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-growth-in-tourism.ELkKQqsk_Z1JOouJ.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "國家、中產與資本家各獲 $15。",
+        "legitimacyZh": "中產、資本家各 +1"
+      },
+      {
+        "id": "action-state-supplemental-income-program",
+        "name": "Supplemental Income Program",
+        "nameZh": "收入補助計畫",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-supplemental-income-program.ZI_AsHbx_ZRvScG.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [
+          "2B",
+          "2C"
+        ],
+        "effectZh": "提供勞工或中產金錢，金額為該階級的已就業工人數。",
+        "legitimacyZh": "目標每提供 $10 +1"
+      },
+      {
+        "id": "action-state-allowances-and-subsidies",
+        "name": "Allowances and Subsidies",
+        "nameZh": "津貼與補助",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-allowances-and-subsidies.VuoqnnHT_tYoQA.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "提供任一階級 $20。",
+        "legitimacyZh": "目標得 1 永久合法性標記"
+      },
+      {
+        "id": "action-state-agenda-setting",
+        "name": "Agenda-Setting",
+        "nameZh": "設定議程",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-agenda-setting.D9AxKhEX_Z2dMccV.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "每符合一項國家綱領政策，得 1 個人影響力。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-pressing-matters",
+        "name": "Pressing Matters",
+        "nameZh": "緊急議案",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-pressing-matters.DvM6IQDT_1AfgXX.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "提出一項法案，可免費即時投票。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-radical-reforms",
+        "name": "Radical Reforms",
+        "nameZh": "激進改革",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-radical-reforms.D7pdo0Uu_5Bul9.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "提案可跨區段，本案不能即時投票。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-public-sector-overtime",
+        "name": "Public Sector Overtime",
+        "nameZh": "公營部門加班",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-public-sector-overtime.BQU9qcar_Z1Brt7Q.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "選一家己方企業發薪並立即生產。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-construction-boom",
+        "name": "Construction Boom",
+        "nameZh": "營建繁榮",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-construction-boom.B1M6cK4A_Z1eih1S.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "國家、勞工與資本家各獲 $15。",
+        "legitimacyZh": "勞工、資本家各 +1"
+      },
+      {
+        "id": "action-state-business-grants",
+        "name": "Business Grants",
+        "nameZh": "企業補助",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-business-grants.ciqkeLZU_2cbfgj.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [
+          "1A",
+          "1B"
+        ],
+        "effectZh": "提供資本家金錢，按其擁有企業每家 $5。",
+        "legitimacyZh": "資本家每 3 家企業 +1"
+      },
+      {
+        "id": "action-state-higher-vat",
+        "name": "Higher VAT",
+        "nameZh": "提高加值稅",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-higher-vat.Cc3esF7A_gNODL.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "其他玩家各付國家 $15。",
+        "legitimacyZh": "選擇兩階級各 −1"
+      },
+      {
+        "id": "action-state-nationalization",
+        "name": "Nationalization",
+        "nameZh": "國有化",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-nationalization.07i9LD1X_Z2dVBpD.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [
+          "1A",
+          "1B"
+        ],
+        "effectZh": "移除一家停業公營企業，以一家停業且無機械符號的資本家企業取代。換入者轉為公營並可指派工人。1B 時付資本家該企業成本。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-quantitative-easing",
+        "name": "Quantitative Easing",
+        "nameZh": "量化寬鬆",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-quantitative-easing.D6HNEjcA_Z1hvYG.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "國庫得 $25，有貸款時改為 $35。",
+        "legitimacyZh": null
+      },
+      {
+        "id": "action-state-privatization",
+        "name": "Privatization",
+        "nameZh": "私有化",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-privatization.ByKZ1en2_1aqMAK.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [
+          "1B",
+          "1C"
+        ],
+        "effectZh": "按成本出售一家營運中的公營企業給資本家，轉為私營。",
+        "legitimacyZh": "資本家 +1"
+      },
+      {
+        "id": "action-state-foreign-financial-assistance",
+        "name": "Foreign Financial Assistance",
+        "nameZh": "國外財政援助",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/st-foreign-financial-assistance.DHhSANZc_Z15V2p3.webp",
+        "verification": "requirement_effect_legitimacy_face_checked",
+        "role": "state",
+        "policyAnyOf": [],
+        "effectZh": "每符合一項綱領政策，國庫得 $10。",
+        "legitimacyZh": null
+      }
+    ],
+    "capitalistCompanies": [
+      {
+        "id": "company-capitalist-supermarket-start",
+        "name": "Supermarket",
+        "nameZh": "超市",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-supermarket-start.DmYWYYpP_Z1cMJM7.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "agriculture",
+        "cost": 16,
+        "requiredSlots": [
+          {
+            "skill": "food"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "food": 4
+        },
+        "wages": {
+          "L1": 15,
+          "L2": 20,
+          "L3": 25
+        },
+        "automated": false,
+        "machineryBonus": 1,
+        "startingPlayerCounts": [
+          2,
+          3,
+          4
+        ],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-shopping-mall-start",
+        "name": "Shopping Mall",
+        "nameZh": "購物中心",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-shopping-mall-start.CoIRi56J_2jnI5O.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "luxury",
+        "cost": 16,
+        "requiredSlots": [
+          {
+            "skill": "luxury"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "luxury": 6
+        },
+        "wages": {
+          "L1": 15,
+          "L2": 20,
+          "L3": 25
+        },
+        "automated": false,
+        "machineryBonus": 2,
+        "startingPlayerCounts": [
+          2,
+          3,
+          4
+        ],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-college-start",
+        "name": "College",
+        "nameZh": "學院",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-college-start.C09TT9KW_ZabKw8.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "education",
+        "cost": 16,
+        "requiredSlots": [
+          {
+            "skill": "education"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "education": 6
+        },
+        "wages": {
+          "L1": 10,
+          "L2": 20,
+          "L3": 30
+        },
+        "automated": false,
+        "machineryBonus": 2,
+        "startingPlayerCounts": [
+          2,
+          3,
+          4
+        ],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-clinic-start",
+        "name": "Clinic",
+        "nameZh": "診所",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-clinic-start.BCZXC6Nu_Z2rxXuh.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "healthcare",
+        "cost": 16,
+        "requiredSlots": [
+          {
+            "skill": "health"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "health": 6
+        },
+        "wages": {
+          "L1": 10,
+          "L2": 20,
+          "L3": 30
+        },
+        "automated": false,
+        "machineryBonus": 2,
+        "startingPlayerCounts": [
+          2,
+          3,
+          4
+        ],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-supermarket",
+        "name": "Supermarket",
+        "nameZh": "超市",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-supermarket.DnNQVre3_Z1ulCXx.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "agriculture",
+        "cost": 16,
+        "requiredSlots": [
+          {
+            "skill": "food"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "food": 4
+        },
+        "wages": {
+          "L1": 15,
+          "L2": 20,
+          "L3": 25
+        },
+        "automated": false,
+        "machineryBonus": 1,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-fish-farm",
+        "name": "Fish Farm",
+        "nameZh": "養魚場",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-fish-farm.BeTL288a_ZedVhs.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "agriculture",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "food"
+          },
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "food": 6
+        },
+        "wages": {
+          "L1": 25,
+          "L2": 30,
+          "L3": 35
+        },
+        "automated": false,
+        "machineryBonus": 1,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-vegetable-farm",
+        "name": "Vegetable Farm",
+        "nameZh": "蔬菜農場",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-vegetable-farm.C28LHJaM_Z1XHsPR.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "agriculture",
+        "cost": 15,
+        "requiredSlots": [
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "food": 5
+        },
+        "wages": {
+          "L1": 20,
+          "L2": 25,
+          "L3": 30
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-fast-food-chain",
+        "name": "Fast Food Chain",
+        "nameZh": "連鎖速食店",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-fast-food-chain.CUYpfoWz_Z1XvdSC.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "agriculture",
+        "cost": 8,
+        "requiredSlots": [
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "food": 3
+        },
+        "wages": {
+          "L1": 10,
+          "L2": 15,
+          "L3": 20
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-automated-grain-farm",
+        "name": "Automated Grain Farm",
+        "nameZh": "自動化穀物農場",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-automated-grain-farm.DKT6cIS5_ZK4nO9.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "agriculture",
+        "cost": 25,
+        "requiredSlots": [],
+        "optionalEmployee": null,
+        "output": {
+          "food": 2
+        },
+        "wages": null,
+        "automated": true,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-automated-dairy-farm",
+        "name": "Automated Dairy Farm",
+        "nameZh": "自動化乳牛場",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-automated-dairy-farm.CQCxn9Gj_khXXV.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "agriculture",
+        "cost": 45,
+        "requiredSlots": [],
+        "optionalEmployee": null,
+        "output": {
+          "food": 3
+        },
+        "wages": null,
+        "automated": true,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-shopping-mall",
+        "name": "Shopping Mall",
+        "nameZh": "購物中心",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-shopping-mall.CMo2H62w_1ENJxz.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "luxury",
+        "cost": 16,
+        "requiredSlots": [
+          {
+            "skill": "luxury"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "luxury": 6
+        },
+        "wages": {
+          "L1": 15,
+          "L2": 20,
+          "L3": 25
+        },
+        "automated": false,
+        "machineryBonus": 2,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-stadium",
+        "name": "Stadium",
+        "nameZh": "體育場",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-stadium.VVQA02ws_1ihyO5.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "luxury",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "luxury"
+          },
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "luxury": 8
+        },
+        "wages": {
+          "L1": 25,
+          "L2": 30,
+          "L3": 35
+        },
+        "automated": false,
+        "machineryBonus": 3,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-hotel",
+        "name": "Hotel",
+        "nameZh": "旅館",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-hotel.HtttNxQd_Z2jUNpc.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "luxury",
+        "cost": 15,
+        "requiredSlots": [
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "luxury": 7
+        },
+        "wages": {
+          "L1": 20,
+          "L2": 25,
+          "L3": 30
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-fashion-company",
+        "name": "Fashion Company",
+        "nameZh": "時尚公司",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-fashion-company.UIzL77nb_Z1b2Avj.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "luxury",
+        "cost": 8,
+        "requiredSlots": [
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "luxury": 4
+        },
+        "wages": {
+          "L1": 10,
+          "L2": 15,
+          "L3": 20
+        },
+        "automated": false,
+        "machineryBonus": 2,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-electronics-manufacturer",
+        "name": "Electronics Manufacturer",
+        "nameZh": "電子製造商",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-electronics-manufacturer.BIhc5RU5_ZYmT3.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "luxury",
+        "cost": 25,
+        "requiredSlots": [],
+        "optionalEmployee": null,
+        "output": {
+          "luxury": 3
+        },
+        "wages": null,
+        "automated": true,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-car-manufacturer",
+        "name": "Car Manufacturer",
+        "nameZh": "汽車製造商",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-car-manufacturer.DaX6hGo9_30gvE.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "luxury",
+        "cost": 45,
+        "requiredSlots": [],
+        "optionalEmployee": null,
+        "output": {
+          "luxury": 5
+        },
+        "wages": null,
+        "automated": true,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-clinic",
+        "name": "Clinic",
+        "nameZh": "診所",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-clinic.BciiMsnQ_Z9uss3.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "healthcare",
+        "cost": 16,
+        "requiredSlots": [
+          {
+            "skill": "health"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "health": 6
+        },
+        "wages": {
+          "L1": 10,
+          "L2": 20,
+          "L3": 30
+        },
+        "automated": false,
+        "machineryBonus": 2,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-pharmaceutical-company",
+        "name": "Pharmaceutical Company",
+        "nameZh": "製藥公司",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-pharmaceutical-company.9biRnOc6_1tges1.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "healthcare",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "health"
+          },
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "health": 8
+        },
+        "wages": {
+          "L1": 20,
+          "L2": 30,
+          "L3": 40
+        },
+        "automated": false,
+        "machineryBonus": 3,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-medical-village",
+        "name": "Medical Village",
+        "nameZh": "醫療園區",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-medical-village.B-GDYY3r_Z2aII9w.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "healthcare",
+        "cost": 24,
+        "requiredSlots": [
+          {
+            "skill": "health"
+          },
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "health": 9
+        },
+        "wages": {
+          "L1": 20,
+          "L2": 30,
+          "L3": 40
+        },
+        "automated": false,
+        "machineryBonus": 2,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-hospital",
+        "name": "Hospital",
+        "nameZh": "醫院",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-hospital.C4xRP0aS_Z1yWziB.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "healthcare",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "health"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "health": 7
+        },
+        "wages": {
+          "L1": 10,
+          "L2": 20,
+          "L3": 30
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-college",
+        "name": "College",
+        "nameZh": "學院",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-college.Ce23u2VL_Z1vV72D.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "education",
+        "cost": 16,
+        "requiredSlots": [
+          {
+            "skill": "education"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "education": 6
+        },
+        "wages": {
+          "L1": 10,
+          "L2": 20,
+          "L3": 30
+        },
+        "automated": false,
+        "machineryBonus": 2,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-institute-of-technology",
+        "name": "Institute of Technology",
+        "nameZh": "理工學院",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-institute-of-technology.DtqsrVeX_Zk3Fkx.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "education",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "education"
+          },
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "education": 8
+        },
+        "wages": {
+          "L1": 20,
+          "L2": 30,
+          "L3": 40
+        },
+        "automated": false,
+        "machineryBonus": 3,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-university",
+        "name": "University",
+        "nameZh": "大學",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-university.C5UQqqsz_x8nct.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "education",
+        "cost": 24,
+        "requiredSlots": [
+          {
+            "skill": "education"
+          },
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "education": 9
+        },
+        "wages": {
+          "L1": 20,
+          "L2": 30,
+          "L3": 40
+        },
+        "automated": false,
+        "machineryBonus": 2,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-academy",
+        "name": "Academy",
+        "nameZh": "專科學院",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-academy.B7YfG939_18QRPX.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "education",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "education"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "education": 7
+        },
+        "wages": {
+          "L1": 10,
+          "L2": 20,
+          "L3": 30
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-tv-station",
+        "name": "TV Station",
+        "nameZh": "電視台",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-tv-station.BZ0jTVSE_Z2N3DU.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "media",
+        "cost": 24,
+        "requiredSlots": [
+          {
+            "skill": "influence"
+          },
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "influence": 4
+        },
+        "wages": {
+          "L1": 20,
+          "L2": 30,
+          "L3": 40
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-publishing-house",
+        "name": "Publishing House",
+        "nameZh": "出版社",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-publishing-house.LeJBc_Ia_FUdXk.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "media",
+        "cost": 12,
+        "requiredSlots": [
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "influence": 3
+        },
+        "wages": {
+          "L1": 20,
+          "L2": 25,
+          "L3": 30
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-lobbying-firm",
+        "name": "Lobbying Firm",
+        "nameZh": "遊說公司",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-lobbying-firm.C2S8tunT_16XHi3.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "media",
+        "cost": 16,
+        "requiredSlots": [
+          {
+            "skill": "influence"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "influence": 3
+        },
+        "wages": {
+          "L1": 10,
+          "L2": 20,
+          "L3": 30
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-capitalist-radio-station",
+        "name": "Radio Station",
+        "nameZh": "電台",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/co-radio-station.DUvDe3GC_8GE5I.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "capitalist",
+        "industry": "media",
+        "cost": 8,
+        "requiredSlots": [
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "influence": 2
+        },
+        "wages": {
+          "L1": 10,
+          "L2": 15,
+          "L3": 20
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      }
+    ],
+    "middleCompanies": [
+      {
+        "id": "company-middle-convenience-store-start",
+        "name": "Convenience Store",
+        "nameZh": "便利商店",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-convenience-store-start.B3iFF3JZ_Z4bF97.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "agriculture",
+        "cost": 14,
+        "requiredSlots": [
+          {
+            "skill": "food",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": {
+          "role": "working",
+          "skill": "any",
+          "bonus": {
+            "food": 1
+          },
+          "wages": {
+            "L1": 6,
+            "L2": 8,
+            "L3": 10
+          }
+        },
+        "output": {
+          "food": 2
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [
+          3,
+          4
+        ],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-doctors-office-start",
+        "name": "Doctor's Office",
+        "nameZh": "醫師診所",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-doctors-office-start.MLPIgci9_Z1VBemk.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "healthcare",
+        "cost": 12,
+        "requiredSlots": [
+          {
+            "skill": "health",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": {
+          "role": "working",
+          "skill": "any",
+          "bonus": {
+            "health": 2
+          },
+          "wages": {
+            "L1": 6,
+            "L2": 8,
+            "L3": 10
+          }
+        },
+        "output": {
+          "health": 2
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [
+          3,
+          4
+        ],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-convenience-store",
+        "name": "Convenience Store",
+        "nameZh": "便利商店",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-convenience-store.Hi2SFL40_Z1Dkz9u.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "agriculture",
+        "cost": 14,
+        "requiredSlots": [
+          {
+            "skill": "food",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": {
+          "role": "working",
+          "skill": "any",
+          "bonus": {
+            "food": 1
+          },
+          "wages": {
+            "L1": 6,
+            "L2": 8,
+            "L3": 10
+          }
+        },
+        "output": {
+          "food": 2
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-organic-farm",
+        "name": "Organic Farm",
+        "nameZh": "有機農場",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-organic-farm.DDJpd7Qc_1gvswQ.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "agriculture",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "food",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": {
+          "role": "working",
+          "skill": "food",
+          "bonus": {
+            "food": 2
+          },
+          "wages": {
+            "L1": 9,
+            "L2": 12,
+            "L3": 15
+          }
+        },
+        "output": {
+          "food": 2
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-fast-food-restaurant",
+        "name": "Fast Food Restaurant",
+        "nameZh": "速食餐廳",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-fast-food-restaurant.DIuHRUQh_1KHo7L.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "agriculture",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "food",
+            "role": "middle"
+          },
+          {
+            "skill": "any",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "food": 3
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-game-store",
+        "name": "Game Store",
+        "nameZh": "遊戲商店",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-game-store.POvhhgQB_flbMB.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "luxury",
+        "cost": 12,
+        "requiredSlots": [
+          {
+            "skill": "luxury",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": {
+          "role": "working",
+          "skill": "any",
+          "bonus": {
+            "luxury": 2
+          },
+          "wages": {
+            "L1": 6,
+            "L2": 8,
+            "L3": 10
+          }
+        },
+        "output": {
+          "luxury": 2
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-electronics-store",
+        "name": "Electronics Store",
+        "nameZh": "電子產品店",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-electronics-store.CcNRNvad_1E0IvH.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "luxury",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "luxury",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": {
+          "role": "working",
+          "skill": "luxury",
+          "bonus": {
+            "luxury": 4
+          },
+          "wages": {
+            "L1": 9,
+            "L2": 12,
+            "L3": 15
+          }
+        },
+        "output": {
+          "luxury": 2
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-jewelry-store",
+        "name": "Jewelry Store",
+        "nameZh": "珠寶店",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-jewelry-store.CKQbQoNW_8UGtK.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "luxury",
+        "cost": 16,
+        "requiredSlots": [
+          {
+            "skill": "luxury",
+            "role": "middle"
+          },
+          {
+            "skill": "any",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "luxury": 4
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-doctors-office",
+        "name": "Doctor's Office",
+        "nameZh": "醫師診所",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-doctors-office.EWzYJi4V_W56XC.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "healthcare",
+        "cost": 12,
+        "requiredSlots": [
+          {
+            "skill": "health",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": {
+          "role": "working",
+          "skill": "any",
+          "bonus": {
+            "health": 2
+          },
+          "wages": {
+            "L1": 6,
+            "L2": 8,
+            "L3": 10
+          }
+        },
+        "output": {
+          "health": 2
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-medical-laboratory",
+        "name": "Medical Laboratory",
+        "nameZh": "醫學實驗室",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-medical-laboratory.BWfucgVy_Z24g7f1.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "healthcare",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "health",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": {
+          "role": "working",
+          "skill": "health",
+          "bonus": {
+            "health": 4
+          },
+          "wages": {
+            "L1": 9,
+            "L2": 12,
+            "L3": 15
+          }
+        },
+        "output": {
+          "health": 2
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-pharmacy",
+        "name": "Pharmacy",
+        "nameZh": "藥局",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-pharmacy.D6DGob6n_12jn4t.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "healthcare",
+        "cost": 16,
+        "requiredSlots": [
+          {
+            "skill": "health",
+            "role": "middle"
+          },
+          {
+            "skill": "any",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "health": 4
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-tutoring-company",
+        "name": "Tutoring Company",
+        "nameZh": "補習公司",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-tutoring-company.DpPIHT3t_ZxIfDY.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "education",
+        "cost": 12,
+        "requiredSlots": [
+          {
+            "skill": "education",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": {
+          "role": "working",
+          "skill": "any",
+          "bonus": {
+            "education": 2
+          },
+          "wages": {
+            "L1": 6,
+            "L2": 8,
+            "L3": 10
+          }
+        },
+        "output": {
+          "education": 2
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-private-school",
+        "name": "Private School",
+        "nameZh": "私立學校",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-private-school.TB7ndYeE_Z1Mfssh.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "education",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "education",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": {
+          "role": "working",
+          "skill": "education",
+          "bonus": {
+            "education": 4
+          },
+          "wages": {
+            "L1": 9,
+            "L2": 12,
+            "L3": 15
+          }
+        },
+        "output": {
+          "education": 2
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-training-center",
+        "name": "Training Center",
+        "nameZh": "訓練中心",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-training-center.D3OGb2rS_Z1yd4Ns.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "education",
+        "cost": 16,
+        "requiredSlots": [
+          {
+            "skill": "education",
+            "role": "middle"
+          },
+          {
+            "skill": "any",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "education": 4
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-local-newspaper",
+        "name": "Local Newspaper",
+        "nameZh": "地方報社",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-local-newspaper.CQRyrUbx_Z1xg8dR.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "media",
+        "cost": 14,
+        "requiredSlots": [
+          {
+            "skill": "influence",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": {
+          "role": "working",
+          "skill": "any",
+          "bonus": {
+            "influence": 1
+          },
+          "wages": {
+            "L1": 6,
+            "L2": 8,
+            "L3": 10
+          }
+        },
+        "output": {
+          "influence": 2
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-regional-radio-station",
+        "name": "Regional Radio Station",
+        "nameZh": "區域電台",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-regional-radio-station.BTr4R4GU_Z1wY2kC.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "media",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "influence",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": {
+          "role": "working",
+          "skill": "influence",
+          "bonus": {
+            "influence": 2
+          },
+          "wages": {
+            "L1": 9,
+            "L2": 12,
+            "L3": 15
+          }
+        },
+        "output": {
+          "influence": 2
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-middle-pr-agency",
+        "name": "PR Agency",
+        "nameZh": "公關公司",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/mco-pr-agency.B7-X0QeY_Zb5nP8.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "middle",
+        "industry": "media",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "influence",
+            "role": "middle"
+          },
+          {
+            "skill": "any",
+            "role": "middle"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "influence": 3
+        },
+        "wages": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      }
+    ],
+    "stateCompanies": [
+      {
+        "id": "company-state-public-hospital-start-2p",
+        "name": "Public Hospital",
+        "nameZh": "公立醫院",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/pub-hospital-2p.BYiYDv3f_Z293SBb.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "state",
+        "industry": "healthcare",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "health"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "health": 4
+        },
+        "wages": {
+          "L1": 15,
+          "L2": 20,
+          "L3": 25
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [
+          2
+        ],
+        "eligiblePlayerCounts": [
+          2
+        ]
+      },
+      {
+        "id": "company-state-public-university-start-2p",
+        "name": "Public University",
+        "nameZh": "公立大學",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/pub-university-2p.D1bamG6p_Z2kCRy9.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "state",
+        "industry": "education",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "education"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "education": 4
+        },
+        "wages": {
+          "L1": 15,
+          "L2": 20,
+          "L3": 25
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [
+          2
+        ],
+        "eligiblePlayerCounts": [
+          2
+        ]
+      },
+      {
+        "id": "company-state-regional-tv-station-start-2p",
+        "name": "Regional TV Station",
+        "nameZh": "地方電視台",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/pub-tv-2p.DQb4XYGO_QTQER.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "state",
+        "industry": "media",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "influence"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "influence": 3
+        },
+        "wages": {
+          "L1": 15,
+          "L2": 20,
+          "L3": 25
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [
+          2
+        ],
+        "eligiblePlayerCounts": [
+          2
+        ]
+      },
+      {
+        "id": "company-state-university-hospital-start-34p",
+        "name": "University Hospital",
+        "nameZh": "大學醫院",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/pub-university-hospital.DF0YZ36H_Z1Q0Xi8.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "state",
+        "industry": "healthcare",
+        "cost": 30,
+        "requiredSlots": [
+          {
+            "skill": "health"
+          },
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "health": 6
+        },
+        "wages": {
+          "L1": 25,
+          "L2": 30,
+          "L3": 35
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [
+          3,
+          4
+        ],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-state-technical-university-start-34p",
+        "name": "Technical University",
+        "nameZh": "技術大學",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/pub-technical-university.Bnjaf2Zp_FbA6e.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "state",
+        "industry": "education",
+        "cost": 30,
+        "requiredSlots": [
+          {
+            "skill": "education"
+          },
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "education": 6
+        },
+        "wages": {
+          "L1": 25,
+          "L2": 30,
+          "L3": 35
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [
+          3,
+          4
+        ],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-state-national-public-broadcasting-start-34p",
+        "name": "National Public Broadcasting",
+        "nameZh": "全國公共廣播",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/pub-national-broadcasting.Dr8T41NW_Z1QEnUb.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "state",
+        "industry": "media",
+        "cost": 30,
+        "requiredSlots": [
+          {
+            "skill": "influence"
+          },
+          {
+            "skill": "any"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "influence": 4
+        },
+        "wages": {
+          "L1": 25,
+          "L2": 30,
+          "L3": 35
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [
+          3,
+          4
+        ],
+        "eligiblePlayerCounts": [
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-state-public-hospital",
+        "name": "Public Hospital",
+        "nameZh": "公立醫院",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/pub-public-hospital.C1TaZK4r_ZRkoA0.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "state",
+        "industry": "healthcare",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "health"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "health": 4
+        },
+        "wages": {
+          "L1": 15,
+          "L2": 20,
+          "L3": 25
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-state-public-university",
+        "name": "Public University",
+        "nameZh": "公立大學",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/pub-public-university.DZiQ-Z_z_CHy8.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "state",
+        "industry": "education",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "education"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "education": 4
+        },
+        "wages": {
+          "L1": 15,
+          "L2": 20,
+          "L3": 25
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "id": "company-state-regional-tv-station",
+        "name": "Regional TV Station",
+        "nameZh": "地方電視台",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/pub-regional-tv.BxIOpGSa_ZtfGJJ.webp",
+        "verification": "cost_slots_production_wages_face_checked",
+        "owner": "state",
+        "industry": "media",
+        "cost": 20,
+        "requiredSlots": [
+          {
+            "skill": "influence"
+          },
+          {
+            "skill": "any"
+          }
+        ],
+        "optionalEmployee": null,
+        "output": {
+          "influence": 3
+        },
+        "wages": {
+          "L1": 15,
+          "L2": 20,
+          "L3": 25
+        },
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      }
+    ],
+    "cooperativeFarms": [
+      {
+        "id": "company-working-cooperative-farm",
+        "name": "Cooperative Farm",
+        "nameZh": "合作農場",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/cooperative-farm.DvWNBlMY_Z2mQI5f.webp",
+        "verification": "slots_output_face_checked",
+        "owner": "working",
+        "industry": "agriculture",
+        "cost": null,
+        "requiresActionCard": true,
+        "requiredSlots": [
+          {
+            "role": "working",
+            "skill": "any"
+          },
+          {
+            "role": "working",
+            "skill": "any"
+          },
+          {
+            "role": "working",
+            "skill": "any"
+          }
+        ],
+        "output": {
+          "food": 2
+        },
+        "wages": null,
+        "optionalEmployee": null,
+        "automated": false,
+        "machineryBonus": null,
+        "startingPlayerCounts": [],
+        "eligiblePlayerCounts": [
+          2,
+          3,
+          4
+        ]
+      }
+    ],
+    "exports": [
+      {
+        "id": "export-01",
+        "name": "Export 1",
+        "nameZh": "出口 1",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-1.DdT9CTA1_ZiXpRe.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 2,
+            "money": 20
+          },
+          {
+            "resource": "food",
+            "quantity": 6,
+            "money": 55
+          },
+          {
+            "resource": "luxury",
+            "quantity": 4,
+            "money": 30
+          },
+          {
+            "resource": "luxury",
+            "quantity": 8,
+            "money": 55
+          },
+          {
+            "resource": "health",
+            "quantity": 3,
+            "money": 25
+          },
+          {
+            "resource": "health",
+            "quantity": 5,
+            "money": 40
+          },
+          {
+            "resource": "education",
+            "quantity": 3,
+            "money": 15
+          },
+          {
+            "resource": "education",
+            "quantity": 7,
+            "money": 35
+          }
+        ]
+      },
+      {
+        "id": "export-02",
+        "name": "Export 2",
+        "nameZh": "出口 2",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-2.B7N3QjGz_Z1PE2vX.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 3,
+            "money": 30
+          },
+          {
+            "resource": "food",
+            "quantity": 7,
+            "money": 70
+          },
+          {
+            "resource": "luxury",
+            "quantity": 4,
+            "money": 30
+          },
+          {
+            "resource": "luxury",
+            "quantity": 6,
+            "money": 40
+          },
+          {
+            "resource": "health",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "health",
+            "quantity": 5,
+            "money": 35
+          },
+          {
+            "resource": "education",
+            "quantity": 2,
+            "money": 15
+          },
+          {
+            "resource": "education",
+            "quantity": 6,
+            "money": 35
+          }
+        ]
+      },
+      {
+        "id": "export-03",
+        "name": "Export 3",
+        "nameZh": "出口 3",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-3.BOTp0q4k_15tSrm.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 4,
+            "money": 50
+          },
+          {
+            "resource": "food",
+            "quantity": 8,
+            "money": 95
+          },
+          {
+            "resource": "luxury",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "luxury",
+            "quantity": 5,
+            "money": 30
+          },
+          {
+            "resource": "health",
+            "quantity": 3,
+            "money": 15
+          },
+          {
+            "resource": "health",
+            "quantity": 7,
+            "money": 35
+          },
+          {
+            "resource": "education",
+            "quantity": 2,
+            "money": 15
+          },
+          {
+            "resource": "education",
+            "quantity": 6,
+            "money": 40
+          }
+        ]
+      },
+      {
+        "id": "export-04",
+        "name": "Export 4",
+        "nameZh": "出口 4",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-4.gfRiK1rL_ZU44MS.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 3,
+            "money": 35
+          },
+          {
+            "resource": "food",
+            "quantity": 7,
+            "money": 80
+          },
+          {
+            "resource": "luxury",
+            "quantity": 3,
+            "money": 15
+          },
+          {
+            "resource": "luxury",
+            "quantity": 5,
+            "money": 25
+          },
+          {
+            "resource": "health",
+            "quantity": 4,
+            "money": 20
+          },
+          {
+            "resource": "health",
+            "quantity": 8,
+            "money": 40
+          },
+          {
+            "resource": "education",
+            "quantity": 2,
+            "money": 15
+          },
+          {
+            "resource": "education",
+            "quantity": 6,
+            "money": 45
+          }
+        ]
+      },
+      {
+        "id": "export-05",
+        "name": "Export 5",
+        "nameZh": "出口 5",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-5.CakYjWdR_Yj3Vf.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 4,
+            "money": 45
+          },
+          {
+            "resource": "food",
+            "quantity": 7,
+            "money": 80
+          },
+          {
+            "resource": "luxury",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "luxury",
+            "quantity": 5,
+            "money": 30
+          },
+          {
+            "resource": "health",
+            "quantity": 2,
+            "money": 15
+          },
+          {
+            "resource": "health",
+            "quantity": 6,
+            "money": 40
+          },
+          {
+            "resource": "education",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "education",
+            "quantity": 7,
+            "money": 50
+          }
+        ]
+      },
+      {
+        "id": "export-06",
+        "name": "Export 6",
+        "nameZh": "出口 6",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-6.BKrqzQuO_1EgOl1.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 3,
+            "money": 25
+          },
+          {
+            "resource": "food",
+            "quantity": 7,
+            "money": 55
+          },
+          {
+            "resource": "luxury",
+            "quantity": 4,
+            "money": 25
+          },
+          {
+            "resource": "luxury",
+            "quantity": 8,
+            "money": 45
+          },
+          {
+            "resource": "health",
+            "quantity": 2,
+            "money": 10
+          },
+          {
+            "resource": "health",
+            "quantity": 6,
+            "money": 35
+          },
+          {
+            "resource": "education",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "education",
+            "quantity": 5,
+            "money": 35
+          }
+        ]
+      },
+      {
+        "id": "export-07",
+        "name": "Export 7",
+        "nameZh": "出口 7",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-7.C2CVKTmW_Z17NrRB.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 2,
+            "money": 25
+          },
+          {
+            "resource": "food",
+            "quantity": 6,
+            "money": 65
+          },
+          {
+            "resource": "luxury",
+            "quantity": 4,
+            "money": 20
+          },
+          {
+            "resource": "luxury",
+            "quantity": 7,
+            "money": 35
+          },
+          {
+            "resource": "health",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "health",
+            "quantity": 7,
+            "money": 40
+          },
+          {
+            "resource": "education",
+            "quantity": 3,
+            "money": 25
+          },
+          {
+            "resource": "education",
+            "quantity": 6,
+            "money": 45
+          }
+        ]
+      },
+      {
+        "id": "export-08",
+        "name": "Export 8",
+        "nameZh": "出口 8",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-8.CTIqqXHa_Vbe2P.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 3,
+            "money": 25
+          },
+          {
+            "resource": "food",
+            "quantity": 6,
+            "money": 50
+          },
+          {
+            "resource": "luxury",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "luxury",
+            "quantity": 7,
+            "money": 50
+          },
+          {
+            "resource": "health",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "health",
+            "quantity": 7,
+            "money": 40
+          },
+          {
+            "resource": "education",
+            "quantity": 2,
+            "money": 15
+          },
+          {
+            "resource": "education",
+            "quantity": 7,
+            "money": 55
+          }
+        ]
+      },
+      {
+        "id": "export-09",
+        "name": "Export 9",
+        "nameZh": "出口 9",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-9.CJls3tEE_nFr7A.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 3,
+            "money": 30
+          },
+          {
+            "resource": "food",
+            "quantity": 5,
+            "money": 50
+          },
+          {
+            "resource": "luxury",
+            "quantity": 3,
+            "money": 25
+          },
+          {
+            "resource": "luxury",
+            "quantity": 7,
+            "money": 55
+          },
+          {
+            "resource": "health",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "health",
+            "quantity": 6,
+            "money": 50
+          },
+          {
+            "resource": "education",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "education",
+            "quantity": 7,
+            "money": 50
+          }
+        ]
+      },
+      {
+        "id": "export-10",
+        "name": "Export 10",
+        "nameZh": "出口 10",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-10.CTcc8EWC_LcgmC.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 2,
+            "money": 15
+          },
+          {
+            "resource": "food",
+            "quantity": 6,
+            "money": 45
+          },
+          {
+            "resource": "luxury",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "luxury",
+            "quantity": 7,
+            "money": 50
+          },
+          {
+            "resource": "health",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "health",
+            "quantity": 5,
+            "money": 30
+          },
+          {
+            "resource": "education",
+            "quantity": 4,
+            "money": 25
+          },
+          {
+            "resource": "education",
+            "quantity": 8,
+            "money": 45
+          }
+        ]
+      },
+      {
+        "id": "export-11",
+        "name": "Export 11",
+        "nameZh": "出口 11",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-11.CailOKGE_ZVv5QI.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 3,
+            "money": 35
+          },
+          {
+            "resource": "food",
+            "quantity": 7,
+            "money": 75
+          },
+          {
+            "resource": "luxury",
+            "quantity": 2,
+            "money": 10
+          },
+          {
+            "resource": "luxury",
+            "quantity": 6,
+            "money": 35
+          },
+          {
+            "resource": "health",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "health",
+            "quantity": 5,
+            "money": 35
+          },
+          {
+            "resource": "education",
+            "quantity": 4,
+            "money": 25
+          },
+          {
+            "resource": "education",
+            "quantity": 7,
+            "money": 40
+          }
+        ]
+      },
+      {
+        "id": "export-12",
+        "name": "Export 12",
+        "nameZh": "出口 12",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-12.CrDfS7Mq_28UDQB.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 4,
+            "money": 45
+          },
+          {
+            "resource": "food",
+            "quantity": 8,
+            "money": 85
+          },
+          {
+            "resource": "luxury",
+            "quantity": 2,
+            "money": 15
+          },
+          {
+            "resource": "luxury",
+            "quantity": 6,
+            "money": 40
+          },
+          {
+            "resource": "health",
+            "quantity": 3,
+            "money": 15
+          },
+          {
+            "resource": "health",
+            "quantity": 5,
+            "money": 25
+          },
+          {
+            "resource": "education",
+            "quantity": 3,
+            "money": 15
+          },
+          {
+            "resource": "education",
+            "quantity": 7,
+            "money": 35
+          }
+        ]
+      },
+      {
+        "id": "export-13",
+        "name": "Export 13",
+        "nameZh": "出口 13",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-13.DxqKbWPf_Zo4nJF.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 2,
+            "money": 15
+          },
+          {
+            "resource": "food",
+            "quantity": 6,
+            "money": 50
+          },
+          {
+            "resource": "luxury",
+            "quantity": 3,
+            "money": 25
+          },
+          {
+            "resource": "luxury",
+            "quantity": 5,
+            "money": 40
+          },
+          {
+            "resource": "health",
+            "quantity": 4,
+            "money": 25
+          },
+          {
+            "resource": "health",
+            "quantity": 8,
+            "money": 45
+          },
+          {
+            "resource": "education",
+            "quantity": 3,
+            "money": 15
+          },
+          {
+            "resource": "education",
+            "quantity": 7,
+            "money": 35
+          }
+        ]
+      },
+      {
+        "id": "export-14",
+        "name": "Export 14",
+        "nameZh": "出口 14",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-14.VMEt5Pf9_ZKxQua.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 2,
+            "money": 15
+          },
+          {
+            "resource": "food",
+            "quantity": 6,
+            "money": 50
+          },
+          {
+            "resource": "luxury",
+            "quantity": 3,
+            "money": 15
+          },
+          {
+            "resource": "luxury",
+            "quantity": 7,
+            "money": 35
+          },
+          {
+            "resource": "health",
+            "quantity": 4,
+            "money": 30
+          },
+          {
+            "resource": "health",
+            "quantity": 7,
+            "money": 50
+          },
+          {
+            "resource": "education",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "education",
+            "quantity": 5,
+            "money": 35
+          }
+        ]
+      },
+      {
+        "id": "export-15",
+        "name": "Export 15",
+        "nameZh": "出口 15",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-15.CpXQqjze_Z1RsInD.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 3,
+            "money": 30
+          },
+          {
+            "resource": "food",
+            "quantity": 5,
+            "money": 50
+          },
+          {
+            "resource": "luxury",
+            "quantity": 2,
+            "money": 10
+          },
+          {
+            "resource": "luxury",
+            "quantity": 6,
+            "money": 35
+          },
+          {
+            "resource": "health",
+            "quantity": 3,
+            "money": 25
+          },
+          {
+            "resource": "health",
+            "quantity": 7,
+            "money": 55
+          },
+          {
+            "resource": "education",
+            "quantity": 4,
+            "money": 25
+          },
+          {
+            "resource": "education",
+            "quantity": 8,
+            "money": 45
+          }
+        ]
+      },
+      {
+        "id": "export-16",
+        "name": "Export 16",
+        "nameZh": "出口 16",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/export-16.BYAS_UNk_Z2v0XYR.webp",
+        "verification": "offer_values_face_checked",
+        "offers": [
+          {
+            "resource": "food",
+            "quantity": 4,
+            "money": 40
+          },
+          {
+            "resource": "food",
+            "quantity": 7,
+            "money": 70
+          },
+          {
+            "resource": "luxury",
+            "quantity": 3,
+            "money": 25
+          },
+          {
+            "resource": "luxury",
+            "quantity": 6,
+            "money": 50
+          },
+          {
+            "resource": "health",
+            "quantity": 2,
+            "money": 15
+          },
+          {
+            "resource": "health",
+            "quantity": 7,
+            "money": 50
+          },
+          {
+            "resource": "education",
+            "quantity": 3,
+            "money": 20
+          },
+          {
+            "resource": "education",
+            "quantity": 5,
+            "money": 30
+          }
+        ]
+      }
+    ],
+    "businessDeals": [
+      {
+        "id": "deal-01",
+        "name": "Business Deal 1",
+        "nameZh": "商業交易 1",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/business-deal-1.CbFdIobz_1MBpKq.webp",
+        "verification": "goods_cost_tariffs_face_checked",
+        "goods": {
+          "food": 7
+        },
+        "cost": 50,
+        "tariffByForeignTrade": {
+          "A": 14,
+          "B": 7,
+          "C": 0
+        }
+      },
+      {
+        "id": "deal-02",
+        "name": "Business Deal 2",
+        "nameZh": "商業交易 2",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/business-deal-2.N71fo6Oq_Z6wJwF.webp",
+        "verification": "goods_cost_tariffs_face_checked",
+        "goods": {
+          "luxury": 12
+        },
+        "cost": 50,
+        "tariffByForeignTrade": {
+          "A": 24,
+          "B": 12,
+          "C": 0
+        }
+      },
+      {
+        "id": "deal-03",
+        "name": "Business Deal 3",
+        "nameZh": "商業交易 3",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/business-deal-3.Dkra-w3J_Z1Rmboo.webp",
+        "verification": "goods_cost_tariffs_face_checked",
+        "goods": {
+          "luxury": 10
+        },
+        "cost": 40,
+        "tariffByForeignTrade": {
+          "A": 20,
+          "B": 10,
+          "C": 0
+        }
+      },
+      {
+        "id": "deal-04",
+        "name": "Business Deal 4",
+        "nameZh": "商業交易 4",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/business-deal-4.BWgn_8O3_20O5dO.webp",
+        "verification": "goods_cost_tariffs_face_checked",
+        "goods": {
+          "food": 5,
+          "luxury": 6
+        },
+        "cost": 60,
+        "tariffByForeignTrade": {
+          "A": 22,
+          "B": 11,
+          "C": 0
+        }
+      },
+      {
+        "id": "deal-05",
+        "name": "Business Deal 5",
+        "nameZh": "商業交易 5",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/business-deal-5.C8Yu_cfD_GarDV.webp",
+        "verification": "goods_cost_tariffs_face_checked",
+        "goods": {
+          "food": 8,
+          "luxury": 4
+        },
+        "cost": 75,
+        "tariffByForeignTrade": {
+          "A": 24,
+          "B": 12,
+          "C": 0
+        }
+      },
+      {
+        "id": "deal-06",
+        "name": "Business Deal 6",
+        "nameZh": "商業交易 6",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/business-deal-6.CeayHEwW_PjY8G.webp",
+        "verification": "goods_cost_tariffs_face_checked",
+        "goods": {
+          "food": 6
+        },
+        "cost": 40,
+        "tariffByForeignTrade": {
+          "A": 12,
+          "B": 6,
+          "C": 0
+        }
+      },
+      {
+        "id": "deal-07",
+        "name": "Business Deal 7",
+        "nameZh": "商業交易 7",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/business-deal-7.DMokh1yG_Z1pKwzx.webp",
+        "verification": "goods_cost_tariffs_face_checked",
+        "goods": {
+          "food": 8
+        },
+        "cost": 55,
+        "tariffByForeignTrade": {
+          "A": 16,
+          "B": 8,
+          "C": 0
+        }
+      },
+      {
+        "id": "deal-08",
+        "name": "Business Deal 8",
+        "nameZh": "商業交易 8",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/business-deal-8.CoFiww7D_Z2cHpbS.webp",
+        "verification": "goods_cost_tariffs_face_checked",
+        "goods": {
+          "luxury": 8
+        },
+        "cost": 30,
+        "tariffByForeignTrade": {
+          "A": 16,
+          "B": 8,
+          "C": 0
+        }
+      },
+      {
+        "id": "deal-09",
+        "name": "Business Deal 9",
+        "nameZh": "商業交易 9",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/business-deal-9.zb2f3e-0_F5ulU.webp",
+        "verification": "goods_cost_tariffs_face_checked",
+        "goods": {
+          "food": 4,
+          "luxury": 8
+        },
+        "cost": 60,
+        "tariffByForeignTrade": {
+          "A": 24,
+          "B": 12,
+          "C": 0
+        }
+      },
+      {
+        "id": "deal-10",
+        "name": "Business Deal 10",
+        "nameZh": "商業交易 10",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/business-deal-10.TPWFHqqV_Z22XgfX.webp",
+        "verification": "goods_cost_tariffs_face_checked",
+        "goods": {
+          "food": 7,
+          "luxury": 5
+        },
+        "cost": 70,
+        "tariffByForeignTrade": {
+          "A": 24,
+          "B": 12,
+          "C": 0
+        }
+      }
+    ],
+    "immigration": [
+      {
+        "id": "immigration-health-any",
+        "name": "Immigration",
+        "nameZh": "移民 · 醫療／非技術",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/imm-wc-health.CVzMLLmc_22EPU9.webp",
+        "verification": "skills_face_checked",
+        "skillsByRole": {
+          "working": "health",
+          "middle": "any"
+        }
+      },
+      {
+        "id": "immigration-education-any",
+        "name": "Immigration",
+        "nameZh": "移民 · 教育／非技術",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/imm-wc-education.D7VNuvwz_Z1SbluU.webp",
+        "verification": "skills_face_checked",
+        "skillsByRole": {
+          "working": "education",
+          "middle": "any"
+        }
+      },
+      {
+        "id": "immigration-luxury-any",
+        "name": "Immigration",
+        "nameZh": "移民 · 奢侈品／非技術",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/imm-wc-luxury.XlGsXtGj_1SYKUp.webp",
+        "verification": "skills_face_checked",
+        "skillsByRole": {
+          "working": "luxury",
+          "middle": "any"
+        }
+      },
+      {
+        "id": "immigration-food-any",
+        "name": "Immigration",
+        "nameZh": "移民 · 食物／非技術",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/imm-wc-agriculture.CYnVTf1U_Z11pbEb.webp",
+        "verification": "skills_face_checked",
+        "skillsByRole": {
+          "working": "food",
+          "middle": "any"
+        }
+      },
+      {
+        "id": "immigration-influence-any",
+        "name": "Immigration",
+        "nameZh": "移民 · 影響力／非技術",
+        "copies": 2,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/imm-wc-media.uPgqLo94_Z1fxQEw.webp",
+        "verification": "skills_face_checked",
+        "skillsByRole": {
+          "working": "influence",
+          "middle": "any"
+        }
+      },
+      {
+        "id": "immigration-any-education",
+        "name": "Immigration",
+        "nameZh": "移民 · 非技術／教育",
+        "copies": 3,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/imm-mc-education.C4pBjj5-_1sLlvl.webp",
+        "verification": "skills_face_checked",
+        "skillsByRole": {
+          "working": "any",
+          "middle": "education"
+        }
+      },
+      {
+        "id": "immigration-any-luxury",
+        "name": "Immigration",
+        "nameZh": "移民 · 非技術／奢侈品",
+        "copies": 3,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/imm-mc-luxury.CK9KKip4_ZPhVY4.webp",
+        "verification": "skills_face_checked",
+        "skillsByRole": {
+          "working": "any",
+          "middle": "luxury"
+        }
+      },
+      {
+        "id": "immigration-any-health",
+        "name": "Immigration",
+        "nameZh": "移民 · 非技術／醫療",
+        "copies": 3,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/imm-mc-health.Qou4en73_12qVEC.webp",
+        "verification": "skills_face_checked",
+        "skillsByRole": {
+          "working": "any",
+          "middle": "health"
+        }
+      },
+      {
+        "id": "immigration-any-influence",
+        "name": "Immigration",
+        "nameZh": "移民 · 非技術／影響力",
+        "copies": 3,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/imm-mc-media.2cIQzh3C_18eTPU.webp",
+        "verification": "skills_face_checked",
+        "skillsByRole": {
+          "working": "any",
+          "middle": "influence"
+        }
+      },
+      {
+        "id": "immigration-any-food",
+        "name": "Immigration",
+        "nameZh": "移民 · 非技術／食物",
+        "copies": 3,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/imm-mc-agriculture.C8oUdqVp_vpwH0.webp",
+        "verification": "skills_face_checked",
+        "skillsByRole": {
+          "working": "any",
+          "middle": "food"
+        }
+      }
+    ],
+    "agendas": [
+      {
+        "id": "agenda-01",
+        "name": "Political Agenda 1",
+        "nameZh": "政治綱領 1",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/agenda-1.BQURmKnH_Zr1Vew.webp",
+        "verification": "targets_face_checked",
+        "targets": {
+          "1": "B",
+          "2": "A",
+          "3": "C",
+          "4": "A",
+          "5": "C"
+        }
+      },
+      {
+        "id": "agenda-02",
+        "name": "Political Agenda 2",
+        "nameZh": "政治綱領 2",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/agenda-2.nYJA49mp_Z1H023X.webp",
+        "verification": "targets_face_checked",
+        "targets": {
+          "1": "C",
+          "2": "B",
+          "3": "A",
+          "4": "B",
+          "5": "C"
+        }
+      },
+      {
+        "id": "agenda-03",
+        "name": "Political Agenda 3",
+        "nameZh": "政治綱領 3",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/agenda-3.DnF42KZ__2rIHrS.webp",
+        "verification": "targets_face_checked",
+        "targets": {
+          "1": "A",
+          "2": "C",
+          "3": "B",
+          "4": "C",
+          "5": "A"
+        }
+      },
+      {
+        "id": "agenda-04",
+        "name": "Political Agenda 4",
+        "nameZh": "政治綱領 4",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/agenda-4.DKPzqH8E_Z1qBnWQ.webp",
+        "verification": "targets_face_checked",
+        "targets": {
+          "1": "C",
+          "2": "B",
+          "3": "B",
+          "4": "B",
+          "5": "A"
+        }
+      },
+      {
+        "id": "agenda-05",
+        "name": "Political Agenda 5",
+        "nameZh": "政治綱領 5",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/agenda-5.B3xx-F7l_xPBJI.webp",
+        "verification": "targets_face_checked",
+        "targets": {
+          "1": "B",
+          "2": "C",
+          "3": "A",
+          "4": "B",
+          "5": "A"
+        }
+      },
+      {
+        "id": "agenda-06",
+        "name": "Political Agenda 6",
+        "nameZh": "政治綱領 6",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/agenda-6.DLh3ZNE4_ZDifOi.webp",
+        "verification": "targets_face_checked",
+        "targets": {
+          "1": "C",
+          "2": "A",
+          "3": "A",
+          "4": "C",
+          "5": "B"
+        }
+      },
+      {
+        "id": "agenda-07",
+        "name": "Political Agenda 7",
+        "nameZh": "政治綱領 7",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/agenda-7.bpB4dhcy_XJduy.webp",
+        "verification": "targets_face_checked",
+        "targets": {
+          "1": "B",
+          "2": "A",
+          "3": "C",
+          "4": "C",
+          "5": "A"
+        }
+      },
+      {
+        "id": "agenda-08",
+        "name": "Political Agenda 8",
+        "nameZh": "政治綱領 8",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/agenda-8.C-6QZMul_bacAE.webp",
+        "verification": "targets_face_checked",
+        "targets": {
+          "1": "A",
+          "2": "B",
+          "3": "C",
+          "4": "B",
+          "5": "C"
+        }
+      },
+      {
+        "id": "agenda-09",
+        "name": "Political Agenda 9",
+        "nameZh": "政治綱領 9",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/agenda-9.BQmyD2sN_Ifkzv.webp",
+        "verification": "targets_face_checked",
+        "targets": {
+          "1": "C",
+          "2": "B",
+          "3": "B",
+          "4": "A",
+          "5": "B"
+        }
+      },
+      {
+        "id": "agenda-10",
+        "name": "Political Agenda 10",
+        "nameZh": "政治綱領 10",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/agenda-10.BG6jCKXQ_1IvxDj.webp",
+        "verification": "targets_face_checked",
+        "targets": {
+          "1": "B",
+          "2": "C",
+          "3": "B",
+          "4": "A",
+          "5": "B"
+        }
+      }
+    ],
+    "events": [
+      {
+        "id": "event-political-scandal",
+        "name": "Political Scandal",
+        "nameZh": "政治醜聞",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-political-scandal.BhpFBQer_1JvCS6.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "支出 $25，另將最多 3 媒體影響力任意分配提供給各階級。",
+        "rewardZh": "各階級每收到 1 影響力，該階級 +1",
+        "unresolvedPenaltyZh": "任選兩階級各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [],
+          "chooseFromAll": 2
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-neighbors-at-war",
+        "name": "Neighbors at War",
+        "nameZh": "鄰國交戰",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-neighbors-at-war.BGv-hvTn_1zluFT.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "支出最多 6 醫療。",
+        "rewardZh": "每支出 1 醫療得 1 VP",
+        "unresolvedPenaltyZh": "任選兩階級各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [],
+          "chooseFromAll": 2
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-pandemic",
+        "name": "Pandemic",
+        "nameZh": "疫情",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-pandemic.DjG8Zshl_uJJrf.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向中產或資本家購買醫療，合計最多等同公營企業數。",
+        "rewardZh": "各賣方每賣 3 醫療，該階級 +1",
+        "unresolvedPenaltyZh": "中產、資本家各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "middle",
+            "capitalist"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-strike-at-the-port",
+        "name": "Strike at the Port",
+        "nameZh": "港口罷工",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-strike-at-the-port.DRWRA6jL_j08GI.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向勞工或資本家提供 2 媒體影響力。",
+        "rewardZh": "目標得 1 永久合法性標記",
+        "unresolvedPenaltyZh": "勞工、資本家各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "working",
+            "capitalist"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-low-education-index",
+        "name": "Low Education Index",
+        "nameZh": "教育指數偏低",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-low-education-index.Cb9AAtt__Z1v7iYL.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向勞工或中產提供教育，數量為其人口一半向上取整。",
+        "rewardZh": "目標 +1",
+        "unresolvedPenaltyZh": "勞工、中產各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "working",
+            "middle"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-need-for-sustainability-initiative",
+        "name": "Need for Sustainability Initiative",
+        "nameZh": "永續計畫需求",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-sustainability-initiative.BOqv7kYN_Z1Py5qX.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "選兩階級各提供 $25。",
+        "rewardZh": "各目標得 1 永久合法性標記",
+        "unresolvedPenaltyZh": "任選兩階級各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [],
+          "chooseFromAll": 2
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-fear-of-deflation",
+        "name": "Fear of Deflation",
+        "nameZh": "通縮疑慮",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-fear-of-deflation.CIOLl4mE_Z10BR42.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "選擇支出 15、30 或 45。",
+        "rewardZh": "每支出 15 得 2 VP",
+        "unresolvedPenaltyZh": "任選兩階級各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [],
+          "chooseFromAll": 2
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-declining-birth-rate",
+        "name": "Declining Birth Rate",
+        "nameZh": "出生率下降",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-declining-birth-rate.Dl8NAi1c_ZMR9x.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向勞工或中產提供醫療，數量為其人口一半向上取整。",
+        "rewardZh": "目標 +1",
+        "unresolvedPenaltyZh": "勞工、中產各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "working",
+            "middle"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-need-for-stimulus-package",
+        "name": "Need for Stimulus Package",
+        "nameZh": "振興方案需求",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-stimulus-package.Bk9phi7G_Z1m9hdv.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "選擇向三個階級各提供 $10 或各提供 $15。",
+        "rewardZh": "各 $10 得 3 VP。各 $15 則三階級合法性各 +1",
+        "unresolvedPenaltyZh": "任選兩階級各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [],
+          "chooseFromAll": 2
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-demand-for-thirteen-month-pay",
+        "name": "Demand for Thirteen Month Pay",
+        "nameZh": "第十三個月薪資訴求",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-thirteen-month-pay.k10ef7yL_ZQJOIa.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "選勞工或中產，該階級每位公營就業工人提供 $5。",
+        "rewardZh": "選勞工每 $25 得其 1 永久標記。選中產每 $15 得中產 +1",
+        "unresolvedPenaltyZh": "勞工、中產各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "working",
+            "middle"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-companies-demand-better-internet",
+        "name": "Companies Demand Better Internet",
+        "nameZh": "企業要求改善網路",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-better-internet.BB_ebU6n_1gR28y.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向中產或資本家提供奢侈品，數量為其營運企業數的一半向上取整。",
+        "rewardZh": "目標每收 2 奢侈品 +1",
+        "unresolvedPenaltyZh": "中產、資本家各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "middle",
+            "capitalist"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-drought",
+        "name": "Drought",
+        "nameZh": "乾旱",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-drought.DqM0Slba_45rum.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向勞工或資本家提供食物，分別按人口或營運企業數的一半向上取整。",
+        "rewardZh": "目標得 1 永久合法性標記",
+        "unresolvedPenaltyZh": "勞工、資本家各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "working",
+            "capitalist"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-local-industries-in-turmoil",
+        "name": "Local Industries in Turmoil",
+        "nameZh": "本地產業動盪",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-local-industries-in-turmoil.BzpHZ3e1_ZmWH8w.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "選中產或資本家，依目標營運企業數每家提供 $5。",
+        "rewardZh": "中產每 $20 得 1 永久標記。資本家方案每 $15 得 2 VP",
+        "unresolvedPenaltyZh": "中產、資本家各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "middle",
+            "capitalist"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-technological-illiteracy",
+        "name": "Technological Illiteracy",
+        "nameZh": "科技素養不足",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-technological-illiteracy.DRevE8Ij_Z1Cy71I.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向勞工或資本家提供奢侈品和教育，各至少 1。總數按人口或營運企業數的一半向上取整。",
+        "rewardZh": "目標每收 2 單位 +1",
+        "unresolvedPenaltyZh": "勞工、資本家各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "working",
+            "capitalist"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-demand-for-higher-welfare-standards",
+        "name": "Demand for Higher Welfare Standards",
+        "nameZh": "提高福利標準訴求",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-higher-welfare-standards.BBz6PPNf_ZBhMYq.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向勞工或中產提供醫療和教育，各至少 1，合計為其人口一半向上取整。",
+        "rewardZh": "目標 +1",
+        "unresolvedPenaltyZh": "勞工、中產各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "working",
+            "middle"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-developing-countries-in-need",
+        "name": "Developing Countries in Need",
+        "nameZh": "發展中國家求援",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-developing-countries-in-need.CIwTfRVA_Z1liuQ2.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "支出最多 6 教育。",
+        "rewardZh": "每支出 1 教育得 1 VP",
+        "unresolvedPenaltyZh": "任選兩階級各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [],
+          "chooseFromAll": 2
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-infant-industry-requires-help",
+        "name": "Infant Industry Requires Help",
+        "nameZh": "扶植新興產業",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-infant-industry.DHFvOigt_Z1G4pIV.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "選中產或資本家的市場，付費建造一家成本至少 15 的企業，由接受方處理雇用。",
+        "rewardZh": "目標得 1 永久合法性標記",
+        "unresolvedPenaltyZh": "中產、資本家各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "middle",
+            "capitalist"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-outdated-public-sector-infrastructure",
+        "name": "Outdated Public Sector Infrastructure",
+        "nameZh": "公營基礎設施老舊",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-outdated-public-infrastructure.biM3_93r_ZG9hJu.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向中產或資本家購買奢侈品，合計最多等同公營企業數。",
+        "rewardZh": "各賣方每賣 3 奢侈品，該階級 +1",
+        "unresolvedPenaltyZh": "中產、資本家各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "middle",
+            "capitalist"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-earthquake",
+        "name": "Earthquake",
+        "nameZh": "地震",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-earthquake.DBR15wXs_wXjlt.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向勞工或中產提供食物及醫療，各至少 1，合計為其人口一半向上取整。",
+        "rewardZh": "目標每收 2 單位 +1",
+        "unresolvedPenaltyZh": "勞工、中產各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "working",
+            "middle"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-demand-for-pension-reform",
+        "name": "Demand for Pension Reform",
+        "nameZh": "退休金改革訴求",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-pension-reform.Bwf7246k_ZvjrTK.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向勞工或中產提供 $5 × 其人口。",
+        "rewardZh": "勞工方案每 $15 得 2 VP。中產每 $20 得 1 永久標記",
+        "unresolvedPenaltyZh": "勞工、中產各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "working",
+            "middle"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-political-polarization",
+        "name": "Political Polarization",
+        "nameZh": "政治兩極化",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-political-polarization.DhVED49R_Z14p8UX.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "支出 30，再把 4 枚投票方塊分配給各階級。",
+        "rewardZh": "勞工或資本家每收 2 枚，其階級 +1",
+        "unresolvedPenaltyZh": "勞工、資本家各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "working",
+            "capitalist"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-civil-unrest",
+        "name": "Civil Unrest",
+        "nameZh": "社會動盪",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-civil-unrest.D_aHymQX_Z1GHuXe.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "由另一玩家選一項法案，國家使用自己的標記提案並決定是否即時投票。",
+        "rewardZh": "選案者為勞工或資本家時，該階級 +2。卡面未列中產獎勵",
+        "unresolvedPenaltyZh": "勞工、資本家各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "working",
+            "capitalist"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-unfair-representation",
+        "name": "Unfair Representation",
+        "nameZh": "代表權失衡",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-unfair-representation.DekQseub_10BzzQ.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向任一階級提供 1 個人影響力與 2 投票方塊。",
+        "rewardZh": "目標 +1",
+        "unresolvedPenaltyZh": "任選兩階級各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [],
+          "chooseFromAll": 2
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-low-university-ratings",
+        "name": "Low University Ratings",
+        "nameZh": "大學評比下滑",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-low-university-ratings.BvlUcAWM_Z1nX1MM.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向中產或資本家購買教育，合計最多等同公營企業數。",
+        "rewardZh": "各賣方每賣 3 教育，該階級 +1",
+        "unresolvedPenaltyZh": "中產、資本家各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "middle",
+            "capitalist"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      },
+      {
+        "id": "event-global-supply-chain-crisis",
+        "name": "Global Supply Chain Crisis",
+        "nameZh": "全球供應鏈危機",
+        "copies": 1,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/ev-global-supply-chain-crisis.D-LPQ1oV_Z1d6Lp.webp",
+        "verification": "task_reward_penalty_face_checked",
+        "taskZh": "向勞工或中產提供食物和奢侈品，各至少 1，合計為其人口一半向上取整。",
+        "rewardZh": "勞工每 2 單位合法性 +1。中產方案每單位得 1 VP",
+        "unresolvedPenaltyZh": "勞工、中產各 −1",
+        "unresolvedPenalty": {
+          "legitimacyDelta": -1,
+          "roles": [
+            "working",
+            "middle"
+          ],
+          "chooseFromAll": null
+        },
+        "minimumRound": null
+      }
+    ],
+    "loans": [
+      {
+        "id": "loan",
+        "name": "Loan",
+        "nameZh": "貸款",
+        "copies": 10,
+        "cardFaceUrl": "https://img.ludex.dev/_astro/token-loan.B1yxswxS_Z1oBUtD.webp",
+        "verification": "principal_face_checked_terms_from_rulebook",
+        "terms": {
+          "principal": 50,
+          "preparation_interest": 5,
+          "free_action_repay": 50,
+          "endgame_repay_non_capitalist": 55,
+          "endgame_unpaid_unit": 5,
+          "endgame_penalty_per_unpaid_unit": 1,
+          "capitalist_endgame_penalty_per_loan": 5,
+          "voluntary_borrowing_allowed": false
+        }
+      }
+    ]
+  },
+  "playerAids": [
+    {
+      "name": "Working Class player aid, front",
+      "referenceUrl": "https://img.ludex.dev/_astro/aid-wc-1.C2QXsarU_Zv86Mu.webp"
+    },
+    {
+      "name": "Working Class player aid, back",
+      "referenceUrl": "https://img.ludex.dev/_astro/aid-wc-2.Dsv0BKRS_Z19zbeo.webp"
+    },
+    {
+      "name": "Middle Class player aid, front",
+      "referenceUrl": "https://img.ludex.dev/_astro/aid-mc-1.B_Qacq1Q_Z1fgT8i.webp"
+    },
+    {
+      "name": "Middle Class player aid, back",
+      "referenceUrl": "https://img.ludex.dev/_astro/aid-mc-2.Ch1ln-ey_ZnOeT2.webp"
+    },
+    {
+      "name": "Capitalist Class player aid, front",
+      "referenceUrl": "https://img.ludex.dev/_astro/aid-cc-1.DIfQZwEg_2tjKWX.webp"
+    },
+    {
+      "name": "Capitalist Class player aid, back",
+      "referenceUrl": "https://img.ludex.dev/_astro/aid-cc-2.CdqPjNsQ_SRpPU.webp"
+    },
+    {
+      "name": "State player aid, front",
+      "referenceUrl": "https://img.ludex.dev/_astro/aid-state-1.B-EQeG0r_Zhhv8H.webp"
+    },
+    {
+      "name": "State player aid, back",
+      "referenceUrl": "https://img.ludex.dev/_astro/aid-state-2.DAEgexCM_ZqIQjL.webp"
+    },
+    {
+      "name": "General player aid, front",
+      "referenceUrl": "https://img.ludex.dev/_astro/aid-general-1.CmjE95Mq_2mK2JI.webp"
+    },
+    {
+      "name": "General player aid, back",
+      "referenceUrl": "https://img.ludex.dev/_astro/aid-general-2.Bd24dRBe_Z2jRomC.webp"
+    }
+  ],
+  "components": {
+    "game_board": 1,
+    "player_boards": 4,
+    "player_aids": 5,
+    "rule_aids": 4,
+    "cloth_bag": 1,
+    "transparent_markers": 42,
+    "free_trade_zone": 1,
+    "storage_tiles": 6,
+    "regular_cards": {
+      "working_actions": 40,
+      "middle_actions": 40,
+      "capitalist_actions": 40,
+      "state_actions": 40,
+      "capitalist_companies": 28,
+      "public_companies": 12,
+      "middle_companies": 17,
+      "cooperative_farms": 2,
+      "exports": 16,
+      "agendas": 10,
+      "events": 25
+    },
+    "small_cards": {
+      "immigration": 25,
+      "business_deals": 20,
+      "loans": 10
+    },
+    "tokens": {
+      "food": 24,
+      "luxury": 26,
+      "health": 26,
+      "education": 26,
+      "vote": 4,
+      "welfare": 2,
+      "machinery": 6,
+      "demonstration": 1,
+      "strike": 7,
+      "legitimacy": 18,
+      "money": 82
+    },
+    "wooden": {
+      "working_workers": 48,
+      "middle_workers": 42,
+      "voting_cubes": 75,
+      "influence": 35,
+      "scoring": 4,
+      "bills": 12,
+      "wealth": 1,
+      "prosperity": 2,
+      "policy": 7,
+      "legitimacy_tracks": 3,
+      "round": 1,
+      "tax_multiplier": 1
+    },
+    "resource_denominations": {
+      "food": {
+        "1": 10,
+        "3": 9,
+        "5": 5
+      },
+      "luxury": {
+        "1": 12,
+        "3": 9,
+        "5": 5
+      },
+      "health": {
+        "1": 12,
+        "3": 9,
+        "5": 5
+      },
+      "education": {
+        "1": 12,
+        "3": 9,
+        "5": 5
+      }
+    },
+    "unknown_splits": [
+      "workers_by_skill_and_class",
+      "voting_cubes_by_class",
+      "legitimacy_tokens_by_class",
+      "money_by_denomination"
+    ]
+  },
+  "setup4p": {
+    "policies": [
+      "C",
+      "B",
+      "A",
+      "B",
+      "C",
+      "B",
+      "B"
+    ],
+    "tax_multiplier": 5,
+    "treasury": 120,
+    "public_resources": {
+      "health": 6,
+      "education": 6,
+      "influence": 4
+    },
+    "voting_bag": {
+      "working": 8,
+      "middle": 8,
+      "capitalist": 8
+    },
+    "cash": {
+      "working": 30,
+      "middle": 40,
+      "capitalist_revenue": 120,
+      "capitalist_capital": 0
+    },
+    "hand_size": 7,
+    "personal_influence_each_role": 1,
+    "workers": {
+      "working": 10,
+      "middle": 10
+    },
+    "starting_population": {
+      "working": 3,
+      "middle": 3
+    },
+    "state_legitimacy_start_position": 2,
+    "initial_business_deals": 1,
+    "initial_exports": 1,
+    "initial_events": 2,
+    "initial_agendas": 1,
+    "staffedCompanies": [
+      {
+        "company": "company-capitalist-supermarket-start",
+        "role": "working",
+        "skills": [
+          "food",
+          "any"
+        ]
+      },
+      {
+        "company": "company-capitalist-shopping-mall-start",
+        "role": "middle",
+        "skills": [
+          "luxury",
+          "any"
+        ]
+      },
+      {
+        "company": "company-capitalist-college-start",
+        "role": "working",
+        "skills": [
+          "education",
+          "any"
+        ]
+      },
+      {
+        "company": "company-state-university-hospital-start-34p",
+        "role": "working",
+        "skills": [
+          "health",
+          "any",
+          "any"
+        ]
+      },
+      {
+        "company": "company-state-technical-university-start-34p",
+        "role": "middle",
+        "skills": [
+          "education",
+          "any",
+          "any"
+        ]
+      },
+      {
+        "company": "company-middle-convenience-store-start",
+        "role": "middle",
+        "skills": [
+          "food"
+        ]
+      },
+      {
+        "company": "company-middle-doctors-office-start",
+        "role": "middle",
+        "skills": [
+          "health"
+        ]
+      }
+    ],
+    "initialWageLevel": 2,
+    "workingUnemployed": {
+      "unskilled": 1,
+      "immigrationDraws": 2
+    },
+    "middleUnemployed": {
+      "chooseSkilled": 1,
+      "immigrationDraws": 2
+    }
+  },
+  "boards": {
+    "referenceUrls": {
+      "working": "https://img.ludex.dev/_astro/board-working.CrlbMW2W_Z1glNp5.webp",
+      "middle": "https://img.ludex.dev/_astro/board-middle.DAQtFHEc_Zx6NRG.webp",
+      "capitalist": "https://img.ludex.dev/_astro/board-capitalist.D78ahb3W_Z2mKt9.webp",
+      "state": "https://img.ludex.dev/_astro/board-state.CCDFAVUD_Z1Ult1r.webp"
+    },
+    "population": [
+      {
+        "minWorkers": 0,
+        "population": 3
+      },
+      {
+        "minWorkers": 12,
+        "population": 4
+      },
+      {
+        "minWorkers": 15,
+        "population": 5
+      },
+      {
+        "minWorkers": 18,
+        "population": 6
+      },
+      {
+        "minWorkers": 21,
+        "population": 7
+      },
+      {
+        "minWorkers": 24,
+        "population": 8
+      },
+      {
+        "minWorkers": 27,
+        "population": 9
+      },
+      {
+        "minWorkers": 30,
+        "population": 10
+      }
+    ],
+    "prosperity": {
+      "working": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "middle": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        5,
+        6,
+        6,
+        7,
+        7
+      ]
+    },
+    "domesticPrices": {
+      "capitalist": {
+        "food": [
+          9,
+          12,
+          15
+        ],
+        "luxury": [
+          5,
+          8,
+          10
+        ],
+        "health": [
+          5,
+          8,
+          10
+        ],
+        "education": [
+          5,
+          8,
+          10
+        ]
+      },
+      "middle": {
+        "food": [
+          9,
+          12,
+          15
+        ],
+        "luxury": [
+          5,
+          8,
+          10
+        ],
+        "health": [
+          5,
+          8,
+          10
+        ],
+        "education": [
+          5,
+          8,
+          10
+        ]
+      },
+      "state": {
+        "food": [
+          12
+        ],
+        "luxury": [
+          8
+        ],
+        "influence": [
+          10
+        ]
+      }
+    },
+    "baseImportPrice": {
+      "food": 10,
+      "luxury": 6
+    },
+    "storages": {
+      "capitalist": {
+        "food": 8,
+        "luxury": 12,
+        "health": 12,
+        "education": 12
+      },
+      "middle": {
+        "food": 8,
+        "luxury": 8,
+        "health": 8,
+        "education": 8
+      },
+      "freeTradeZone": {
+        "food": 8,
+        "luxury": 12
+      },
+      "publicServiceExtraCapacity": 6,
+      "storageTileMultiplier": 2
+    },
+    "legitimacy": {
+      "range": [
+        1,
+        10
+      ],
+      "electionInfluenceByLowest": [
+        0,
+        1,
+        1,
+        2,
+        2,
+        3,
+        3,
+        4,
+        4,
+        5
+      ]
+    },
+    "wealth": {
+      "source_page": 21,
+      "thresholds": [
+        0,
+        10,
+        25,
+        50,
+        75,
+        100,
+        125,
+        150,
+        175,
+        200,
+        250,
+        300,
+        350,
+        400,
+        450,
+        500
+      ],
+      "vp": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "bonus_per_new_high_space": 3
+    }
+  },
+  "workers": {
+    "working": {
+      "total": 48,
+      "bySkill": {
+        "any": 23,
+        "food": 5,
+        "luxury": 5,
+        "health": 5,
+        "education": 5,
+        "influence": 5
+      },
+      "verification": "inferred_from_BGA_2p_opening_and_official_total"
+    },
+    "middle": {
+      "total": 42,
+      "bySkill": null,
+      "verification": "official_total_only"
+    },
+    "skillColor": {
+      "any": "gray",
+      "food": "green",
+      "luxury": "blue",
+      "health": "white",
+      "education": "orange",
+      "influence": "purple"
+    },
+    "preparationBase": {
+      "working": {
+        "unskilled": 2
+      },
+      "middle": {
+        "unskilled": 1,
+        "chooseSkilled": 1
+      }
+    },
+    "immigrantsByPolicy7": {
+      "A": 0,
+      "B": 1,
+      "C": 2
+    },
+    "assignment": {
+      "maxWorkersPerOrdinaryAction": 3,
+      "generalSlotsAcceptAnySkill": true,
+      "skilledSlotsRequireMatchingSkill": true,
+      "publicAndCapitalistSlotsRequireSameClass": true,
+      "commitNewWorkersUntilProduction": true
+    }
+  },
+  "tokenBreakdowns": {
+    "votingCubesByClass": {
+      "working": 25,
+      "middle": 25,
+      "capitalist": 25
+    },
+    "votingCubesVerification": "BGA_tutorial_opening_and_official_total",
+    "moneyDenominations": [
+      1,
+      5,
+      10,
+      20,
+      50,
+      100
+    ],
+    "moneyCountByDenomination": null,
+    "legitimacyMarkersByClass": null
+  },
+  "marketSizes": {
+    "capitalist": 4,
+    "middle": 3,
+    "capitalistBoardLimit": 12,
+    "middleBoardLimit": 8,
+    "events": 2,
+    "exportCardsOnBoard": 1,
+    "businessDealsByPolicy6": {
+      "A": 0,
+      "B": 1,
+      "C": 2
+    }
+  },
+  "marketRules": {
+    "companyMarketRoles": [
+      "capitalist",
+      "middle"
+    ],
+    "companyMarketRefresh": "discard_any_and_draw_to_market_size_during_preparation",
+    "ordinaryPurchase": {
+      "resourcesPerAction": 1,
+      "maxSources": 2,
+      "maxUnitsPerSource": "population",
+      "middleOwnStorageCountsAsSource": true
+    },
+    "coverNeeds": {
+      "rolesInOrder": [
+        "middle",
+        "working"
+      ],
+      "units": "population",
+      "useOwnFoodFirst": true,
+      "maxSources": null
+    },
+    "ordinaryImport": {
+      "basePricePayee": "supply",
+      "tariffPayee": "state"
+    },
+    "businessDeal": {
+      "role": "capitalist",
+      "tariffExemptIfEntirePurchaseGoesToFreeTradeZone": true,
+      "freeTradeZoneExportOnly": true
+    },
+    "export": {
+      "maxUsesOfEachOfferPerAction": 1,
+      "middleVpPerTransaction": 1,
+      "stateEligibleResources": [
+        "food",
+        "luxury"
+      ]
+    }
+  },
+  "phaseOrder": {
+    "preparation": [
+      "advance_round",
+      "pay_loan_interest",
+      "drop_prosperity",
+      "reveal_events_and_agenda",
+      "draw_action_cards",
+      "refresh_company_markets",
+      "reveal_business_deals_and_export",
+      "add_workers_and_update_population"
+    ],
+    "production": [
+      "produce_and_pay_wages",
+      "cover_needs",
+      "check_imf",
+      "pay_taxes"
+    ],
+    "elections": [
+      "refill_bag_and_state_influence",
+      "resolve_bills_by_policy_number"
+    ],
+    "scoring": [
+      "trade_unions",
+      "middle_prosperity",
+      "capitalist_wealth",
+      "event_penalties",
+      "state_legitimacy",
+      "state_agenda"
+    ]
+  },
+  "policies": [
+    {
+      "id": 1,
+      "nameZh": "財政",
+      "sections": {
+        "A": {
+          "public_count": 9,
+          "imf_loan_threshold_inclusive": 2
+        },
+        "B": {
+          "public_count": 6,
+          "imf_loan_threshold_inclusive": 2
+        },
+        "C": {
+          "public_count": 3,
+          "imf_loan_threshold_inclusive": 1
+        }
+      }
+    },
+    {
+      "id": 2,
+      "nameZh": "勞動市場",
+      "sections": {
+        "A": {
+          "minimumWageLevel": 3
+        },
+        "B": {
+          "minimumWageLevel": 2
+        },
+        "C": {
+          "minimumWageLevel": 1
+        }
+      }
+    },
+    {
+      "id": 3,
+      "nameZh": "稅制",
+      "sections": {
+        "A": {
+          "baseMultiplier": 3,
+          "welfareFactor": 2
+        },
+        "B": {
+          "baseMultiplier": 2,
+          "welfareFactor": 1
+        },
+        "C": {
+          "baseMultiplier": 1,
+          "welfareFactor": 0
+        }
+      }
+    },
+    {
+      "id": 4,
+      "nameZh": "醫療與福利",
+      "sections": {
+        "A": {
+          "price": 0,
+          "taxModifier": 2
+        },
+        "B": {
+          "price": 5,
+          "taxModifier": 1
+        },
+        "C": {
+          "price": 10,
+          "taxModifier": 0
+        }
+      }
+    },
+    {
+      "id": 5,
+      "nameZh": "教育",
+      "sections": {
+        "A": {
+          "price": 0,
+          "taxModifier": 2
+        },
+        "B": {
+          "price": 5,
+          "taxModifier": 1
+        },
+        "C": {
+          "price": 10,
+          "taxModifier": 0
+        }
+      }
+    },
+    {
+      "id": 6,
+      "nameZh": "外貿",
+      "sections": {
+        "A": {
+          "food_tariff": 10,
+          "luxury_tariff": 6,
+          "deals_on_preparation": 0
+        },
+        "B": {
+          "food_tariff": 5,
+          "luxury_tariff": 3,
+          "deals_on_preparation": 1
+        },
+        "C": {
+          "food_tariff": 0,
+          "luxury_tariff": 0,
+          "deals_on_preparation": 2
+        }
+      }
+    },
+    {
+      "id": 7,
+      "nameZh": "移民",
+      "sections": {
+        "A": {
+          "additionalImmigrantsPerClass": 0
+        },
+        "B": {
+          "additionalImmigrantsPerClass": 1
+        },
+        "C": {
+          "additionalImmigrantsPerClass": 2
+        }
+      }
+    }
+  ],
+  "taxes": {
+    "income": {
+      "source_page": 17,
+      "rows_labor_columns_taxation": {
+        "A": {
+          "A": 7,
+          "B": 6,
+          "C": 5
+        },
+        "B": {
+          "A": 4,
+          "B": 4,
+          "C": 4
+        },
+        "C": {
+          "A": 1,
+          "B": 2,
+          "C": 3
+        }
+      }
+    },
+    "corporate": {
+      "source_page": 20,
+      "brackets": [
+        {
+          "min": 0,
+          "max": 4,
+          "A": null,
+          "B": null,
+          "C": null,
+          "status": "not_listed_in_source_table"
+        },
+        {
+          "min": 5,
+          "max": 9,
+          "A": 1,
+          "B": 2,
+          "C": 2
+        },
+        {
+          "min": 10,
+          "max": 24,
+          "A": 5,
+          "B": 5,
+          "C": 4
+        },
+        {
+          "min": 25,
+          "max": 49,
+          "A": 12,
+          "B": 10,
+          "C": 7
+        },
+        {
+          "min": 50,
+          "max": 99,
+          "A": 24,
+          "B": 15,
+          "C": 10
+        },
+        {
+          "min": 100,
+          "max": 199,
+          "A": 40,
+          "B": 30,
+          "C": 20
+        },
+        {
+          "min": 200,
+          "max": 299,
+          "A": 100,
+          "B": 70,
+          "C": 40
+        },
+        {
+          "min": 300,
+          "max": null,
+          "A": 160,
+          "B": 120,
+          "C": 60
+        }
+      ]
+    }
+  },
+  "imf": {
+    "source_page": 33,
+    "forced_policies": {
+      "1": "C",
+      "2": "C",
+      "3": "A",
+      "4": "B",
+      "5": "C",
+      "6": "B",
+      "7": "B"
+    },
+    "forced_wage_level": 1,
+    "income_tax_uses_labor_policy_at_wage_payment": true
+  },
+  "endPolicyVp": {
+    "working": [
+      0,
+      1,
+      4,
+      8,
+      12,
+      18
+    ],
+    "capitalist": [
+      0,
+      1,
+      4,
+      8,
+      12,
+      18
+    ],
+    "middle": [
+      0,
+      1,
+      3,
+      6,
+      10,
+      15
+    ]
+  }
+}

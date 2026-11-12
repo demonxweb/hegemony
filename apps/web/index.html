@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hegemony｜議事廳</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Hegemony 首頁"><img src="/assets/icons/vote.svg" alt=""><span>HEGEMONY<small>議事廳 <strong id="header-room-code" hidden></strong></small></span></a>
+    <span class="edition">四人連線試玩</span>
+    <div id="header-room-actions" class="room-actions" hidden>
+      <button id="copy-invite" type="button">複製邀請連結</button>
+      <button id="export-game" type="button" hidden>匯出遊戲</button>
+      <button id="import-game" type="button" hidden>匯入遊戲</button>
+      <input id="game-save-file" type="file" accept=".json,application/json" hidden>
+      <a href="/quick" target="_blank" rel="noopener">快速開桌／切換房間</a>
+    </div>
+    <a class="catalog-link" href="/catalog" target="_blank" rel="noopener">卡牌與元件圖鑑</a>
+    <span id="connection" class="connection" role="status"></span>
+  </header>
+  <main id="app" aria-label="遊戲畫面"><p>正在載入房間設定…</p></main>
+  <dialog id="action-confirmation" class="action-confirmation" aria-labelledby="action-confirmation-title">
+    <h2 id="action-confirmation-title"></h2>
+    <p class="muted">確認後立即執行本次行動。</p>
+    <ul class="log" data-action-changes></ul>
+    <form method="dialog" class="buttons">
+      <button value="cancel" autofocus>取消</button>
+      <button value="confirm" class="primary">確認執行</button>
+    </form>
+  </dialog>
+  <dialog id="election-dialog" class="action-confirmation" aria-labelledby="election-dialog-title">
+    <h2 id="election-dialog-title"></h2>
+    <div data-election-details></div>
+    <div data-election-controls></div>
+    <p class="action-check" data-election-error role="alert" hidden></p>
+    <button type="button" data-close-election>稍後投票</button>
+  </dialog>
+  <dialog id="vote-result-dialog" class="action-confirmation" aria-labelledby="vote-result-title">
+    <h2 id="vote-result-title">表決結果</h2>
+    <div data-vote-result></div>
+    <form data-command="confirm-vote" class="buttons"><button class="primary" autofocus>確認</button></form>
+    <p class="action-check" data-election-error role="alert" hidden></p>
+  </dialog>
+  <dialog id="round-result-dialog" class="action-confirmation" aria-labelledby="round-result-title">
+    <h2 id="round-result-title">本輪結算結果</h2>
+    <div class="round-result-body" data-round-result></div>
+    <form method="dialog" class="buttons"><button class="primary" autofocus>確認</button></form>
+  </dialog>
+  <dialog id="mat-help-dialog" class="action-confirmation" aria-labelledby="mat-help-title">
+    <header class="mat-help-header">
+      <h2 id="mat-help-title" tabindex="-1" autofocus></h2>
+      <form method="dialog"><button type="submit" aria-label="關閉">×</button></form>
+    </header>
+    <div class="mat-help-tabs" role="tablist" aria-label="說明分類"></div>
+    <p id="mat-help-description" role="tabpanel" tabindex="0"></p>
+  </dialog>
+  <div id="board-tooltip" class="board-tooltip" role="tooltip" hidden><strong></strong><p></p></div>
+  <p id="notice" class="notice" role="alert" hidden></p>
+</body>
+</html>

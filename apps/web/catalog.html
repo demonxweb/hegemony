@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hegemony｜卡牌與元件圖鑑</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/catalog.css">
+  <script src="/catalog.js" type="module"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><img src="/assets/icons/vote.svg" alt=""><span>HEGEMONY<small>議事廳</small></span></a>
+  </header>
+  <main class="catalog-page">
+    <section class="catalog-intro" aria-labelledby="catalog-title">
+      <p class="eyebrow">HEGEMONY · 基本版 v1.2</p>
+      <h1 id="catalog-title">卡牌與元件圖鑑</h1>
+      <p class="muted">依官方元件表分為一般卡、小型卡與板塊。行動卡用階級色，企業卡用產業色。「×」表示同一卡面的實體張數。點選圖卡可在浮窗查看效果和使用條件。</p>
+      <p id="catalog-total" aria-live="polite">正在載入圖鑑…</p>
+    </section>
+    <nav id="catalog-categories" class="catalog-categories" aria-label="圖鑑類別" hidden></nav>
+    <section id="catalog-controls" class="panel catalog-controls" aria-label="篩選圖鑑" hidden>
+      <label>搜尋<input id="catalog-search" type="search" placeholder="中文、英文、卡片效果或政策，例如 7B"></label>
+      <label>適用階級<select id="catalog-role"><option value="">全部階級</option></select></label>
+      <label>企業產業<select id="catalog-industry"><option value="">全部產業</option></select></label>
+      <button id="catalog-reset" type="button">清除篩選</button>
+      <p id="catalog-results" role="status"></p>
+    </section>
+    <div id="catalog-list"></div>
+    <footer id="catalog-sources" class="catalog-sources" hidden></footer>
+  </main>
+</body>
+</html>

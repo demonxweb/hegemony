@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 500" role="img" aria-labelledby="title desc">
+  <title id="title">教育指數偏低 · 事件卡 · 國家</title>
+  <desc id="desc">處理方式，選擇勞工或中產，提供教育。，數量為對方人口的一半，向上取整。。獎勵，所選階級合法性 +1。未處理，勞工與中產合法性各 −1</desc>
+  <defs>
+    <linearGradient id="base" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#1f2734"/><stop offset="1" stop-color="#111720"/>
+    </linearGradient>
+    <pattern id="grid" width="18" height="18" patternUnits="userSpaceOnUse">
+      <path d="M18 0H0V18" fill="none" stroke="#d7a2f2" stroke-opacity=".17"/>
+    </pattern>
+  </defs>
+  <rect x="1" y="1" width="338" height="498" rx="20" fill="url(#base)" stroke="#d7a2f2" stroke-width="2"/>
+  <g font-family="Segoe UI, Microsoft JhengHei, Noto Sans TC, sans-serif">
+    <text x="24" y="34" font-size="14" fill="#d7a2f2" font-weight="700">事件卡 · 國家</text>
+    <text x="281" y="34" font-size="14" fill="#bac5d4" font-weight="700">06</text>
+    <rect x="22" y="51" width="296" height="104" rx="11" fill="#101720"/>
+    <rect x="22" y="51" width="296" height="104" rx="11" fill="url(#grid)"/>
+    <circle cx="170" cy="103" r="39" fill="#d7a2f2" fill-opacity=".12" stroke="#d7a2f2" stroke-opacity=".55"/>
+    <path d="M47 103h70m106 0h70" stroke="#d7a2f2" stroke-opacity=".55" stroke-dasharray="3 5"/>
+    <g transform="translate(145 78) scale(2.08)"><g fill="none" stroke="#d7a2f2" stroke-width="1.55" stroke-linejoin="round" stroke-linecap="round"><path d="m2 9 10-5 10 5-10 5Zm4 2v6c4 3 8 3 12 0v-6m4-2v7"/></g></g>
+    <text x="24" y="190" font-size="27" fill="#f7f8fa" font-weight="700">教育指數偏低</text>
+    <text x="25" y="213" font-size="13" fill="#b9c3d0" font-weight="400">Low Education Index</text>
+    <path d="M24 228h292" stroke="#d7a2f2" stroke-opacity=".45"/>
+    <text x="32" y="253" font-size="13" fill="#d7a2f2" font-weight="700">處理方式</text><text x="32" y="274" font-size="15" fill="#f0f3f8" font-weight="400">選擇勞工或中產，提供教育。</text><text x="32" y="295" font-size="15" fill="#f0f3f8" font-weight="400">數量為對方人口的一半，向上取整。</text><text x="32" y="321" font-size="13" fill="#d7a2f2" font-weight="700">獎勵</text><text x="32" y="342" font-size="15" fill="#f0f3f8" font-weight="400">所選階級合法性 +1</text><text x="32" y="368" font-size="13" fill="#d7a2f2" font-weight="700">未處理</text><text x="32" y="389" font-size="15" fill="#f0f3f8" font-weight="400">勞工與中產合法性各 −1</text>
+    <path d="M24 460h292" stroke="#424c5c"/>
+    <text x="24" y="481" font-size="11" fill="#b9c3d0" font-weight="600">HEGEMONY  /  SVG 視覺原型</text>
+  </g>
+</svg>

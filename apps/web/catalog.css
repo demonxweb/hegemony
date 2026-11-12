@@ -1,0 +1,74 @@
+.catalog-page {
+  max-width: 1500px;
+  --working: #f25b59;
+  --middle: #ffca27;
+  --capitalist: #39a9e4;
+  --state: #c0c3c6;
+  --agriculture: #9bb453;
+  --luxury: #38b7e4;
+  --healthcare: #f46b6d;
+  --education: #f3a325;
+  --media: #dc82ce;
+  --component-gold: #ffbe49;
+}
+.catalog-intro { padding-block: 18px 20px; }
+.catalog-intro > * + * { margin-top: 8px; }
+#catalog-total { color: var(--gold); font-weight: 700; }
+.catalog-categories:not([hidden]) {
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.35fr) minmax(0, .8fr); gap: 8px; margin-bottom: 14px;
+}
+.catalog-categories > button { grid-column: 1 / -1; justify-self: start; min-width: 150px; }
+.catalog-category-set { min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: #121e2b; }
+.catalog-category-set h2 { margin-bottom: 6px; color: var(--component-gold); font-size: .92rem; }
+.catalog-category-set h2 span { margin-left: 4px; color: var(--muted); font-size: .78rem; }
+.catalog-category-buttons { display: flex; flex-wrap: wrap; gap: 5px; }
+.catalog-category-buttons button { flex: 1 1 78px; padding-inline: 5px; font-size: .83rem; }
+.catalog-categories button { display: grid; align-content: center; gap: 4px; min-height: 62px; background: #172432; }
+.catalog-categories button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); background: #352d25; }
+.catalog-categories small { color: var(--muted); font-size: .72rem; }
+.catalog-controls:not([hidden]) {
+  display: grid; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(120px, 1fr)) auto; gap: 10px; align-items: end;
+}
+.catalog-controls > * { margin: 0; }
+#catalog-results { grid-column: 1 / -1; color: var(--muted); font-size: .85rem; }
+.catalog-component { margin-top: 28px; }
+.catalog-component > h2 { margin-bottom: 12px; padding: 6px 10px; border-left: 4px solid var(--component-gold); background: #2e2924; color: var(--component-gold); font-size: 1.15rem; }
+.catalog-group { margin-bottom: 20px; }
+.catalog-group > header { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; margin-bottom: 8px; }
+.catalog-group > header h3 { color: var(--role, var(--ink)); font-size: 1.05rem; }
+.catalog-group > header span { color: var(--muted); font-size: .85rem; }
+.catalog-group > p { margin-bottom: 9px; }
+.catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 10px; }
+.catalog-card { height: 100%; cursor: pointer; border-top: 4px solid var(--catalog-industry, var(--role, var(--component-gold))); }
+.catalog-card.industry-agriculture { --catalog-industry: var(--agriculture); }
+.catalog-card.industry-luxury { --catalog-industry: var(--luxury); }
+.catalog-card.industry-healthcare { --catalog-industry: var(--healthcare); }
+.catalog-card.industry-education { --catalog-industry: var(--education); }
+.catalog-card.industry-media { --catalog-industry: var(--media); }
+.catalog-card.trade-mixed { background: linear-gradient(90deg, var(--agriculture) 50%, var(--luxury) 50%) top / 100% 4px no-repeat #242c34; border-top: 0; padding-top: 20px; }
+.catalog-card[data-card-type="company"] { background: color-mix(in srgb, var(--catalog-industry) 15%, #18232f); }
+.catalog-card[data-card-type="export"], .catalog-card[data-card-type="agenda"], .catalog-card[data-card-type="event"],
+.catalog-card[data-card-type="immigration"], .catalog-card[data-card-type="deal"]:not(.trade-mixed), .catalog-card[data-card-type="loan"] { background: #242c34; }
+.catalog-card.free-trade-tile { background: #084744; border-top-color: var(--component-gold); }
+.catalog-card > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 10px; justify-content: space-between; }
+.catalog-card h3 { font-size: 1rem; }
+.catalog-industry { justify-self: start; margin-right: auto; border-radius: 4px; padding: 2px 5px; background: var(--catalog-industry); color: #111922; font-size: .71rem; font-weight: 750; }
+.catalog-count { color: var(--gold); white-space: nowrap; font-size: .76rem; }
+.catalog-card .catalog-english { margin-top: 4px; color: var(--muted); font-size: .78rem; }
+.catalog-details { display: grid; gap: 5px; margin: 10px 0 0; font-size: .86rem; line-height: 1.55; }
+.catalog-details > div { display: grid; grid-template-columns: minmax(5em, auto) minmax(0, 1fr); gap: 8px; }
+.catalog-details dt { color: var(--muted); }
+.catalog-details dd { margin: 0; overflow-wrap: anywhere; }
+.catalog-action-detail { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: .86rem; line-height: 1.6; }
+.catalog-action-detail h4 { margin: 0 0 5px; color: var(--gold); font-size: .82rem; }
+.catalog-card > .export-list { margin-top: 10px; }
+.deal-details { margin-top: 10px; }
+.deal-details small { display: block; color: var(--muted); font-size: .72rem; }
+.deal-details .icon { width: 14px; height: 14px; }
+.catalog-sources { margin-top: 20px; color: var(--muted); font-size: .85rem; }
+.catalog-sources a { color: var(--gold); margin-left: 8px; }
+@media (max-width: 560px) {
+  .catalog-categories:not([hidden]) { grid-template-columns: minmax(0, 1fr); }
+  .catalog-controls:not([hidden]) { grid-template-columns: 1fr auto; }
+  .catalog-controls > label:first-child { grid-column: 1 / -1; }
+}
