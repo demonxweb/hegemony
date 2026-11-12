@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import base from '../../data/hegemony-v1.2-data.json' with { type: 'json' };
-import { activeCompany, addWorker, adjustWages, assign, build, canStaffInvestment, companyAction, companyDefinition, createEconomy, credit, demonstrationStatus, economyView, funds, hirePublicCompany, hireUnemployed, makeFarm, operational,
+import { activeCompany, addWorker, adjustWages, assign, build, canStaffInvestment, companyAction, companyDefinition, createEconomy, credit, demonstrationStatus, economyView, fillRequiredHires, funds, hirePublicCompany, makeFarm, operational,
   operationalCount, outsideEmployers, ownedCompanies, pay, produceCompany, refreshMarket, replacePublicCompany, sellCompany,
   productionOrder, productionPlans, publicHiringChoices, publicSectorChoices, resizePublicSector, setWagePolicy, syncPublicStorage, unionMember, updateUnions, workerSupply, workplace } from './companies.mjs';
 import { cardDefinition, cardView, createDecks, fillHand } from './cards.mjs';
@@ -389,8 +389,7 @@ function swapWorkers(game, role, swaps) {
   }
 }
 
-function extraShift(game, role, company) {
-  requireRule(role === 'middle', '只有中產可執行加班基本行動。');
+function extraShiftCompany(game, role, company) {
   const item = collectCompany(game, company, role, true);
   const operators = item.slots.filter(slot => !slot.optional).map(slot => game.economy.workers[slot.worker]);
   requireRule(operators.every(worker => !worker.committed), '加班企業的中產工人必須尚未承諾。');
@@ -399,6 +398,12 @@ function extraShift(game, role, company) {
   produceCompany(game, company, false, operatorOnly);
   for (const worker of operators) worker.committed = true;
   if (employee && !operatorOnly) employee.committed = true;
+  return item;
+}
+
+function extraShift(game, role, company) {
+  requireRule(role === 'middle', '只有中產可執行加班基本行動。');
+  extraShiftCompany(game, role, company);
   log(game, `中產在${activeCompany(game.economy, company).name}加班生產。`);
 }
 
@@ -556,13 +561,18 @@ function extendedCard(game, role, command, definition) {
       const acquired = collectCompany(game, company, 'capitalist', false);
       const item = companyDefinition(company);
       requireRule(!item.machineryBonus && !item.automated, '不可國有化印有機械符號的企業。');
-      if (game.policies[0] === 'B') transfer('state', 'capitalist', item.cost);
+      if (game.policies[0] === 'B') transfer('state', 'capitalist', item.cost, true);
       replacePublicCompany(economy, removed.id, company);
       delete economy.companies[removed.id];
       acquired.owner = 'state';
-      if (command.hire) {
-        requireRule(['working', 'middle'].includes(command.hire), '請選擇可雇用的階級。');
-        hireUnemployed(economy, acquired.slots, command.hire);
+      const staff = Array.isArray(command.staff) ? command.staff : [];
+      const moves = staff.map((worker, slot) => worker ? { worker, company, slot } : null).filter(Boolean);
+      if (moves.length) {
+        requireRule(['working', 'middle'].includes(command.hire), '請選擇要指派的工人階級。');
+        requireRule(moves.every(move => move.company === company), '只能指派工人到剛國有化的企業。');
+        assign(economy, command.hire, moves, 3, {
+          allowSource: source => !source || activeCompany(economy, source.id).owner === 'state',
+        });
       }
       syncPublicStorage(game);
       return;
@@ -583,7 +593,10 @@ function extendedCard(game, role, command, definition) {
       addCubes(game, role, 2);
       return;
     }
-    case 'radical': propose(game, role, { ...command, immediate: false }, false, true); return;
+    case 'radical':
+      requireRule(command.immediate !== true, '激進改革不能立即表決，只能留到輪末選舉。');
+      propose(game, role, { ...command, immediate: false }, false, true);
+      return;
     case 'two-bills': {
       requireRule(Array.isArray(command.proposals) && command.proposals.length === 2, '請選擇兩項不同政策。');
       if (role === 'capitalist') spend(game, role, 25);
@@ -604,7 +617,7 @@ function extendedCard(game, role, command, definition) {
     case 'migration': {
       const idle = Object.values(economy.workers).filter(worker => worker.role === role && !worker.committed && !workplace(economy, worker.id));
       const ids = command.workers;
-      requireRule(idle.length >= 4 && Array.isArray(ids) && ids.length <= 2 && new Set(ids).size === ids.length && ids.every(id => idle.some(worker => worker.id === id)), '至少四名待業者，最多選兩名移出。');
+      requireRule(idle.length >= 4 && Array.isArray(ids) && ids.length >= 1 && ids.length <= 2 && new Set(ids).size === ids.length && ids.every(id => idle.some(worker => worker.id === id)), '至少四名待業者，須選一至兩名移出。');
       for (const id of ids) {
         credit(game, role, economy.workers[id].skill === 'any' ? 5 : 10);
         delete economy.workers[id];
@@ -673,16 +686,24 @@ function extendedCard(game, role, command, definition) {
     case 'sell-education': toState('education'); return;
     case 'bid-rigging': toState('luxury'); supplyInfluence(game, role, 1); return;
     case 'personal-buy': buyGoods(game, role, command.resource, command.distribution, { flexible: true }); return;
-    case 'grant-build': build(game, role, command, { payer: 'state' }); adjustLegitimacy(game, role, 1); return;
+    case 'grant-build': build(game, role, command, { payer: 'state', mandatoryPay: true }); adjustLegitimacy(game, role, 1); return;
     case 'land-build': {
       const offer = economy.markets.middle.includes(company) && companyDefinition(company);
       requireRule(offer, '請選中產市場企業。');
       const requested = offer.skills[0];
       requireRule(workerSupply(economy, role, requested) > 0, '沒有可填入新企業必要工位的工人。');
+      const slot = Number.isInteger(command.slot) ? command.slot : 0;
+      requireRule(slot >= 0 && slot < offer.skills.length, '請選擇新工人要放入的必要工位。');
+      const staffingFor = worker => command.staff
+        ? { staff: command.staff.map((id, index) => index === slot ? worker : id) }
+        : { operators: [...(command.operators ?? [])].toSpliced(slot, 0, worker) };
+      // 先完整驗證建造與指派，成功後才正式加入工人，避免失敗時留下未回滾的待業工人。
+      const preview = structuredClone(game);
+      const previewWorker = addWorker(preview.economy, role, requested);
+      requireRule(previewWorker, '沒有可加入的工人。');
+      build(preview, role, { ...command, ...staffingFor(previewWorker) });
       const newWorker = addWorker(economy, role, requested);
-      const staffing = command.staff ? { staff: [newWorker, ...command.staff.slice(1)] }
-        : { operators: [newWorker, ...(command.operators ?? [])] };
-      build(game, role, { ...command, ...staffing });
+      build(game, role, { ...command, ...staffingFor(newWorker) });
       return;
     }
     case 'investment-build':
@@ -722,8 +743,7 @@ function extendedCard(game, role, command, definition) {
       adjustLegitimacy(game, role, Math.floor(firms.length / 3));
       if (company) {
         requireRule(firms.some(item => item.id === company), '須選僱有勞工的企業。');
-        produceCompany(game, company);
-        for (const slot of economy.companies[company].slots) if (slot.worker) economy.workers[slot.worker].committed = true;
+        extraShiftCompany(game, role, company);
       }
       return;
     }
@@ -732,15 +752,18 @@ function extendedCard(game, role, command, definition) {
       requireRule(['working', 'middle'].includes(recipient), '請選僱用的階級。');
       if (effect === 'recruit') {
         spend(game, role, 10);
-        for (const slot of item.slots) {
-          requireRule(workerSupply(economy, recipient, slot.skill) > 0 || (slot.skill === 'any'
-            && availableWorkerSkill(command.replacement) && workerSupply(economy, recipient, command.replacement) > 0),
-          '工人供應不足，無法招募符合全部工位的工人。');
-          slot.worker = addWorker(economy, recipient, slot.skill, command.replacement);
+        const hireRole = companyDefinition(item.id).owner === 'capitalist' ? 'working' : recipient;
+        const vacancies = item.slots.filter(slot => !slot.optional && !slot.worker);
+        requireRule(vacancies.length, '這家企業沒有需要補人的必要工位。');
+        for (const slot of vacancies) {
+          requireRule(workerSupply(economy, hireRole, slot.skill) > 0 || (slot.skill === 'any'
+            && availableWorkerSkill(command.replacement) && workerSupply(economy, hireRole, command.replacement) > 0),
+          '工人供應不足，無法招募符合必要工位的工人。');
+          slot.worker = addWorker(economy, hireRole, slot.skill, command.replacement);
           economy.workers[slot.worker].committed = true;
         }
       } else {
-        hireUnemployed(economy, item.slots, recipient);
+        fillRequiredHires(economy, item, recipient);
         if (role === 'capitalist') {
           transfer('state', role, 5 * item.slots.length, true);
           adjustLegitimacy(game, role, 1);
@@ -751,6 +774,7 @@ function extendedCard(game, role, command, definition) {
     case 'competitive-wages': {
       const target = collectCompany(game, company, role, false);
       const source = collectCompany(game, command.sourceCompany, 'state', true);
+      requireRule(target.slots.every(slot => !slot.worker), '目標企業的工位必須全空，才能移入整組工人。');
       requireRule(companyDefinition(target.id).resource === companyDefinition(source.id).resource && target.slots.length === source.slots.length
         && source.slots.every(slot => !economy.workers[slot.worker].committed), '公營來源的產業、工位或承諾狀態不符。');
       for (const [index, slot] of source.slots.entries()) {
@@ -762,8 +786,9 @@ function extendedCard(game, role, command, definition) {
       return;
     }
     case 'brand-export': case 'food-export':
+      requireRule(command.offers?.length || quantity >= 1, '至少要完成一筆出口交易或出售 1 份資源。');
       if (command.offers?.length) exportGoods(game, role, command.offers);
-      specialExport(game, effect === 'brand-export' ? 'luxury' : 'food', quantity, effect === 'brand-export' ? 6 : 4, effect === 'brand-export' ? 10 : 15);
+      if (quantity) specialExport(game, effect === 'brand-export' ? 'luxury' : 'food', quantity, effect === 'brand-export' ? 6 : 4, effect === 'brand-export' ? 10 : 15);
       return;
     case 'foreign-partner':
       businessDeal(game, command);
@@ -783,7 +808,7 @@ function extendedCard(game, role, command, definition) {
     }
     case 'exit': sellCompany(game, role, company, 2); return;
     case 'employment-support':
-      for (const seat of ['working', 'middle']) { transfer('state', seat, 15); adjustLegitimacy(game, seat, 1); }
+      for (const seat of ['working', 'middle']) { transfer('state', seat, 15, true); adjustLegitimacy(game, seat, 1); }
       return;
     case 'agenda-influence': supplyInfluence(game, role, matches(game, role)); return;
     case 'agenda-money': credit(game, role, 10 * matches(game, role)); return;
@@ -815,7 +840,7 @@ function extendedCard(game, role, command, definition) {
     }
     case 'export-health': case 'export-education': {
       const resource = effect.slice(7);
-      requireRule(Number.isInteger(quantity) && quantity >= 0 && quantity <= 8 && game.publicServices[resource] >= quantity, '出售數量不符。');
+      requireRule(Number.isInteger(quantity) && quantity >= 1 && quantity <= 8 && game.publicServices[resource] >= quantity, '出售數量不符，至少要出售 1 份。');
       game.publicServices[resource] -= quantity;
       credit(game, role, quantity * base.policies.public_health_and_education_price[game.policies[resource === 'health' ? 3 : 4]]);
       return;
@@ -922,7 +947,8 @@ function playCard(game, role, command, card) {
       addCubes(game, role, 6);
       break;
     case 'island':
-      spend(game, role, 50, true);
+      requireRule(player.capital >= 50, '資本不足 $50，不能只用資本購買私人島嶼。');
+      player.capital -= 50;
       game.treasury += 50;
       player.vp += 7;
       break;
@@ -1093,6 +1119,12 @@ export function applyCommand(game, role, command, allSeated) {
     finishWorkerArrivals(game, command.skill);
     return;
   }
+  if (type === 'start-skill') {
+    requireRule(game.phase === 'lobby' && role === 'middle' && game.content
+      && availableWorkerSkill(command.skill), '請由中產在開局前選擇技術工技能。');
+    game.content.startSkill = command.skill;
+    return;
+  }
   if (type === 'start') {
     requireRule(game.phase === 'lobby' && allSeated, '四個角色都已入座後才能開始。');
     if (game.content) {
@@ -1100,6 +1132,11 @@ export function applyCommand(game, role, command, allSeated) {
       revealStateContent(game);
     }
     for (const seat of roles) fillHand(game, seat, base.setup.hand_size);
+    if (game.content) {
+      const id = game.economy.startingMiddleSkill;
+      const skill = game.content.startSkill ?? 'food';
+      if (game.economy.workers[id]) game.economy.workers[id].skill = skill;
+    }
     game.phase = 'action';
     log(game, '第 1 輪略過準備，進入行動階段。');
     return;
@@ -1380,6 +1417,7 @@ export function playerView(game, role) {
   const choice = game.content?.cardChoice;
   const transaction = game.transaction;
   const privateChoice = choice?.role === role ? { ...choice } : undefined;
+  const pollReveal = choice?.effect === 'poll' ? { role: choice.role, drawn: [...choice.drawn] } : undefined;
   if (privateChoice?.effect === 'investment-build') privateChoice.cards = investmentDeckQuotes(game, role, choice.options);
   const canInvestFromDeck = currentRole(game) === role && !mainUsed
     && hand.some(card => cardDefinition(role, card).effect === 'investment-build')
@@ -1413,10 +1451,10 @@ export function playerView(game, role) {
     content: game.content && { events: game.content.events.map(id => eventView(game, id)), deals: game.content.deals.map(catalogCard),
       export: catalogCard(game.content.export), benefits: game.content.benefits, legitimacyTokens: game.content.legitimacyTokens,
       civil: game.content.civil, civilPolicies: game.phase === 'event-choice' ? availablePolicies(game, 'state') : [],
-      choosingRole: choice?.role, cardChoice: privateChoice, marketRole: game.content.marketRole,
-      marketSkillPending: Boolean(game.content.marketSkillPending), eventHire: game.content.eventHire },
+      choosingRole: choice?.role, cardChoice: privateChoice, pollReveal, marketRole: game.content.marketRole,
+      marketSkillPending: Boolean(game.content.marketSkillPending), eventHire: game.content.eventHire, startSkill: game.content.startSkill },
     bills, log, lastVote, voteResults: game.voteResults ?? [], voteConfirmation: game.voteConfirmation ?? null,
-    bag: choice?.drawn && choice.role !== role ? Object.fromEntries(classes.map(seat => [seat, bag[seat] + choice.drawn.filter(cube => cube === seat).length])) : bag,
+    bag: choice?.drawn && choice.role !== role && choice.effect !== 'poll' ? Object.fromEntries(classes.map(seat => [seat, bag[seat] + choice.drawn.filter(cube => cube === seat).length])) : bag,
     policies: game.policies,
     taxMultiplier: taxMultiplier(game),
     availablePolicies: currentRole(game) === role ? availablePolicies(game, role) : [],

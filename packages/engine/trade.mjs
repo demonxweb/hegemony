@@ -46,7 +46,7 @@ export function buyGoods(game, role, resource, sources, options = {}) {
 export function sellToState(game, role, resource, amount, limit) {
   const stock = game.economy.inventory[role];
   const current = game.publicServices[resource] ?? 0;
-  requireRule(Number.isInteger(amount) && amount >= 0 && amount <= limit && stock[resource] >= amount
+  requireRule(Number.isInteger(amount) && amount >= 1 && amount <= limit && stock[resource] >= amount
     && current + amount <= publicCapacity(game.economy, resource), '出售數量超過卡牌、庫存或公營容量。');
   pay(game, 'state', amount * 10, true);
   credit(game, role, amount * 10);

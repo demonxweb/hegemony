@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { cardDefinition } from '../packages/engine/cards.mjs';
-import { addWorker, company, companyDefinition } from '../packages/engine/companies.mjs';
+import { addWorker, company, companyDefinition, fillRequiredHires } from '../packages/engine/companies.mjs';
 import { catalogDecks } from '../packages/engine/content.mjs';
-import { eventSpec } from '../packages/engine/events.mjs';
+import { eventSpec, provide } from '../packages/engine/events.mjs';
 import { applyCommand, createGame, playerView } from '../packages/engine/game.mjs';
 import { businessDeal, buyGoods } from '../packages/engine/trade.mjs';
 
@@ -250,4 +250,151 @@ test('the selected card runs its own effect and moves to the discard pile', () =
   assert.equal(game.publicServices.health, 6);
   assert.equal(deck.discard[0].id, housing.id);
   assert.equal(game.players.working.hand.some(card => card.id === housing.id), false);
+});
+
+test('State card payments force a loan instead of failing', () => {
+  const game = createGame();
+  game.treasury = 0;
+  provide(game, 'working', 'cash', 15);
+  assert.equal(game.economy.loans.state, 1);
+  assert.equal(game.content.benefits.working.cash, 15);
+});
+
+test('Nationalization forces a loan and staffs the acquired company from the board', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.turn = 3;
+  game.mainUsed = false;
+  game.policies[0] = 'B';
+  game.treasury = 0;
+  const card = { id: 'nationalization', key: 'action-state-nationalization' };
+  game.players.state.hand = [card];
+  const replacedView = playerView(game, 'state').economy.companies.find(item => item.owner === 'state' && item.slots.length > 1);
+  const replaced = game.economy.companies[replacedView.id];
+  for (const slot of replaced.slots) slot.worker = null;
+  const target = company('fish');
+  target.slots.forEach(slot => { slot.worker = null; });
+  game.economy.companies.fish = target;
+  const staff = target.slots.map(slot => addWorker(game.economy, 'working', slot.skill));
+  assert(staff.every(Boolean));
+  applyCommand(game, 'state', {
+    type: 'play', cardId: card.id, replaced: replaced.id, company: target.id, hire: 'working', staff,
+  }, true);
+  assert.equal(game.economy.loans.state, 1);
+  assert.equal(game.economy.companies[target.id].owner, 'state');
+  assert.deepEqual(game.economy.companies[target.id].slots.map(slot => slot.worker), staff);
+  assert(staff.every(id => game.economy.workers[id].committed));
+});
+
+test('Land of Opportunity does not leave a new worker behind when the build fails', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.turn = 1;
+  game.mainUsed = false;
+  const card = { id: 'land', key: 'action-middle-land-of-opportunity' };
+  game.players.middle.hand = [card];
+  const companyId = game.economy.markets.middle[0];
+  const before = Object.keys(game.economy.workers).length;
+  game.players.middle.cash = 0;
+  const slots = company(companyId).slots;
+  assert.throws(() => applyCommand(game, 'middle', {
+    type: 'play', cardId: card.id, company: companyId, wage: 2, staff: Array(slots.length).fill(null),
+  }, true), /必須填滿|資金不足|不足/);
+  assert.equal(Object.keys(game.economy.workers).length, before);
+  assert.equal(game.economy.companies[companyId], undefined);
+});
+
+test('required-slot hiring keeps existing staff and skips optional employee slots', () => {
+  const game = createGame();
+  const item = company('fish');
+  game.economy.companies.fish = item;
+  const keeper = addWorker(game.economy, 'working', 'food');
+  item.slots[0].worker = keeper;
+  fillRequiredHires(game.economy, item, 'working');
+  assert.equal(item.slots[0].worker, keeper);
+  assert(item.slots[1].worker && item.slots[2].worker);
+  assert.notEqual(item.slots[1].worker, keeper);
+  assert.notEqual(item.slots[2].worker, keeper);
+});
+
+test('Competitive Wages refuses a target that is not completely empty', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.turn = 2;
+  game.mainUsed = false;
+  const card = { id: 'competitive-wages', key: 'action-capitalist-competitive-wages' };
+  game.players.capitalist.hand = [card];
+  const source = company('local-hospital');
+  source.slots.forEach(slot => { slot.worker = addWorker(game.economy, 'working', slot.skill); });
+  game.economy.companies['local-hospital'] = source;
+  const target = company('clinic');
+  target.slots[0].worker = addWorker(game.economy, 'working', target.slots[0].skill);
+  game.economy.companies.clinic = target;
+  assert.throws(() => applyCommand(game, 'capitalist', {
+    type: 'play', cardId: card.id, company: 'clinic', sourceCompany: 'local-hospital',
+  }, true), /工位必須全空/);
+  assert.equal(target.slots[0].worker, target.slots[0].worker);
+  assert(target.slots[0].worker);
+});
+
+test('middle chooses the starting skilled worker before the game starts', () => {
+  const game = createGame();
+  const starting = game.economy.startingMiddleSkill;
+  applyCommand(game, 'middle', { type: 'start-skill', skill: 'health' }, true);
+  assert.equal(game.content.startSkill, 'health');
+  applyCommand(game, 'working', { type: 'start' }, true);
+  assert.equal(game.economy.workers[starting].skill, 'health');
+});
+
+test('zero-unit card effects are rejected and Bid Rigging grants no influence', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  const find = (role, effect) => [...game.decks[role].draw, ...game.decks[role].discard, ...game.players[role].hand]
+    .find(card => cardDefinition(role, card).effect === effect);
+  const middleCard = find('middle', 'sell-health');
+  game.players.middle.hand = [middleCard];
+  game.economy.inventory.middle.health = 1;
+  game.turn = 1;
+  game.mainUsed = false;
+  const cash = game.players.middle.cash;
+  assert.throws(() => applyCommand(game, 'middle', { type: 'play', cardId: middleCard.id, quantity: 0 }, true), /出售數量/);
+  applyCommand(game, 'middle', { type: 'play', cardId: middleCard.id, quantity: 1 }, true);
+  assert.equal(game.players.middle.cash, cash + 10);
+
+  const rigging = find('capitalist', 'bid-rigging');
+  game.players.capitalist.hand = [rigging];
+  game.economy.inventory.capitalist.luxury = 1;
+  game.turn = 2;
+  game.mainUsed = false;
+  const influence = game.players.capitalist.influence;
+  assert.throws(() => applyCommand(game, 'capitalist', { type: 'play', cardId: rigging.id, quantity: 0 }, true), /出售數量/);
+  assert.equal(game.players.capitalist.influence, influence);
+});
+
+test('migration and zero-unit event effects are rejected', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  const migration = [...game.decks.working.draw, ...game.decks.working.discard, ...game.players.working.hand]
+    .find(card => cardDefinition('working', card).effect === 'migration');
+  game.players.working.hand = [migration];
+  for (let i = 0; i < 4; i++) addWorker(game.economy, 'working', 'any');
+  game.turn = 0;
+  game.mainUsed = false;
+  assert.throws(() => applyCommand(game, 'working', { type: 'play', cardId: migration.id, workers: [] }, true), /至少四名/);
+
+  const eventCard = { id: 'event-test-card', key: 'action-state-pressing-matters' };
+  game.players.state.hand = [eventCard];
+  const cardId = eventCard.id;
+  game.content.events = ['event-neighbors-at-war'];
+  game.turn = 3;
+  game.mainUsed = false;
+  assert.throws(() => applyCommand(game, 'state', { type: 'event', cardId, eventId: 'event-neighbors-at-war', amount: 0 }, true), /至少/);
+  applyCommand(game, 'state', { type: 'event', cardId, eventId: 'event-neighbors-at-war', amount: 1 }, true);
+  game.content.events = ['event-political-scandal'];
+  game.players.state.hand = [eventCard];
+  game.mainUsed = false;
+  assert.throws(() => applyCommand(game, 'state', {
+    type: 'event', cardId, eventId: 'event-political-scandal',
+    distribution: { working: 0, middle: 0, capitalist: 0 },
+  }, true), /至少/);
 });

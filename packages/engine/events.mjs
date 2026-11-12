@@ -62,7 +62,7 @@ export function giveBenefit(game, role, resource, amount, keep = false) {
 }
 
 export function provide(game, role, resource, amount, keep = false) {
-  if (resource === 'cash') pay(game, 'state', amount);
+  if (resource === 'cash') pay(game, 'state', amount, true);
   else {
     let remaining = amount;
     const own = Math.min(remaining, game.publicServices[resource] ?? 0);
@@ -73,14 +73,14 @@ export function provide(game, role, resource, amount, keep = false) {
         const stock = game.economy.inventory[seller];
         const quantity = Math.min(remaining, stock[resource]);
         const cost = quantity * marketQuote(game, seller, resource).price;
-        pay(game, 'state', cost);
+        pay(game, 'state', cost, true);
         stock[resource] -= quantity;
         credit(game, seller, cost);
         remaining -= quantity;
       }
     }
     if (remaining && ['food', 'luxury'].includes(resource)) {
-      pay(game, 'state', remaining * (resource === 'food' ? 10 : 6));
+      pay(game, 'state', remaining * (resource === 'food' ? 10 : 6), true);
       remaining = 0;
     }
     requireRule(remaining === 0, '國家與可交易來源的資源不足。');
@@ -164,7 +164,7 @@ export function resolveEvent(game, command, { keep = false, remove = true } = {}
       break;
     }
     case 'spend':
-      requireRule(Number.isInteger(amount) && amount >= 0 && amount <= spec.max && amount <= game.publicServices[spec.resource], '支出的資源數量無效。');
+      requireRule(Number.isInteger(amount) && amount >= 1 && amount <= spec.max && amount <= game.publicServices[spec.resource], '支出的資源數量無效，至少要支出 1 份。');
       game.publicServices[spec.resource] -= amount;
       game.players.state.vp += amount;
       break;
@@ -212,7 +212,7 @@ export function resolveEvent(game, command, { keep = false, remove = true } = {}
     case 'distribute': {
       const qty = validateDistribution(command.distribution, classes);
       const count = Object.values(qty).reduce((sum, value) => sum + value, 0);
-      requireRule(spec.resource === 'votes' ? count === spec.max : count <= spec.max && count <= game.publicServices.influence, '分配數量不符合事件。');
+      requireRule(spec.resource === 'votes' ? count === spec.max : count >= 1 && count <= spec.max && count <= game.publicServices.influence, '分配數量不符合事件，至少要分配 1 份。');
       pay(game, 'state', spec.cost);
       for (const [role, value] of Object.entries(qty)) {
         if (!value) continue;

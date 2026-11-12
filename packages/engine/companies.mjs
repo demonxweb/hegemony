@@ -127,7 +127,8 @@ export function createEconomy(content) {
     economy.markets = { capitalist: [], middle: [] };
     economy.companyDiscard = { capitalist: [], middle: [] };
     for (const role of ['working', 'middle']) {
-      addWorker(economy, role, role === 'working' ? 'any' : 'food');
+      const starting = addWorker(economy, role, role === 'working' ? 'any' : 'food');
+      if (role === 'middle') economy.startingMiddleSkill = starting;
       for (let i = 0; i < 2; i++) addWorker(economy, role, drawImmigrant({ content }, role));
     }
     for (const role of ['capitalist', 'middle']) refreshMarket(economy, role);
@@ -231,6 +232,7 @@ function finishStaffing(economy, sources, destinations) {
       requireRule(!destinations.has(id), '必須填滿公司所有必要工位。');
       requireRule(workers.every(worker => !worker.committed), '不能讓已承諾的工人失業。');
       for (const slot of item.slots) slot.worker = null;
+      if (item.strike) delete item.strike;
       continue;
     }
     if (activeCompany(economy, id).owner !== 'middle') {
@@ -240,7 +242,7 @@ function finishStaffing(economy, sources, destinations) {
   }
 }
 
-export function assign(economy, role, moves, limit = 3, { preserveUncommitted = false } = {}) {
+export function assign(economy, role, moves, limit = 3, { preserveUncommitted = false, allowSource } = {}) {
   requireRule(Array.isArray(moves) && moves.length >= 1 && moves.length <= limit, `每次可指派 1 至 ${limit} 名工人。`);
   const uncommittedCompanies = new Set();
   if (preserveUncommitted) {
@@ -263,6 +265,7 @@ export function assign(economy, role, moves, limit = 3, { preserveUncommitted = 
     const slot = Number.isInteger(move?.slot) && destination?.slots[move.slot];
     requireRule(worker?.role === role && !worker.committed && !workers.has(worker.id), '請選擇不同且尚未承諾的己方工人。');
     const source = workplace(economy, worker.id);
+    requireRule(!allowSource || allowSource(source, worker), '不能從這家企業調動工人。');
     requireRule(slot && fits(worker, slot), '請指派至符合階級與技能的企業工位。');
     requireRule(source?.id !== destination.id, '指派需移往另一家企業。');
     destinations.add(destination.id);
@@ -342,6 +345,14 @@ export function hireUnemployed(economy, slots, role) {
   commitHires(selected);
 }
 
+export function fillRequiredHires(economy, item, role) {
+  const vacancies = item.slots.filter(slot => !slot.optional && !slot.worker);
+  requireRule(vacancies.length, '這家企業沒有需要補人的必要工位。');
+  const selected = availableHires(economy, vacancies, role);
+  requireRule(selected, '失業區沒有符合必要工位的同階級工人。');
+  commitHires(selected);
+}
+
 export function setWagePolicy(game, forcedLevel) {
   const minimum = base.policies.minimum_wage_level[game.policies[1]];
   for (const item of Object.values(game.economy.companies)) {
@@ -415,6 +426,10 @@ export function resizePublicSector(game, selections, { testing = false } = {}) {
     }
     economy.companies[id] = item;
     added.push(definition.name);
+  }
+  for (const id of added.length ? ids.filter(id => economy.companies[id]) : []) {
+    const item = economy.companies[id];
+    if (item && item.slots.some(slot => economy.workers[slot.worker]?.role === 'working')) checkDemonstration(economy, item);
   }
   syncPublicStorage(game);
   if (added.length) game.log.push(`公營部門開設 ${added.join('、')}。`);
@@ -513,7 +528,7 @@ export function build(game, role, command, options = {}) {
   const staffing = command.staff === undefined ? null : planBuildStaff(economy, item, role, command.staff, options.unemployedOperators);
   const discount = options.discount ?? 0;
   const cost = Math.max(0, definition.cost - discount);
-  pay(game, options.payer ?? role, cost);
+  pay(game, options.payer ?? role, cost, options.mandatoryPay ?? false);
   if (options.subsidy) pay(game, 'state', options.subsidy, true);
   economy.companies[id] = item;
   if (staffing) {
@@ -593,12 +608,21 @@ export function makeFarm(game, ids) {
   checkDemonstration(economy, economy.companies[id]);
 }
 
+function heldGoods(game, resource) {
+  const { economy, publicServices, players } = game;
+  return (publicServices[resource] ?? 0) + (economy.tradeZone[resource] ?? 0)
+    + Object.values(economy.inventory).reduce((sum, stock) => sum + (stock[resource] ?? 0), 0)
+    + Object.values(players).reduce((sum, player) => sum + (player[resource] ?? 0), 0)
+    + Object.values(game.content?.benefits ?? {}).reduce((sum, benefit) => sum + (benefit?.[resource] ?? 0), 0);
+}
+
 function produce(game, definition, amount) {
   const { economy, publicServices, players } = game;
   const { owner, resource } = definition;
   if (owner === 'working') {
-    players.working.food += amount;
-    return { stored: amount, discarded: 0 };
+    const stored = Math.min(amount, Math.max(0, 62 - heldGoods(game, resource)));
+    players.working.food += stored;
+    return { stored, discarded: amount - stored };
   }
   const inventory = owner === 'state' ? publicServices : economy.inventory[owner];
   if (resource === 'influence') {
@@ -608,11 +632,8 @@ function produce(game, definition, amount) {
       return { stored: amount, discarded: 0 };
     }
   } else {
-    const held = (publicServices[resource] ?? 0) + (economy.tradeZone[resource] ?? 0)
-      + Object.values(economy.inventory).reduce((sum, stock) => sum + stock[resource], 0)
-      + Object.values(players).reduce((sum, player) => sum + (player[resource] ?? 0), 0);
     const supply = resource === 'food' ? 62 : 64;
-    amount = Math.min(amount, Math.max(0, supply - held));
+    amount = Math.min(amount, Math.max(0, supply - heldGoods(game, resource)));
   }
   const capacity = owner === 'state' ? publicCapacity(economy, resource) : storageCapacity(economy, owner, resource);
   const stored = Math.min(amount, Math.max(0, capacity - (inventory[resource] ?? 0)));
