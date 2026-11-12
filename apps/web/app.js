@@ -3008,6 +3008,7 @@ gameSaveFile.addEventListener('change', async () => {
 
 try {
   meta = await request('/api/meta');
+  if (meta.quickRooms === false) document.querySelector('a[href="/quick"]')?.remove();
   if (quick) await showQuickRoom();
   else {
     showLobby();
