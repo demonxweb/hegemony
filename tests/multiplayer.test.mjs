@@ -69,12 +69,13 @@ test('waiting room starts only after four distinct roles and four current confir
     }, status: 403 });
     const adjusted = await request(path + '/command', { token: tokens[0], body: {
       type: 'host-adjust', target: 'middle', cash: 99, living: { influence: 4 }, inventory: { food: 5 },
-      storageUnits: { food: 3 }, id: randomUUID(), revision: beforeAdjust.revision,
+      storageUnits: { food: 3 }, prices: { food: 15 }, id: randomUUID(), revision: beforeAdjust.revision,
     } });
     assert.equal(adjusted.players.middle.cash, 99);
     assert.equal(adjusted.players.middle.influence, 4);
     assert.equal(adjusted.economy.inventory.middle.food, 5);
     assert.equal(adjusted.economy.storageCapacity.middle.food, 24);
+    assert.equal(adjusted.match.prices.middle.food.price, 15);
     await server.stop();
     server = await startServer(store, false, false);
     const login = await request('/api/player/login', { body: { name: 'Host', password: 'p' } });

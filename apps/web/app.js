@@ -2531,6 +2531,23 @@ function adjustStorageFields(role) {
       '容量以倉庫單位表示；每種資源的 1 單位等於該階級的單一倉庫容量。');
 }
 
+function adjustSelect(label, name, options, current) {
+  return `<label class="adjust-field">${escape(label)}
+    <select name="${escape(name)}">${options.map(price => `<option value="${price}"${price === current ? ' selected' : ''}>$${price}</option>`).join('')}</select></label>`;
+}
+
+function adjustPriceFields(role) {
+  const levels = meta.domesticPriceLevels?.[role];
+  if (!levels) return '<p class="muted adjust-note">此階級沒有可調整的國內售價。</p>';
+  const prices = state.match?.prices?.[role] ?? {};
+  return adjustSection('資源售價',
+    Object.entries(levels).map(([resource, options]) => {
+      const current = prices[resource]?.price ?? options[1] ?? options[0];
+      return adjustSelect(adjustStoredLabels[resource] ?? resources[resource], `price-${resource}`, options, current);
+    }).join(''),
+    '選擇此階級可調整的資源售價；下拉選單只列出圖版允許的價格。');
+}
+
 function adjustLivingFields() {
   return adjustSection('生活資源',
     Object.keys(adjustLivingLabels).map(key => adjustInput(adjustLivingLabels[key], `living-${key}`, state.players[adjustTab]?.[key] ?? 0)).join(''));
@@ -2549,22 +2566,26 @@ function hostAdjustBodyMarkup() {
         '國家持有的公共資源。')
       + adjustSection('公共容量',
         Object.keys(adjustPublicLabels).map(key => adjustInput(adjustPublicLabels[key], `publicCapacity-${key}`, economy.publicStorageCapacity?.[key] ?? 0)).join(''),
-        '公共容量原本由公營企業產能決定；這裡可覆寫為指定份數。');
+        '公共容量原本由公營企業產能決定；這裡可覆寫為指定份數。')
+      + '<p class="muted adjust-note">國家的食物、奢侈品與媒體影響力為固定價；醫療與教育售價由福利政策決定，沒有可直接調整的國內售價。</p>';
   }
   if (adjustTab === 'working') {
-    return adjustSection('金錢', adjustInput('現金', 'cash', player?.cash ?? 0)) + adjustLivingFields();
+    return adjustSection('金錢', adjustInput('現金', 'cash', player?.cash ?? 0)) + adjustLivingFields()
+      + '<p class="muted adjust-note">勞工沒有可調整的國內售價。</p>';
   }
   if (adjustTab === 'middle') {
     return adjustSection('金錢', adjustInput('現金', 'cash', player?.cash ?? 0))
       + adjustLivingFields()
-      + adjustStorageFields('middle');
+      + adjustStorageFields('middle')
+      + adjustPriceFields('middle');
   }
   return adjustSection('金錢',
     adjustInput('現金', 'cash', player?.cash ?? 0)
     + adjustInput('營收', 'revenue', player?.revenue ?? 0)
     + adjustInput('資本', 'capital', player?.capital ?? 0))
     + adjustLivingFields()
-    + adjustStorageFields('capitalist');
+    + adjustStorageFields('capitalist')
+    + adjustPriceFields('capitalist');
 }
 
 function renderHostAdjust() {
@@ -2598,6 +2619,10 @@ function hostAdjustCommand() {
   if (Object.keys(inventory).length) command.inventory = inventory;
   const storageUnits = collect('storageUnits', Object.keys(adjustStoredLabels));
   if (Object.keys(storageUnits).length) command.storageUnits = storageUnits;
+  const priceKeys = Object.keys(meta.domesticPriceLevels?.[adjustTab] ?? {});
+  const prices = Object.fromEntries(priceKeys.filter(key => fields.has(`price-${key}`))
+    .map(key => [key, number(`price-${key}`)]));
+  if (Object.keys(prices).length) command.prices = prices;
   const publicStock = collect('public', Object.keys(adjustPublicLabels));
   if (Object.keys(publicStock).length) command.public = publicStock;
   const publicCapacity = collect('publicCapacity', Object.keys(adjustPublicLabels));

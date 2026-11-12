@@ -8,7 +8,7 @@ import { catalogCard, createRoundContent, eventDraw, revealStateContent, revealT
 import { adjustLegitimacy, choosePenalty, completeIndustry, eventPenalties, eventView, legitimacyToken, provide, resolveEvent, takeBenefits, transferPersonalBenefit } from './events.mjs';
 import { businessDeal, buyGoods, sellToState, specialExport } from './trade.mjs';
 import { GameError, requireRule } from './errors.mjs';
-import { adjustPrices, marketQuote } from './prices.mjs';
+import { adjustPrices, domesticPriceLevels, marketQuote } from './prices.mjs';
 import { advanceWorkerArrivals, beginPreparation, beginProduction, checkIMF, completeProduction, coverNeeds, createMatch, createTaxSettlement, exportGoods, exportOffers, finalScore, finishIMF, gainMiddleProsperity,
   legacyPreparation, matches, matchView, openNeeds, payTaxStep, population, prepareWorkers, produceRound, quoteFood, recordResourceSale, repayLoan, scoreRound, settleProductionStep,
   stateElectionInfluence, supplyInfluence, taxMultiplier } from './rounds.mjs';
@@ -1147,6 +1147,17 @@ export function applyHostAdjustment(game, command) {
     hostAdjustFields(command.storageUnits, hostAdjustStored, '倉庫容量', (key, value) => {
       economy.storageUnits[target][key] = hostAdjustCount(value, `倉庫容量的${key}`, 1);
     });
+  }
+  if (command.prices !== undefined) {
+    requireRule(['middle', 'capitalist'].includes(target), '只有中產與資本家可調整國內售價。');
+    requireRule(command.prices && typeof command.prices === 'object' && !Array.isArray(command.prices), '售價格式錯誤。');
+    const allowed = domesticPriceLevels[target];
+    const pricesByRole = economy.domesticPrices ??= {};
+    pricesByRole[target] ??= {};
+    for (const [resource, price] of Object.entries(command.prices)) {
+      requireRule(Object.hasOwn(allowed, resource) && allowed[resource].includes(price), '請選擇圖版上的售價。');
+      pricesByRole[target][resource] = price;
+    }
   }
   if (command.public !== undefined || command.publicCapacity !== undefined) {
     requireRule(target === 'state', '只有國家有公共庫存與公共容量。');

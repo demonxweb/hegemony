@@ -4,6 +4,7 @@ import { applyCommand, createGame, playerView } from '../packages/engine/game.mj
 import { addWorker, economyView, pay, publicCapacity, resizePublicSector, storageCapacity, workerSupply, workplace } from '../packages/engine/companies.mjs';
 import { catalogDecks, eventDraw } from '../packages/engine/content.mjs';
 import { checkIMF, coverNeeds, finalScore, openNeeds, payTaxes } from '../packages/engine/rounds.mjs';
+import { marketQuote } from '../packages/engine/prices.mjs';
 
 test('healthcare, luxury and swapping follow the shared free-action limit and worker commitment', () => {
   const game = createGame({ full: false });
@@ -746,6 +747,11 @@ test('host adjustment updates cash, living resources, warehouses and public stor
   assert.equal(storageCapacity(game.economy, 'capitalist', 'luxury'), 24);
   assert.equal(economyView(game.economy).storageUnits.capitalist.food, 3);
 
+  adjust('capitalist', { prices: { food: 15, luxury: 5 } });
+  assert.equal(game.economy.domesticPrices.capitalist.food, 15);
+  assert.equal(marketQuote(game, 'capitalist', 'food').price, 15);
+  assert.equal(marketQuote(game, 'capitalist', 'luxury').price, 5);
+
   adjust('state', { treasury: 77, living: { influence: 3 }, public: { food: 4, influence: 2 }, publicCapacity: { food: 9 } });
   assert.equal(game.treasury, 77);
   assert.equal(game.players.state.influence, 3);
@@ -760,5 +766,7 @@ test('host adjustment updates cash, living resources, warehouses and public stor
   assert.throws(() => adjust('working', { inventory: { food: 1 } }), /商業倉庫/);
   assert.throws(() => adjust('middle', { storageUnits: { food: 0 } }), /1 以上/);
   assert.throws(() => adjust('middle', { cash: -1 }), /0 以上/);
+  assert.throws(() => adjust('capitalist', { prices: { food: 1 } }), /圖版上的售價/);
+  assert.throws(() => adjust('working', { prices: { food: 15 } }), /只有中產與資本家/);
   assert.throws(() => adjust('nobody', { cash: 1 }), /請選擇要調整的階級/);
 });
