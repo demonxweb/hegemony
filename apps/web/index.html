@@ -13,6 +13,7 @@
     <div id="header-room-actions" class="room-actions" hidden>
       <button id="return-lobby" type="button" hidden>回到大廳</button>
       <button id="copy-invite" type="button">複製邀請連結</button>
+      <button id="adjust-game" type="button" hidden>調整</button>
       <button id="save-room" type="button" hidden>儲存</button>
       <button id="load-room" type="button" hidden>讀取</button>
       <button id="close-room" type="button" hidden>關閉房間</button>
@@ -75,6 +76,20 @@
       <form method="dialog"><button type="submit" aria-label="關閉">×</button></form>
     </header>
     <div class="card-piles-body" data-card-piles-body></div>
+  </dialog>
+  <dialog id="host-adjust-dialog" class="action-confirmation" aria-labelledby="host-adjust-title">
+    <header class="mat-help-header">
+      <h2 id="host-adjust-title" tabindex="-1" autofocus>房長調整</h2>
+      <form method="dialog"><button type="submit" aria-label="關閉">×</button></form>
+    </header>
+    <div class="mat-help-tabs host-adjust-tabs" role="tablist" aria-label="調整階級"></div>
+    <form data-host-adjust>
+      <div class="host-adjust-body" data-host-adjust-body></div>
+      <div class="buttons">
+        <button type="button" data-close-adjust>取消</button>
+        <button type="submit" class="primary">套用調整</button>
+      </div>
+    </form>
   </dialog>
   <div id="board-tooltip" class="board-tooltip" role="tooltip" hidden><strong></strong><p></p></div>
   <p id="notice" class="notice" role="alert" hidden></p>

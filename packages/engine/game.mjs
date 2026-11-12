@@ -1098,9 +1098,74 @@ function finishTransaction(game, role, type) {
   game.transaction = null;
 }
 
+const hostAdjustLiving = ['food', 'luxury', 'health', 'education', 'influence'];
+const hostAdjustStored = ['food', 'luxury', 'health', 'education'];
+const hostAdjustPublic = ['food', 'luxury', 'health', 'education', 'influence'];
+
+function hostAdjustCount(value, label, minimum = 0) {
+  requireRule(Number.isInteger(value) && value >= minimum, `${label}須為 ${minimum} 以上的整數。`);
+  return value;
+}
+
+function hostAdjustFields(source, allowed, label, apply) {
+  if (source === undefined) return;
+  requireRule(source && typeof source === 'object' && !Array.isArray(source), `${label}格式錯誤。`);
+  for (const [key, value] of Object.entries(source)) {
+    requireRule(allowed.includes(key), `${label}包含未知項目。`);
+    apply(key, hostAdjustCount(value, `${label}的${key}`));
+  }
+}
+
+export function applyHostAdjustment(game, command) {
+  const target = command.target;
+  requireRule(roles.includes(target), '請選擇要調整的階級。');
+  const player = game.players[target];
+  const economy = game.economy;
+  if (target === 'state') {
+    if (command.treasury !== undefined) game.treasury = hostAdjustCount(command.treasury, '國庫');
+    if (command.cash !== undefined) throw new GameError('國家的金錢請調整國庫。');
+  } else if (command.treasury !== undefined) {
+    throw new GameError('只有國家使用國庫。');
+  } else if (command.cash !== undefined) {
+    player.cash = hostAdjustCount(command.cash, `${names[target]}現金`);
+  }
+  if (command.revenue !== undefined) {
+    requireRule(target === 'capitalist', '只有資本家使用營收。');
+    player.revenue = hostAdjustCount(command.revenue, '資本家營收');
+  }
+  if (command.capital !== undefined) {
+    requireRule(target === 'capitalist', '只有資本家使用資本。');
+    player.capital = hostAdjustCount(command.capital, '資本家資本');
+  }
+  hostAdjustFields(command.living, hostAdjustLiving, '生活資源', (key, value) => { player[key] = value; });
+  if (command.inventory !== undefined || command.storageUnits !== undefined) {
+    requireRule(['middle', 'capitalist'].includes(target), '只有中產與資本家有商業倉庫。');
+    economy.inventory[target] ??= {};
+    hostAdjustFields(command.inventory, hostAdjustStored, '倉庫庫存', (key, value) => { economy.inventory[target][key] = value; });
+    economy.storageUnits ??= { middle: {}, capitalist: {} };
+    economy.storageUnits[target] ??= {};
+    hostAdjustFields(command.storageUnits, hostAdjustStored, '倉庫容量', (key, value) => {
+      economy.storageUnits[target][key] = hostAdjustCount(value, `倉庫容量的${key}`, 1);
+    });
+  }
+  if (command.public !== undefined || command.publicCapacity !== undefined) {
+    requireRule(target === 'state', '只有國家有公共庫存與公共容量。');
+    hostAdjustFields(command.public, hostAdjustPublic, '公共庫存', (key, value) => { game.publicServices[key] = value; });
+    economy.publicCapacityOverride ??= {};
+    hostAdjustFields(command.publicCapacity, hostAdjustPublic, '公共容量', (key, value) => {
+      economy.publicCapacityOverride[key] = value;
+    });
+  }
+  log(game, `房長調整了${names[target]}的狀態。`);
+}
+
 export function applyCommand(game, role, command, allSeated) {
   const player = game.players[role];
   const { type } = command;
+  if (type === 'host-adjust') {
+    applyHostAdjustment(game, command);
+    return;
+  }
   if (game.phase === 'vote-confirmation') {
     confirmVoteResult(game, role, command);
     return;

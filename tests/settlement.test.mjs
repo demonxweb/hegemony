@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { applyCommand, createGame, playerView } from '../packages/engine/game.mjs';
-import { addWorker, pay, resizePublicSector, workerSupply, workplace } from '../packages/engine/companies.mjs';
+import { addWorker, economyView, pay, publicCapacity, resizePublicSector, storageCapacity, workerSupply, workplace } from '../packages/engine/companies.mjs';
 import { catalogDecks, eventDraw } from '../packages/engine/content.mjs';
 import { checkIMF, coverNeeds, finalScore, openNeeds, payTaxes } from '../packages/engine/rounds.mjs';
 
@@ -726,4 +726,39 @@ test('final scores repay non-capitalist loans in units of five and retain fixed 
   assert.equal(game.players.middle.cash, 3);
   assert.equal(capitalist.penalty, 10);
   assert.equal(capitalist.repaid, 0);
+});
+
+test('host adjustment updates cash, living resources, warehouses and public storage', () => {
+  const game = createGame({ full: false });
+  const adjust = (target, command) => applyCommand(game, 'capitalist', { type: 'host-adjust', target, ...command }, true);
+  adjust('capitalist', {
+    cash: 123, revenue: 45, capital: 6, living: { food: 2, influence: 4 },
+    inventory: { food: 5, luxury: 7 }, storageUnits: { food: 3, luxury: 2 },
+  });
+  assert.equal(game.players.capitalist.cash, 123);
+  assert.equal(game.players.capitalist.revenue, 45);
+  assert.equal(game.players.capitalist.capital, 6);
+  assert.equal(game.players.capitalist.food, 2);
+  assert.equal(game.players.capitalist.influence, 4);
+  assert.equal(game.economy.inventory.capitalist.food, 5);
+  assert.equal(game.economy.inventory.capitalist.luxury, 7);
+  assert.equal(storageCapacity(game.economy, 'capitalist', 'food'), 24);
+  assert.equal(storageCapacity(game.economy, 'capitalist', 'luxury'), 24);
+  assert.equal(economyView(game.economy).storageUnits.capitalist.food, 3);
+
+  adjust('state', { treasury: 77, living: { influence: 3 }, public: { food: 4, influence: 2 }, publicCapacity: { food: 9 } });
+  assert.equal(game.treasury, 77);
+  assert.equal(game.players.state.influence, 3);
+  assert.equal(game.publicServices.food, 4);
+  assert.equal(game.publicServices.influence, 2);
+  assert.equal(publicCapacity(game.economy, 'food'), 9);
+
+  adjust('working', { cash: 8, living: { health: 2 } });
+  assert.equal(game.players.working.cash, 8);
+  assert.equal(game.players.working.health, 2);
+
+  assert.throws(() => adjust('working', { inventory: { food: 1 } }), /商業倉庫/);
+  assert.throws(() => adjust('middle', { storageUnits: { food: 0 } }), /1 以上/);
+  assert.throws(() => adjust('middle', { cash: -1 }), /0 以上/);
+  assert.throws(() => adjust('nobody', { cash: 1 }), /請選擇要調整的階級/);
 });

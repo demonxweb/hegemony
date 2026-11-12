@@ -10,7 +10,7 @@ import { createPlayerAccounts } from './player-accounts.mjs';
 const turnCommands = ['play', 'assign', 'build', 'sell', 'buy', 'deal', 'export', 'strike', 'event', 'campaign',
   'propose', 'pressure', 'demonstrate', 'extra-shift', 'lobby', 'meet-mps', 'extra-tax', 'wages', 'repay', 'benefits',
   'buy-storage', 'use-education', 'use-health', 'use-luxury', 'swap-workers', 'adjust-prices', 'give-bonus'];
-const checkedCommands = [...turnCommands, 'card-choice', 'event-hire', 'policy-choice', 'worker-arrival', 'demonstration-losses'];
+const checkedCommands = [...turnCommands, 'host-adjust', 'card-choice', 'event-hire', 'policy-choice', 'worker-arrival', 'demonstration-losses'];
 const catalogView = {
   decks: catalog.decks, marketSizes: catalog.marketSizes, policies, names,
   storage: { ...catalog.boards.storages, tiles: catalog.components.storage_tiles, freeTradeTiles: catalog.components.free_trade_zone },
@@ -239,6 +239,7 @@ export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRo
         return json(response, 200, view(room, viewer));
       }
       const { id, revision } = input;
+      if (input.type === 'host-adjust' && role !== room.host) throw new GameError('只有房長可以調整遊戲狀態。', 403);
       if (action === 'check') {
         if (!checkedCommands.includes(input.type)) throw new GameError('此操作不提供事前檢查。');
         if (revision !== room.revision) throw new GameError('畫面已更新，請依最新狀態確認。', 409);

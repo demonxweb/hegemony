@@ -97,6 +97,8 @@ export function createEconomy(content) {
     workers: {}, companies: {},
     markets: { capitalist: ['fish', 'radio', 'academy'], middle: ['organic', 'games', 'lab'] },
     inventory: { capitalist: { food: 1, luxury: 2, health: 0, education: 2 }, middle: { food: 1, luxury: 0, health: 1, education: 0 } },
+    storageUnits: { middle: {}, capitalist: {} },
+    publicCapacityOverride: {},
     tradeZone: { food: 0, luxury: 0 },
     loans: { state: 0, capitalist: 0, middle: 0, working: 0 },
     production: null,
@@ -361,6 +363,8 @@ export function setWagePolicy(game, forcedLevel) {
 }
 
 export function publicCapacity(economy, resource) {
+  const override = economy.publicCapacityOverride?.[resource];
+  if (Number.isInteger(override) && override >= 0) return override;
   return Object.values(economy.companies).map(item => activeCompany(economy, item.id))
     .filter(item => item.owner === 'state' && item.resource === resource).reduce((sum, item) => sum + item.output, 6);
 }
@@ -371,8 +375,14 @@ export function syncPublicStorage(game) {
   }
 }
 
+export function storageUnits(economy, role, resource) {
+  const units = economy.storageUnits?.[role]?.[resource];
+  if (Number.isInteger(units) && units >= 1) return units;
+  return economy.storage?.[role]?.includes(resource) ? 2 : 1;
+}
+
 export function storageCapacity(economy, role, resource) {
-  return base.limits[`${role}_storage`][resource] * (economy.storage?.[role]?.includes(resource) ? 2 : 1);
+  return base.limits[`${role}_storage`][resource] * storageUnits(economy, role, resource);
 }
 
 export function publicSectorChoices(game) {
@@ -726,6 +736,8 @@ export function economyView(economy) {
     }),
     storageCapacity: Object.fromEntries(['middle', 'capitalist'].map(role => [role, Object.fromEntries(
       Object.keys(base.limits[`${role}_storage`]).map(resource => [resource, storageCapacity(economy, role, resource)]))])),
+    storageUnits: Object.fromEntries(['middle', 'capitalist'].map(role => [role, Object.fromEntries(
+      Object.keys(base.limits[`${role}_storage`]).map(resource => [resource, storageUnits(economy, role, resource)]))])),
     publicStorageCapacity: Object.fromEntries(['food', 'luxury', 'health', 'education', 'influence']
       .map(resource => [resource, publicCapacity(economy, resource)])),
     freeTradeCapacity: base.limits.free_trade_zone_capacity,

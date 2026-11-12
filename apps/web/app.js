@@ -27,6 +27,10 @@ const matHelpTabs = matHelpDialog.querySelector('[role="tablist"]');
 const matHelpPanel = matHelpDialog.querySelector('[role="tabpanel"]');
 const cardPilesDialog = document.querySelector('#card-piles-dialog');
 const cardPilesBody = cardPilesDialog.querySelector('[data-card-piles-body]');
+const hostAdjustDialog = document.querySelector('#host-adjust-dialog');
+const hostAdjustTabs = hostAdjustDialog.querySelector('.host-adjust-tabs');
+const hostAdjustBody = hostAdjustDialog.querySelector('[data-host-adjust-body]');
+const adjustGameButton = document.querySelector('#adjust-game');
 
 // One label per paragraph after the optional opening setup paragraph.
 // Empty labels leave the paragraph in 基本說明.
@@ -280,6 +284,7 @@ let cardBuildStaff = [];
 let purchaseDraft;
 let selectedAction;
 let selectedFreeAction = '';
+let adjustTab = 'state';
 let boardStatus = '';
 let electionPrompt = '';
 let pendingVoteDialogId;
@@ -374,6 +379,7 @@ function showLobby() {
   pendingVoteDialogId = undefined;
   if (voteResultDialog.open) voteResultDialog.close();
   if (roundResultDialog.open) roundResultDialog.close();
+  if (hostAdjustDialog.open) hostAdjustDialog.close();
   shownRoundResult = undefined;
   if (!account) return showPlayerLogin();
   const code = new URLSearchParams(location.search).get('room')?.toUpperCase() ?? '';
@@ -2491,6 +2497,114 @@ function showCardPiles() {
   if (!cardPilesDialog.open) cardPilesDialog.showModal();
 }
 
+const adjustRoles = ['state', 'working', 'middle', 'capitalist'];
+const adjustRoleLabels = { state: '國家', working: '勞工', middle: '中產', capitalist: '資本家' };
+const adjustLivingLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育', influence: '個人影響力' };
+const adjustStoredLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育' };
+const adjustPublicLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育', influence: '媒體影響力' };
+
+function adjustInput(label, name, value, { min = 0, hint = '' } = {}) {
+  return `<label class="adjust-field">${escape(label)}
+    <input type="number" name="${escape(name)}" value="${Number(value) || 0}" min="${min}" max="99999" step="1" inputmode="numeric" required>
+    ${hint ? `<small>${hint}</small>` : ''}</label>`;
+}
+
+function adjustSection(title, fields, note = '') {
+  return `<fieldset class="adjust-section"><legend>${title}</legend>
+    ${note ? `<p class="muted">${escape(note)}</p>` : ''}<div class="adjust-grid">${fields}</div></fieldset>`;
+}
+
+function adjustStorageFields(role) {
+  const inventory = state.economy?.inventory?.[role] ?? {};
+  const units = state.economy?.storageUnits?.[role] ?? {};
+  const capacities = state.economy?.storageCapacity?.[role] ?? {};
+  return adjustSection('倉庫庫存',
+    Object.keys(adjustStoredLabels).map(key => adjustInput(adjustStoredLabels[key], `inventory-${key}`, inventory[key] ?? 0)).join(''))
+    + adjustSection('倉庫容量（單位）',
+      Object.keys(adjustStoredLabels).map(key => {
+        const unit = units[key] ?? 1;
+        const capacity = capacities[key] ?? 0;
+        const base = Math.max(1, Math.round(capacity / unit));
+        return adjustInput(adjustStoredLabels[key], `storageUnits-${key}`, unit,
+          { min: 1, hint: `1 單位＝${base} 份・目前 ${capacity} 份` });
+      }).join(''),
+      '容量以倉庫單位表示；每種資源的 1 單位等於該階級的單一倉庫容量。');
+}
+
+function adjustLivingFields() {
+  return adjustSection('生活資源',
+    Object.keys(adjustLivingLabels).map(key => adjustInput(adjustLivingLabels[key], `living-${key}`, state.players[adjustTab]?.[key] ?? 0)).join(''));
+}
+
+function hostAdjustBodyMarkup() {
+  if (!state?.players) return '<p class="muted">目前沒有可調整的對局。</p>';
+  const economy = state.economy ?? {};
+  const player = state.players[adjustTab];
+  if (adjustTab === 'state') {
+    return adjustSection('金錢與個人影響力',
+      adjustInput('國庫', 'treasury', state.treasury)
+      + adjustInput('個人影響力', 'living-influence', player?.influence ?? 0))
+      + adjustSection('公共庫存',
+        Object.keys(adjustPublicLabels).map(key => adjustInput(adjustPublicLabels[key], `public-${key}`, state.publicServices?.[key] ?? 0)).join(''),
+        '國家持有的公共資源。')
+      + adjustSection('公共容量',
+        Object.keys(adjustPublicLabels).map(key => adjustInput(adjustPublicLabels[key], `publicCapacity-${key}`, economy.publicStorageCapacity?.[key] ?? 0)).join(''),
+        '公共容量原本由公營企業產能決定；這裡可覆寫為指定份數。');
+  }
+  if (adjustTab === 'working') {
+    return adjustSection('金錢', adjustInput('現金', 'cash', player?.cash ?? 0)) + adjustLivingFields();
+  }
+  if (adjustTab === 'middle') {
+    return adjustSection('金錢', adjustInput('現金', 'cash', player?.cash ?? 0))
+      + adjustLivingFields()
+      + adjustStorageFields('middle');
+  }
+  return adjustSection('金錢',
+    adjustInput('現金', 'cash', player?.cash ?? 0)
+    + adjustInput('營收', 'revenue', player?.revenue ?? 0)
+    + adjustInput('資本', 'capital', player?.capital ?? 0))
+    + adjustLivingFields()
+    + adjustStorageFields('capitalist');
+}
+
+function renderHostAdjust() {
+  if (!state) return;
+  if (!adjustRoles.includes(adjustTab)) adjustTab = 'state';
+  hostAdjustDialog.className = `action-confirmation host-adjust-dialog ${state.role}`;
+  hostAdjustTabs.innerHTML = adjustRoles.map(role => `<button type="button" role="tab" data-adjust-tab="${role}"
+    aria-selected="${role === adjustTab}" tabindex="${role === adjustTab ? 0 : -1}">${adjustRoleLabels[role]}</button>`).join('');
+  hostAdjustBody.innerHTML = hostAdjustBodyMarkup();
+}
+
+function showHostAdjust() {
+  if (busy || !state || state.role !== state.host || !state.players) return;
+  renderHostAdjust();
+  if (!hostAdjustDialog.open) hostAdjustDialog.showModal();
+}
+
+function hostAdjustCommand() {
+  const fields = new FormData(hostAdjustDialog.querySelector('form[data-host-adjust]'));
+  const command = { type: 'host-adjust', target: adjustTab };
+  const number = name => Number(fields.get(name));
+  const collect = (prefix, keys) => Object.fromEntries(keys.filter(key => fields.has(`${prefix}-${key}`))
+    .map(key => [key, number(`${prefix}-${key}`)]));
+  if (fields.has('treasury')) command.treasury = number('treasury');
+  if (fields.has('cash')) command.cash = number('cash');
+  if (fields.has('revenue')) command.revenue = number('revenue');
+  if (fields.has('capital')) command.capital = number('capital');
+  const living = collect('living', Object.keys(adjustLivingLabels));
+  if (Object.keys(living).length) command.living = living;
+  const inventory = collect('inventory', Object.keys(adjustStoredLabels));
+  if (Object.keys(inventory).length) command.inventory = inventory;
+  const storageUnits = collect('storageUnits', Object.keys(adjustStoredLabels));
+  if (Object.keys(storageUnits).length) command.storageUnits = storageUnits;
+  const publicStock = collect('public', Object.keys(adjustPublicLabels));
+  if (Object.keys(publicStock).length) command.public = publicStock;
+  const publicCapacity = collect('publicCapacity', Object.keys(adjustPublicLabels));
+  if (Object.keys(publicCapacity).length) command.publicCapacity = publicCapacity;
+  return command;
+}
+
 function playerInfoTabs() {
   const tabs = [
     ['settlement', '結算試算', settlementPanel() || '<p class="panel muted">目前沒有結算試算。</p>'],
@@ -2841,6 +2955,7 @@ function render() {
   headerRoomActions.hidden = false;
   returnLobby.hidden = !account;
   closeRoom.hidden = state.role !== state.host;
+  adjustGameButton.hidden = state.role !== state.host || !state.players;
   saveRoomButton.hidden = loadRoomButton.hidden = closeRoom.hidden;
   copyInvite.hidden = state.phase !== 'lobby';
   copyInvite.textContent = '複製邀請連結';
@@ -2925,7 +3040,7 @@ function update(next) {
       electionPrompt = '';
       pendingVoteDialogId = undefined;
       actionConfirmation.returnValue = '';
-      for (const dialog of [actionConfirmation, electionDialog, voteResultDialog, roundResultDialog, roomSavesDialog]) if (dialog.open) dialog.close();
+      for (const dialog of [actionConfirmation, electionDialog, voteResultDialog, roundResultDialog, roomSavesDialog, hostAdjustDialog]) if (dialog.open) dialog.close();
     }
     if (state && (restored || state.code !== next.code || state.turn !== next.turn || state.match?.round !== next.match?.round)) {
       selectedAction = null;
@@ -3228,6 +3343,42 @@ cardPilesBody.addEventListener('click', event => {
 cardPilesDialog.addEventListener('submit', event => {
   if (!event.target.matches('form[data-command]')) return;
   submitGameForm(event);
+});
+adjustGameButton.addEventListener('click', showHostAdjust);
+hostAdjustTabs.addEventListener('click', event => {
+  const tab = event.target.closest('[data-adjust-tab]');
+  if (!tab || tab.dataset.adjustTab === adjustTab) return;
+  adjustTab = tab.dataset.adjustTab;
+  renderHostAdjust();
+});
+hostAdjustTabs.addEventListener('keydown', event => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const index = adjustRoles.indexOf(adjustTab);
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? adjustRoles.length - 1
+    : (index + (event.key === 'ArrowRight' ? 1 : -1) + adjustRoles.length) % adjustRoles.length;
+  adjustTab = adjustRoles[next];
+  renderHostAdjust();
+  hostAdjustTabs.querySelector(`[data-adjust-tab="${adjustTab}"]`)?.focus();
+});
+hostAdjustDialog.querySelector('[data-close-adjust]').addEventListener('click', () => hostAdjustDialog.close());
+hostAdjustDialog.querySelector('form[data-host-adjust]').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (busy || !state || state.role !== state.host) return;
+  const input = hostAdjustCommand();
+  busy = true;
+  message();
+  try {
+    const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+    const next = await request(`/api/rooms/${state.code}/command`, { ...input, id, revision: state.revision });
+    update(next);
+    hostAdjustDialog.close();
+    message('已套用房長調整。');
+  } catch (error) {
+    warning(error.message);
+  } finally {
+    busy = false;
+  }
 });
 voteResultDialog.addEventListener('submit', submitGameForm);
 voteResultDialog.addEventListener('cancel', event => {
