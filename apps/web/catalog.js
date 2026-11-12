@@ -18,9 +18,14 @@ const $ = id => document.getElementById(id);
 function buildGroups({ decks, marketSizes, policies, names, storage }) {
   const classes = Object.keys(names);
   const companyDecks = { working: 'cooperativeFarms', middle: 'middleCompanies', capitalist: 'capitalistCompanies', state: 'stateCompanies' };
+  const serialLabel = (index, copies) => {
+    const base = String(index + 1).padStart(2, '0');
+    return copies > 1 ? Array.from({ length: copies }, (_, copy) => `${base}-${copy + 1}`).join('、') : base;
+  };
   const group = (type, deck, title, roles, note, details, color = '') => ({
     type, title, roles, note, color,
-    entries: decks[deck].map(card => ({ ...card, rows: details(card), quantity: `×${card.copies} 張`,
+    entries: decks[deck].map((card, index) => ({ ...card, rows: details(card), quantity: `×${card.copies} 張`,
+      serial: type === 'action' ? serialLabel(index, card.copies) : '',
       ...(type === 'action' && { detail: catalogActionDetail(card) }) })),
   });
   const actionDetails = card => [
@@ -133,6 +138,7 @@ function entryTile(entry, group) {
     : goods[0] === 'food' ? 'industry-agriculture' : goods[0] === 'luxury' ? 'industry-luxury' : '';
   return `<article class="panel catalog-card ${palette}${entry.id === '自由貿易區' ? ' free-trade-tile' : ''}" data-card-type="${group.type}">
     <header><h3>${escape(entryTitle(entry, group))}${group.type === 'company' ? companyGear(entry) : ''}</h3><span class="catalog-count">${escape(entry.quantity)}</span>
+      ${entry.serial ? `<small class="catalog-serial" title="系統牌組序號">${escape(entry.serial)}</small>` : ''}
       ${badge ? `<small class="catalog-industry">${escape(badge)}</small>` : ''}</header>
     ${entry.name ? `<p class="catalog-english">${escape(entry.name)}</p>` : ''}
     ${entryDetails(entry, group)}

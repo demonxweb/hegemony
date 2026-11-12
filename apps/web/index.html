@@ -10,7 +10,6 @@
 <body>
   <header class="topbar">
     <a class="brand" href="/" aria-label="Hegemony 首頁"><img src="/assets/icons/vote.svg" alt=""><span>HEGEMONY<small>議事廳 <strong id="header-room-code" hidden></strong></small></span></a>
-    <span class="edition">四人連線試玩</span>
     <div id="header-room-actions" class="room-actions" hidden>
       <button id="return-lobby" type="button" hidden>回到大廳</button>
       <button id="copy-invite" type="button">複製邀請連結</button>
@@ -69,6 +68,13 @@
     </header>
     <div class="mat-help-tabs" role="tablist" aria-label="說明分類"></div>
     <p id="mat-help-description" role="tabpanel" tabindex="0"></p>
+  </dialog>
+  <dialog id="card-piles-dialog" class="action-confirmation" aria-labelledby="card-piles-title">
+    <header class="mat-help-header">
+      <h2 id="card-piles-title" tabindex="-1" autofocus>手牌庫</h2>
+      <form method="dialog"><button type="submit" aria-label="關閉">×</button></form>
+    </header>
+    <div class="card-piles-body" data-card-piles-body></div>
   </dialog>
   <div id="board-tooltip" class="board-tooltip" role="tooltip" hidden><strong></strong><p></p></div>
   <p id="notice" class="notice" role="alert" hidden></p>

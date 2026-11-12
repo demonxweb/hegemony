@@ -1,5 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import { catalogCard, catalogDecks, copies } from './content.mjs';
+import { catalogCard, catalogDecks } from './content.mjs';
 
 const scholarship = { key: 'scholarship', name: '國家獎學金', effect: 'service', resource: 'education', policy: 4,
   description: '按人口上限向國家買教育。總價折半向上取整，所屬階級合法性 +1。' };
@@ -50,12 +50,19 @@ function shuffle(cards) {
   return cards;
 }
 
+function cardSerial(index, copyIndex, copies) {
+  return `${String(index + 1).padStart(2, '0')}${copies > 1 ? `-${copyIndex + 1}` : ''}`;
+}
+
 export function createDecks(full = false) {
   if (full) return Object.fromEntries(Object.keys(definitions).map(role => [role, {
-    draw: shuffle(copies(catalogDecks[`${role}Actions`]).map(key => ({ id: randomUUID(), key }))), discard: [],
+    draw: shuffle(catalogDecks[`${role}Actions`].flatMap((card, index) => Array.from({ length: card.copies },
+      (_, copyIndex) => ({ id: randomUUID(), key: card.id, serial: cardSerial(index, copyIndex, card.copies) })))),
+    discard: [],
   }]));
   return Object.fromEntries(Object.entries(definitions).map(([role, cards]) => [role, {
-    draw: shuffle(cards.flatMap(card => Array.from({ length: card.copies }, () => ({ id: randomUUID(), key: card.key })))),
+    draw: shuffle(cards.flatMap((card, index) => Array.from({ length: card.copies },
+      (_, copyIndex) => ({ id: randomUUID(), key: card.key, serial: cardSerial(index, copyIndex, card.copies) })))),
     discard: [],
   }]));
 }
@@ -121,5 +128,5 @@ export function fillHand(game, role, size) {
 
 export function cardView(role, card) {
   const { key, name, asset, effect, policy, resource, description, policyAnyOf, legitimacy } = cardDefinition(role, card);
-  return { id: card.id, key, name, asset, effect, policy, resource, description, policyAnyOf, legitimacy };
+  return { id: card.id, key, name, asset, effect, policy, resource, description, policyAnyOf, legitimacy, serial: card.serial };
 }

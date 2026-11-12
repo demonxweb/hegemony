@@ -1236,6 +1236,19 @@ export function applyCommand(game, role, command, allSeated) {
     }
     return;
   }
+  if (type === 'swap-card') {
+    // 檢查用途：把手牌與待抽牌庫／棄牌堆中的指定卡牌交換，方便逐一驗證卡牌效果。
+    requireRule(game.decks?.[role], '目前對局沒有手牌庫資料。');
+    requireRule(['draw', 'discard'].includes(command.pile), '請選擇要交換的牌堆。');
+    const handIndex = player.hand.findIndex(card => card.id === command.handCardId);
+    requireRule(handIndex >= 0, '請選擇要交換的手牌。');
+    const pile = game.decks[role][command.pile];
+    const pileIndex = pile.findIndex(card => card.id === command.pileCardId);
+    requireRule(pileIndex >= 0, '請選擇牌堆中的卡牌。');
+    [player.hand[handIndex], pile[pileIndex]] = [pile[pileIndex], player.hand[handIndex]];
+    log(game, `測試：將手牌與${command.pile === 'draw' ? '待抽牌庫' : '棄牌堆'}的卡牌交換。`);
+    return;
+  }
   if (['wages', 'repay', 'benefits', 'buy-storage', 'use-education', 'use-health', 'use-luxury', 'swap-workers', 'adjust-prices', 'give-bonus'].includes(type)) {
     requireRule(!game.freeUsed, '此回合已執行免費行動。');
     if (type === 'wages') {
@@ -1378,6 +1391,10 @@ export function playerView(game, role) {
   return {
     phase, turn, currentRole: currentRole(game), canInvestFromDeck, mainUsed, freeUsed: Boolean(game.freeUsed), players,
     hand: hand.map(card => cardView(role, card)), publicServices, legitimacy, treasury,
+    cardPiles: game.decks?.[role] ? {
+      draw: game.decks[role].draw.map(card => cardView(role, card)),
+      discard: game.decks[role].discard.map(card => cardView(role, card)),
+    } : undefined,
     economy: economyView(game.economy),
     storageOptions: currentRole(game) === role && !game.freeUsed && !game.transaction ? purchasableStorage(game.economy, role) : [],
     educationOptions: currentRole(game) === role && !game.freeUsed && !game.transaction ? educationOptions(game, role) : null,

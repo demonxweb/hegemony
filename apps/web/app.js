@@ -24,6 +24,8 @@ const roundResultDialog = document.querySelector('#round-result-dialog');
 const matHelpDialog = document.querySelector('#mat-help-dialog');
 const matHelpTabs = matHelpDialog.querySelector('[role="tablist"]');
 const matHelpPanel = matHelpDialog.querySelector('[role="tabpanel"]');
+const cardPilesDialog = document.querySelector('#card-piles-dialog');
+const cardPilesBody = cardPilesDialog.querySelector('[data-card-piles-body]');
 
 // One label per paragraph after the optional opening setup paragraph.
 // Empty labels leave the paragraph in 基本說明.
@@ -1265,6 +1267,8 @@ function tableBoard() {
   const moves = assignmentMoves();
   const idle = economy?.workers.filter(worker => !worker.company && !economy.unions.includes(worker.id)
     && !plannedStaff.includes(worker.id) && !moves.some(move => move.worker === worker.id)) ?? [];
+  const farms = economy?.companies.filter(item => item.owner === 'working') ?? [];
+  const emptyFarms = Math.max(0, 2 - farms.length);
   const range = length => Array.from({ length }, (_, index) => index + 1);
   const rounds = track('輪次', range(5), (match?.round ?? 1) - 1);
   const multipliers = [1, 2, 3, 4, 5, 6, 7, 9, 11];
@@ -1384,7 +1388,8 @@ function tableBoard() {
           <div class="immigration-well" tabindex="0" aria-labelledby="immigration-label immigration-policy"
             ${tipAttrs('移民', [`目前政策 7${state.policies[6]}。準備階段，勞工與中產各自新增 ${meta.policyRules.immigration_extra_each_class[state.policies[6]]} 名移民工人。`])}>
             <span id="immigration-policy">政策 7${state.policies[6]}</span></div></div></section>
-      ${economy?.companies.some(item => item.owner === 'working') ? `<section class="board-zone cooperative-zone"><h3>${boardHeadingHelp('合作農場', '這裡放置勞工透過行動卡建立的合作農場。填滿必要工位後可在生產階段產出食物，供勞工滿足輪末需求。')}</h3><div class="sector-grid">${economy.companies.filter(item => item.owner === 'working').map(companyTile).join('')}</div></section>` : ''}
+      <section class="board-zone cooperative-zone"><h3>${boardHeadingHelp('合作農場', '這裡放置勞工透過行動卡建立的合作農場。填滿必要工位後可在生產階段產出食物，供勞工滿足輪末需求。')} <span>${farms.length} / 2</span></h3><div class="sector-grid">${farms.map(companyTile).join('')}${Array.from({ length: emptyFarms }, (_, index) =>
+        `<div class="sector-empty" aria-hidden="true">${String(farms.length + index + 1).padStart(2, '0')}</div>`).join('')}</div></section>
     </div></section>`;
 }
 
@@ -2362,14 +2367,88 @@ function handBoard(card) {
     '開局設置\n每個階級洗勻自己的行動牌庫，抽 7 張作為起始手牌。',
     '這裡顯示你目前持有的行動卡。其他玩家只看得到手牌張數。',
     '第 2 到第 5 輪的準備階段，保留還沒用掉的手牌，再抽牌補到 7 張。牌庫抽空時，將棄牌洗成新的牌庫。',
-    '選好手牌後，在主要行動選單選「卡牌效果」，即可在選單下方查看牌面說明。做主要行動時，可打出這張牌執行效果，或棄掉它來做基本行動。若牌上有政策等使用條件，必須符合條件才能執行牌上效果。')}</h2><span>${state.hand.length} 張</span></div>
-    <div class="hand-rack">${state.hand.map((item, index) => `<button type="button" class="hand-card" aria-pressed="${item.id === card?.id}"
+    '選好手牌後，在主要行動選單選「卡牌效果」，即可在選單下方查看牌面說明。做主要行動時，可打出這張牌執行效果，或棄掉它來做基本行動。若牌上有政策等使用條件，必須符合條件才能執行牌上效果。')}</h2>
+    <div class="desk-tools"><span>${state.hand.length} 張</span><button type="button" class="pile-button" data-card-piles
+      aria-haspopup="dialog" aria-label="查看手牌庫與已使用的手牌" title="查看手牌庫與已使用的手牌">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10 12 3l9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>
+    </button></div></div>
+    <div class="hand-rack">${state.hand.map(item => `<button type="button" class="hand-card" aria-pressed="${item.id === card?.id}"
       data-card="${escape(item.id)}" ${tipAttrs(item.name, [item.description, item.policyAnyOf?.length && `適用政策 · ${item.policyAnyOf.join('／')}`, item.legitimacy && `合法性 · ${item.legitimacy}`])}>
       <svg viewBox="0 0 70 86" aria-hidden="true">
         <path d="M8 22h54m-54 52h54M54 1l15 15"/><circle cx="35" cy="48" r="13"/>
-      </svg><small>${String(index + 1).padStart(2, '0')}</small><strong>${escape(item.name)}</strong></button>`).join('')}</div>
+      </svg>${item.serial ? `<small class="card-serial">${escape(item.serial)}</small>` : ''}<strong>${escape(item.name)}</strong></button>`).join('')}</div>
     ${state.hand.length ? '' : '<p class="muted">沒有手牌。</p>'}
     </section>`;
+}
+
+let selectedPileCard;
+function cardPileTile(item, pile) {
+  return `<button type="button" class="pile-card" data-pile-card="${escape(item.id)}" data-pile="${pile}"
+    aria-pressed="${selectedPileCard?.pile === pile && selectedPileCard?.id === item.id}"
+    ${tipAttrs(item.name, [item.description,
+    item.policyAnyOf?.length && `適用政策 · ${item.policyAnyOf.join('／')}`, item.legitimacy && `合法性 · ${item.legitimacy}`])}>
+    ${item.serial ? `<small class="card-serial">${escape(item.serial)}</small>` : ''}
+    <strong>${escape(item.name)}</strong>${item.policyAnyOf?.length ? `<small>${escape(item.policyAnyOf.join('／'))}</small>` : ''}</button>`;
+}
+
+function cardPileSection(title, cards, pile) {
+  // 檢查用途：照實際牌堆順序顯示；draw 使用 pop 抽牌，反轉後左起即為接下來依序抽出的牌。
+  return `<section class="card-pile"><h3>${title} <span>${cards.length} 張</span></h3>
+    ${cards.length ? `<div class="pile-grid">${[...cards].reverse().map(card => cardPileTile(card, pile)).join('')}</div>` : '<p class="muted">目前沒有牌。</p>'}</section>`;
+}
+
+function pileSwapForm() {
+  if (!state.hand.length) return '<p class="muted pile-swap-empty">目前沒有手牌可交換。</p>';
+  const piles = [...state.cardPiles.draw, ...state.cardPiles.discard];
+  const chosen = piles.find(card => card.id === selectedPileCard?.id);
+  const status = chosen ? `已選取：${chosen.serial ? `${chosen.serial} ` : ''}${chosen.name}` : '請先點選上方牌堆中的一張牌。';
+  return `<form class="pile-swap" data-command="swap-card">
+    <p class="pile-selection" data-pile-selection>${escape(status)}</p>
+    <label>交換成手牌
+      <select name="handCardId">${state.hand.map(card => `<option value="${escape(card.id)}">${escape(card.serial ? `${card.serial}　${card.name}` : card.name)}</option>`).join('')}</select>
+    </label>
+    <button type="submit" ${chosen ? '' : 'disabled'}>交換</button>
+    <input type="hidden" name="pileCardId" value="${escape(selectedPileCard?.id ?? '')}">
+    <input type="hidden" name="pile" value="${escape(selectedPileCard?.pile ?? '')}">
+  </form>`;
+}
+
+function renderCardPiles() {
+  cardPilesDialog.className = `action-confirmation ${state.role}`;
+  if (!state.cardPiles) {
+    cardPilesBody.innerHTML = '<p class="muted">目前對局沒有手牌庫資料。</p>';
+    return;
+  }
+  if (selectedPileCard && ![...state.cardPiles.draw, ...state.cardPiles.discard].some(card => card.id === selectedPileCard.id)) {
+    selectedPileCard = undefined;
+  }
+  cardPilesBody.innerHTML = cardPileSection('待抽牌庫', state.cardPiles.draw, 'draw')
+    + cardPileSection('已使用的手牌', state.cardPiles.discard, 'discard')
+    + pileSwapForm()
+    + '<p class="muted pile-note">待抽牌庫左起為接下來依序抽出的牌。已使用的手牌會先進入棄牌堆；待抽牌庫抽空後，下一次補牌（第 2～5 輪準備階段）才把棄牌洗成新牌庫。此檢查檢視目前照實際牌堆順序顯示，正式版會隱藏。</p>';
+}
+
+function selectPileCard(button) {
+  const id = button.dataset.pileCard;
+  const pile = button.dataset.pile;
+  const same = selectedPileCard?.id === id && selectedPileCard?.pile === pile;
+  selectedPileCard = same ? undefined : { id, pile };
+  cardPilesBody.querySelectorAll('[data-pile-card]').forEach(card => card.setAttribute('aria-pressed',
+    String(Boolean(selectedPileCard) && card.dataset.pileCard === selectedPileCard.id && card.dataset.pile === selectedPileCard.pile)));
+  const form = cardPilesBody.querySelector('form[data-command="swap-card"]');
+  if (!form) return;
+  form.querySelector('[name="pileCardId"]').value = selectedPileCard?.id ?? '';
+  form.querySelector('[name="pile"]').value = selectedPileCard?.pile ?? '';
+  form.querySelector('button[type="submit"]').disabled = !selectedPileCard;
+  const chosen = selectedPileCard && [...state.cardPiles.draw, ...state.cardPiles.discard].find(card => card.id === selectedPileCard.id);
+  form.querySelector('[data-pile-selection]').textContent = chosen
+    ? `已選取：${chosen.serial ? `${chosen.serial} ` : ''}${chosen.name}`
+    : '請先點選上方牌堆中的一張牌。';
+}
+
+function showCardPiles() {
+  renderCardPiles();
+  if (!cardPilesDialog.open) cardPilesDialog.showModal();
 }
 
 function playerInfoTabs() {
@@ -2711,6 +2790,7 @@ function render() {
   const food = app.querySelector('[data-command="food"]');
   if (food) updateFoodEstimate(food);
   for (const form of app.querySelectorAll('[data-command]')) scheduleActionCheck(form);
+  if (cardPilesDialog.open) renderCardPiles();
 }
 
 function wasRestored(next) {
@@ -2896,6 +2976,11 @@ function readCommand(form, fields) {
       .map(([key, value]) => [key.slice(5), Number(value)]));
     if (fields.has('personalFood')) input.personalFood = Number(fields.get('personalFood'));
   }
+  if (input.type === 'swap-card') {
+    input.handCardId = fields.get('handCardId');
+    input.pileCardId = fields.get('pileCardId');
+    input.pile = fields.get('pile');
+  }
   input.offers = [...fields.getAll('offer').map(Number), ...[...fields].filter(([key]) => key.startsWith('export-'))
     .flatMap(([key, value]) => Array.from({ length: Number(value) }, () => Number(key.slice(7))))];
   return input;
@@ -3037,6 +3122,14 @@ app.addEventListener('invalid', event => {
 }, true);
 electionDialog.addEventListener('submit', submitGameForm);
 electionDialog.querySelector('[data-close-election]').addEventListener('click', () => electionDialog.close());
+cardPilesBody.addEventListener('click', event => {
+  const button = event.target.closest('[data-pile-card]');
+  if (button) selectPileCard(button);
+});
+cardPilesDialog.addEventListener('submit', event => {
+  if (!event.target.matches('form[data-command]')) return;
+  submitGameForm(event);
+});
 voteResultDialog.addEventListener('submit', submitGameForm);
 voteResultDialog.addEventListener('cancel', event => {
   if (pendingVoteDialogId) event.preventDefault();
@@ -3244,6 +3337,10 @@ app.addEventListener('click', async event => {
   const matHelp = event.target.closest('[data-mat-help]');
   if (matHelp) {
     openMatHelp(matHelp.dataset.matHelp, matHelp.dataset.description);
+    return;
+  }
+  if (event.target.closest('[data-card-piles]')) {
+    showCardPiles();
     return;
   }
   if (event.target.closest('[data-open-election]')) {

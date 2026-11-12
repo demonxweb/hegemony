@@ -54,6 +54,8 @@
 .catalog-card h3 { font-size: 1rem; }
 .catalog-industry { justify-self: start; margin-right: auto; border-radius: 4px; padding: 2px 5px; background: var(--catalog-industry); color: #111922; font-size: .71rem; font-weight: 750; }
 .catalog-count { color: var(--gold); white-space: nowrap; font-size: .76rem; }
+.catalog-serial { padding: 1px 5px; border: 1px solid color-mix(in srgb, var(--role, #8fa8c4) 55%, #4c637c); border-radius: 4px;
+  color: var(--role, #c7d6e6); font-size: .7rem; font-variant-numeric: tabular-nums; letter-spacing: .02em; white-space: nowrap; }
 .catalog-card .catalog-english { margin-top: 4px; color: var(--muted); font-size: .78rem; }
 .catalog-details { display: grid; gap: 5px; margin: 10px 0 0; font-size: .86rem; line-height: 1.55; }
 .catalog-details > div { display: grid; grid-template-columns: minmax(5em, auto) minmax(0, 1fr); gap: 8px; }
