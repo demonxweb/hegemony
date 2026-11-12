@@ -43,7 +43,7 @@ export function createPlayerAccounts({ getSetting, insertSetting, listSettings, 
       const existing = findByName(name);
       if (register && existing) throw new GameError('這個暱稱已被使用。', 409);
       const salt = existing?.salt ?? randomBytes(16).toString('hex');
-      const hash = await passwordHash(password, salt);
+      const hash = await passwordHash(password, salt, existing?.hash);
       if (register) {
         const id = randomBytes(16).toString('hex');
         if (findByName(name) || !insertSetting(playerPrefix + id, JSON.stringify({ name, salt, hash }))) {

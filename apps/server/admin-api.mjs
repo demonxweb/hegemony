@@ -38,7 +38,7 @@ export function createAdminApi({ getSetting, insertSetting, listSettings, update
       attempt.count++;
       attempts.set(client, attempt);
       const [salt, hash] = stored ? stored.split(':') : [randomBytes(16).toString('hex')];
-      const computed = await passwordHash(password, salt);
+      const computed = await passwordHash(password, salt, hash);
       if (setup) {
         if (!insertSetting('admin-password', `${salt}:${computed}`)) throw new GameError('管理密碼已設定，請登入。', 409);
       } else if (!same(hash, computed)) {
