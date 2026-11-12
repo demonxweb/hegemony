@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { cardDefinition } from '../packages/engine/cards.mjs';
-import { addWorker, company } from '../packages/engine/companies.mjs';
+import { addWorker, company, companyDefinition } from '../packages/engine/companies.mjs';
 import { catalogDecks } from '../packages/engine/content.mjs';
 import { eventSpec } from '../packages/engine/events.mjs';
 import { applyCommand, createGame, playerView } from '../packages/engine/game.mjs';
@@ -49,6 +49,44 @@ test('Pressing Matters offers free immediate voting or a scheduled bill', () => 
     assert.equal(lastVote.id, electionId);
     assert.deepEqual(voteResults, [lastVote]);
   }
+});
+
+test('Investment Opportunities checks deck affordability before consuming the card', () => {
+  const role = 'capitalist';
+  const card = { id: 'investment', key: 'action-capitalist-investment-opportunities' };
+  const game = createGame();
+  game.phase = 'action';
+  game.turn = 2;
+  game.players[role].hand = [card];
+  game.players[role].revenue = game.players[role].capital = 0;
+  const play = { type: 'play', cardId: card.id, fromDeck: true };
+  assert.equal(playerView(game, role).canInvestFromDeck, false);
+  assert.throws(() => applyCommand(game, role, play, true), /沒有付得起/);
+  assert.equal(game.phase, 'action');
+  assert.deepEqual(game.players[role].hand, [card]);
+
+  const legacy = structuredClone(game);
+  legacy.phase = 'card-choice';
+  legacy.mainUsed = true;
+  legacy.decks[role].discard.push(legacy.players[role].hand.pop());
+  legacy.content.cardChoice = { role, effect: 'investment-build', options: legacy.economy.companyDecks[role] };
+  applyCommand(legacy, role, { type: 'card-choice', option: 'cancel-investment' }, true);
+  assert.equal(legacy.phase, 'action');
+  assert.equal(legacy.mainUsed, false);
+  assert.deepEqual(legacy.players[role].hand, [card]);
+
+  const cheapest = Math.min(...game.economy.companyDecks[role].map(id => companyDefinition(id).cost)) + 10;
+  game.players[role].revenue = cheapest;
+  assert.equal(playerView(game, role).canInvestFromDeck, true);
+  applyCommand(game, role, play, true);
+  assert.equal(playerView(game, 'working').content.cardChoice, undefined);
+  const options = playerView(game, role).content.cardChoice.cards;
+  assert(options.some(item => !item.blocked && item.actualCost === cheapest));
+  assert(options.some(item => item.blocked === '資金不足' && item.actualCost > cheapest));
+  const selected = options.find(item => !item.blocked);
+  applyCommand(game, role, { type: 'card-choice', company: selected.id, wage: 3 }, true);
+  assert.equal(game.phase, 'action');
+  assert.equal(game.players[role].revenue, 0);
 });
 
 test('Current deals, export offers and saved import overrides affect trade', () => {

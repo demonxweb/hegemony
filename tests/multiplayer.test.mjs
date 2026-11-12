@@ -10,6 +10,91 @@ import test from 'node:test';
 
 const roles = ['working', 'middle', 'capitalist', 'state'];
 
+test('waiting room starts only after four distinct roles and four current confirmations', async () => {
+  const store = await mkdtemp(join(tmpdir(), 'hegemony-waiting-'));
+  let server;
+  try {
+    server = await startServer(store, false, false);
+    async function request(path, { body, token, presence, status = 200, method = body ? 'POST' : 'GET' } = {}) {
+      const response = await fetch(server.origin + path, {
+        method,
+        headers: { ...(body && { 'Content-Type': 'application/json' }), ...(token && { Authorization: `Bearer ${token}` }), ...(presence && { 'X-Room-Presence': '1' }) },
+        body: body && JSON.stringify(body),
+      });
+      const data = await response.json();
+      assert.equal(response.status, status, JSON.stringify(data));
+      return data;
+    }
+    await request('/api/rooms', { body: {}, status: 401 });
+    const accounts = [];
+    for (const name of ['Host', ...roles.slice(1)]) {
+      accounts.push(await request('/api/player/register', { body: { name, password: 'p' } }));
+    }
+    const host = await request('/api/rooms', { body: {}, token: accounts[0].token, status: 201 });
+    const path = '/api/rooms/' + host.code;
+    const tokens = [host.token];
+    for (const account of accounts.slice(1)) tokens.push((await request(path + '/join', { body: {}, token: account.token })).token);
+    assert.equal((await request(path + '/join', { body: {}, token: accounts[0].token })).token, host.token);
+    const hostView = await request(path, { token: host.token, presence: true });
+    assert.equal(hostView.presence[hostView.role], true);
+    assert.equal(Object.values(hostView.presence).filter(Boolean).length, 1);
+    const guestView = await request(path, { token: tokens[1], presence: true });
+    assert.equal(guestView.presence[hostView.role], true);
+    assert.equal(guestView.presence[guestView.role], true);
+    assert.equal(guestView.revision, hostView.revision);
+    const change = (index, body, status) => request(path + '/waiting', { token: tokens[index], body, status });
+    for (let index = 0; index < roles.length; index++) await change(index, { type: 'select', role: roles[index] });
+    const conflict = await change(1, { type: 'select', role: 'working' });
+    assert.equal(conflict.waiting.players.filter(player => player.role === 'working').length, 2);
+    assert(conflict.waiting.players.every(player => !Object.hasOwn(player, 'key')));
+    await change(0, { type: 'ready', selectionRevision: conflict.waiting.selectionRevision }, 400);
+    const resolved = await change(1, { type: 'select', role: 'middle' });
+    const ready = { type: 'ready', selectionRevision: resolved.waiting.selectionRevision };
+    await change(0, { type: 'ready', selectionRevision: conflict.waiting.selectionRevision }, 400);
+    await change(0, ready);
+    await change(0, { type: 'cancel' });
+    const others = await Promise.all([1, 2, 3].map(index => change(index, ready)));
+    assert(others.every(view => view.phase === 'lobby'));
+    assert.equal((await change(0, ready)).phase, 'action');
+    for (const [index, token] of tokens.entries()) {
+      const view = await request(path, { token, presence: true });
+      assert.equal(view.role, roles[index]);
+      assert.equal(view.phase, 'action');
+      assert.equal(view.presence.working, true);
+      assert.equal(view.presence.middle, true);
+    }
+    await server.stop();
+    server = await startServer(store, false, false);
+    const login = await request('/api/player/login', { body: { name: 'Host', password: 'p' } });
+    const { rooms } = await request('/api/player/rooms', { token: login.token });
+    assert.deepEqual(rooms.map(({ code, host }) => ({ code, host })), [{ code: host.code, host: true }]);
+    assert.equal((await request(path + '/join', { body: {}, token: login.token })).token, host.token);
+    const guestRooms = await request('/api/player/rooms', { token: accounts[1].token });
+    assert.equal(guestRooms.rooms[0].host, false);
+    await request('/api/admin/players', { token: login.token, status: 401 });
+    const admin = await request('/api/admin/setup', { body: { password: 'a' } });
+    const { players } = await request('/api/admin/players', { token: admin.token });
+    const playerPath = '/api/admin/players/' + players.find(player => player.name === 'Host').id;
+    await request(playerPath, { method: 'PATCH', token: admin.token, body: { name: 'Renamed' } });
+    assert.equal((await request('/api/player/rooms', { token: login.token })).name, 'Renamed');
+    await request(playerPath, { method: 'PATCH', token: admin.token, body: { name: 'Renamed', password: '短' } });
+    await request('/api/player/login', { body: { name: 'Renamed', password: '短' } });
+    await request(playerPath, { method: 'PATCH', token: admin.token, body: { name: 'Renamed', password: '新'.repeat(150) } });
+    await request('/api/player/rooms', { token: login.token, status: 401 });
+    await request(path, { token: host.token, status: 401 });
+    const renamed = await request('/api/player/login', { body: { name: 'Renamed', password: '新'.repeat(150) } });
+    const returned = await request(path + '/join', { body: {}, token: renamed.token });
+    assert.equal((await request(path, { token: returned.token })).role, 'working');
+    await request(playerPath, { method: 'DELETE', token: admin.token });
+    await request(path, { token: returned.token, status: 401 });
+    await request('/api/player/login', { body: { name: 'Renamed', password: '新'.repeat(150) }, status: 401 });
+  } finally {
+    await server?.stop();
+    for (const file of await readdir(store)) await rm(join(store, file));
+    await rmdir(store);
+  }
+});
+
 function storedRoom(store, code) {
   const db = new DatabaseSync(join(store, 'rooms.sqlite'), { readOnly: true });
   try {
@@ -23,6 +108,14 @@ async function confirmVote(command, current) {
   const electionId = current.lastVote.id;
   for (const role of roles.filter(seat => !current.voteConfirmation.confirmed.includes(seat))) {
     current = await command(role, { type: 'confirm-vote', electionId });
+  }
+  return current;
+}
+
+async function confirmProduction(command, current) {
+  while (current.phase === 'production-confirm') {
+    const { role, stage } = current.match.productionStep;
+    current = await command(role, { type: 'production-confirm', option: stage });
   }
   return current;
 }
@@ -175,18 +268,22 @@ test('four connected seats complete five rounds using the full catalog', { timeo
       }
       let current = await snapshot('state');
       assert.equal(current.match.roundPhase, 'production');
+      assert.equal(current.match.productionStep.role, 'state');
+      assert.equal(current.match.productionStep.stage, 'wages');
+      current = await confirmProduction(command, current);
       assert.equal(current.match.needsRole, 'middle');
       assert(current.economy.production.length > 0);
       for (const player of Object.values(current.players)) assert.equal(player.handCount, 2);
       const policiesVoted = [];
-      while (['needs', 'election', 'vote-confirmation', 'event-penalty', 'policy-choice'].includes(current.phase)) {
+      while (['needs', 'election', 'vote-confirmation', 'event-penalty', 'policy-choice', 'production-confirm'].includes(current.phase)) {
         if (current.phase !== 'policy-choice') assert.equal(current.match.roundPhase,
-          { needs: 'production', election: 'elections', 'vote-confirmation': 'elections', 'event-penalty': 'scoring' }[current.phase]);
+          { needs: 'production', 'production-confirm': 'production', election: 'elections', 'vote-confirmation': 'elections', 'event-penalty': 'scoring' }[current.phase]);
         if (current.phase === 'election' && policiesVoted.at(-1) !== current.election.bill.policy) {
           assert(current.election.bill.policy > (policiesVoted.at(-1) ?? -1));
           policiesVoted.push(current.election.bill.policy);
         }
-        if (current.phase === 'policy-choice') current = await settlePolicy(command, current);
+        if (current.phase === 'production-confirm') current = await confirmProduction(command, current);
+        else if (current.phase === 'policy-choice') current = await settlePolicy(command, current);
         else if (current.phase === 'vote-confirmation') current = await confirmVote(command, current);
         else if (current.transaction) current = await command(current.transaction.role, { type: 'transaction-confirm' });
         else if (current.phase === 'needs') current = await command(current.match.needsRole, { type: 'food', quantities: {} });
@@ -293,9 +390,10 @@ test('single-action previews are read-only and a confirmed purchase can fund a f
   }
 });
 
-async function startServer(store, trial = true, entry = 'server') {
-  const child = spawn(process.execPath, [`apps/server/${entry}.mjs`], {
-    env: { ...process.env, PORT: '0', HOST: '127.0.0.1', HEGEMONY_STORE: store, HEGEMONY_TEST_TRIAL: trial ? '1' : '0' },
+async function startServer(store, trial = true, legacyRooms = true) {
+  const child = spawn(process.execPath, ['apps/server/server.mjs'], {
+    env: { ...process.env, PORT: '0', HOST: '127.0.0.1', HEGEMONY_STORE: store, HEGEMONY_TEST_TRIAL: trial ? '1' : '0',
+      HEGEMONY_TEST_LEGACY_ROOMS: legacyRooms ? '1' : '0' },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   const [data] = await Promise.race([
@@ -312,21 +410,29 @@ async function startServer(store, trial = true, entry = 'server') {
   };
 }
 
-test('Quick creates four seats and reload preserves room state and seat credentials, and only the host can delete the save', { timeout: 15000 }, async () => {
-  const store = await mkdtemp(join(tmpdir(), 'hegemony-quick-'));
+test('Room saves survive a restart and only the host can save, restore or delete them', { timeout: 15000 }, async () => {
+  const store = await mkdtemp(join(tmpdir(), 'hegemony-save-'));
   let server;
   try {
-    server = await startServer(store, true, 'launcher');
+    server = await startServer(store);
     const request = (path, options) => fetch(server.origin + path, options);
     const post = (path, body, token) => request(path, {
       method: 'POST', body: JSON.stringify(body),
       headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
     });
-    const created = await post('/api/quick-room', {});
+    assert.equal((await request('/quick')).status, 404);
+    assert.equal((await post('/api/quick-room', {})).status, 404);
+    assert.equal((await post('/api/quick-reload', {})).status, 404);
+    const created = await post('/api/rooms', { role: 'working', name: 'Host' });
     assert.equal(created.status, 201);
-    const { code, seats, ...extra } = await created.json();
-    assert.deepEqual(extra, {});
+    const { code, token } = await created.json();
     const path = `/api/rooms/${code}`;
+    const seats = { working: { token } };
+    for (const role of roles.slice(1)) {
+      const joined = await post(path + '/join', { role, name: role });
+      assert.equal(joined.status, 200);
+      seats[role] = await joined.json();
+    }
     const room = (role, method = 'GET') => request(path, { method, headers: { Authorization: `Bearer ${seats[role].token}` } });
     const lobby = await (await room('working')).json();
     assert.equal((await post(`${path}/command`, { type: 'start', id: randomUUID(), revision: lobby.revision }, seats.working.token)).status, 200);
@@ -344,49 +450,51 @@ test('Quick creates four seats and reload preserves room state and seat credenti
     }));
     const before = await views();
     assert(before.every(view => view.phase === 'action'));
-    const savePath = `${path}/save`;
+    const savePath = `${path}/saves`;
+    const restorePath = `${path}/restore`;
+    const hostToken = seats.working.token;
     const withSeat = role => ({ headers: { Authorization: `Bearer ${seats[role].token}` } });
+    assert.equal((await request(path + '/save', withSeat('working'))).status, 404);
     assert.equal((await request(savePath, withSeat('middle'))).status, 403);
-    const exported = await request(savePath, withSeat('working'));
-    assert.equal(exported.status, 200);
-    const save = await exported.json();
-    assert.deepEqual(Object.keys(save), ['version', 'game', 'signature']);
-    assert(roles.every(role => save.game.players[role].hand.length > 0));
+    const savedResponse = await post(savePath, { revision: before[0].revision }, hostToken);
+    assert.equal(savedResponse.status, 201);
+    const record = await savedResponse.json();
+    assert.deepEqual(Object.keys(record), ['id', 'createdAt']);
+    const other = await (await post('/api/rooms', { role: 'working', name: 'Other host' })).json();
+    const otherPath = `/api/rooms/${other.code}`;
+    assert.equal((await post(otherPath + '/restore', { revision: 1, id: record.id }, other.token)).status, 404);
+    assert.equal((await request(otherPath, { method: 'DELETE', headers: { Authorization: `Bearer ${other.token}` } })).status, 200);
     const savedPath = join(store, `${code}.json`);
     const saved = storedRoom(store, code);
     await writeFile(savedPath, JSON.stringify({ ...saved, godKey: 'legacy-key', history: [], rewindRevision: 1 }));
-    const reload = await post('/api/quick-reload', {});
-    assert.equal(reload.status, 202);
-    const { instance } = await reload.json();
-    let restarted = false;
-    for (let attempt = 0; attempt < 40 && !restarted; attempt++) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      const current = await request('/api/meta').then(response => response.json()).catch(() => null);
-      restarted = Boolean(current?.instance && current.instance !== instance);
-    }
-    assert(restarted);
+    await server.stop();
+    server = await startServer(store);
     assert.deepEqual(await views(), before);
-    const hostToken = seats.working.token;
+    assert.deepEqual(await (await request(savePath, withSeat('working'))).json(), { saves: [{ ...record, round: 1, turn: 0, phase: 'action' }] });
     const cardId = before[0].hand[0].id;
     const played = await post(`${path}/action-confirm`, { type: 'pressure', id: randomUUID(), revision: before[0].revision, cardId }, hostToken);
     assert.equal(played.status, 200);
     const changed = await played.json();
     assert.equal(changed.mainUsed, true);
-    const restore = { revision: changed.revision, save };
-    assert.equal((await post(savePath, restore, seats.middle.token)).status, 403);
-    const tampered = { ...save, game: { ...save.game, treasury: 123456 } };
-    assert.equal((await post(savePath, { ...restore, save: tampered }, hostToken)).status, 400);
-    assert.equal((await post(savePath, { ...restore, revision: before[0].revision }, hostToken)).status, 409);
-    assert.equal((await post(savePath, restore, hostToken)).status, 200);
+    const restore = { revision: changed.revision, id: record.id };
+    assert.equal((await post(restorePath, restore, seats.middle.token)).status, 403);
+    assert.equal((await post(restorePath, { ...restore, revision: before[0].revision }, hostToken)).status, 409);
+    assert.equal((await post(restorePath, restore, hostToken)).status, 200);
     const after = await views();
     assert.deepEqual(after, before.map(view => ({ ...view, revision: changed.revision + 1, restoredRevision: changed.revision + 1 })));
     assert.equal((await room('middle', 'DELETE')).status, 403);
     assert.equal((await room('working', 'DELETE')).status, 200);
     assert.equal((await room('working')).status, 404);
     await server.stop();
-    server = await startServer(store, true, 'launcher');
+    server = await startServer(store);
     assert.equal((await room('working')).status, 404);
-    assert.deepEqual((await readdir(store)).sort(), ['.save-key', `${code}.json`, 'rooms.sqlite'].sort());
+    const db = new DatabaseSync(join(store, 'rooms.sqlite'), { readOnly: true });
+    try {
+      assert.equal(db.prepare('SELECT COUNT(*) AS count FROM room_saves WHERE code = ?').get(code).count, 0);
+    } finally {
+      db.close();
+    }
+    assert.deepEqual((await readdir(store)).sort(), [`${code}.json`, 'rooms.sqlite'].sort());
   } finally {
     await server?.stop();
     for (const file of await readdir(store)) await rm(join(store, file));
@@ -505,7 +613,14 @@ test('four seats can finish five rounds and recover a private ballot after serve
       await command(role, action);
       await command(role, { type: 'end' });
     }
-    const produced = await snapshot('middle');
+    const wages = await snapshot('state');
+    assert.equal(wages.match.productionStep.stage, 'wages');
+    assert.deepEqual(wages.economy.production, []);
+    await command('middle', { type: 'production-confirm', option: 'wages' }, 400);
+    const statePaid = await command('state', { type: 'production-confirm', option: 'wages' });
+    assert.equal(statePaid.match.productionStep.stage, 'goods');
+    assert.deepEqual(statePaid.economy.production, []);
+    const produced = await confirmProduction(command, await snapshot('middle'));
     assert.equal(produced.phase, 'needs');
     assert.equal(produced.treasury, 60);
     assert.equal(produced.players.capitalist.revenue, 22);
@@ -517,7 +632,7 @@ test('four seats can finish five rounds and recover a private ballot after serve
     await command('working', { type: 'food', quantities: {} }, 400);
     await command('middle', { type: 'food', quantities: {} });
     await command('working', { type: 'food', quantities: { capitalist: 4 } }, 400);
-    const pending = await command('working', { type: 'food', quantities: { capitalist: 3 } });
+    const pending = await confirmProduction(command, await command('working', { type: 'food', quantities: { capitalist: 3 } }));
     assert.equal(pending.phase, 'election');
     assert.equal(pending.election.bill.policy, 5);
     for (const role of ['working', 'capitalist', 'state']) await command(role, { type: 'side', side: 'for' });
@@ -564,9 +679,14 @@ test('four seats can finish five rounds and recover a private ballot after serve
         await command(role, action);
         await command(role, { type: 'end' });
       }
+      await confirmProduction(command, await snapshot('state'));
       await command('middle', { type: 'food', quantities: {} });
-      let current = await command('working', { type: 'food', quantities: {} });
-      while (['election', 'vote-confirmation', 'policy-choice'].includes(current.phase)) {
+      let current = await confirmProduction(command, await command('working', { type: 'food', quantities: {} }));
+      while (['election', 'vote-confirmation', 'policy-choice', 'production-confirm'].includes(current.phase)) {
+        if (current.phase === 'production-confirm') {
+          current = await confirmProduction(command, current);
+          continue;
+        }
         if (current.phase === 'vote-confirmation') {
           current = await confirmVote(command, current);
           continue;

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>管理介面 · Hegemony</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/admin.js"></script>
+</head>
+<body>
+  <main class="lobby">
+    <section class="panel">
+      <h1>管理介面</h1>
+      <p><a href="/">返回遊戲大廳</a></p>
+      <p id="admin-notice" role="status"></p>
+      <form id="admin-login" hidden>
+        <label>管理密碼<input name="password" type="password" required></label>
+        <button class="primary" type="submit">登入</button>
+      </form>
+      <div id="admin-dashboard" hidden>
+        <button type="button" id="admin-refresh">重新整理</button>
+        <button type="button" id="admin-logout">登出</button>
+        <div class="mat-help-tabs admin-tabs" role="tablist" aria-label="管理功能">
+          <button type="button" id="admin-rooms-tab" role="tab" aria-selected="true" aria-controls="admin-rooms-panel">房間管理</button>
+          <button type="button" id="admin-players-tab" role="tab" aria-selected="false" aria-controls="admin-players-panel" tabindex="-1">帳號管理</button>
+        </div>
+        <section class="admin-tab-panel" id="admin-rooms-panel" role="tabpanel" aria-labelledby="admin-rooms-tab" tabindex="0">
+        <p id="admin-empty" hidden>目前沒有房間。</p>
+        <div class="settlement-table-scroll">
+          <table class="settlement-table">
+            <thead><tr><th scope="col">房間代碼</th><th scope="col">階段</th><th scope="col">輪次</th>
+              <th scope="col">已入座</th><th scope="col">操作</th></tr></thead>
+            <tbody id="admin-room-list"></tbody>
+          </table>
+        </div>
+        </section>
+        <section class="admin-tab-panel" id="admin-players-panel" role="tabpanel" aria-labelledby="admin-players-tab" tabindex="0" hidden>
+          <p id="admin-players-empty" hidden>目前沒有玩家帳號。</p>
+          <div id="admin-player-list"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+  <dialog id="warning-dialog" class="action-confirmation warning-dialog" aria-labelledby="warning-title" aria-describedby="warning-text">
+    <h2 id="warning-title">警告</h2>
+    <p id="warning-text"></p>
+    <form method="dialog" class="buttons"><button class="primary" autofocus>確定</button></form>
+  </dialog>
+</body>
+</html>

@@ -1,16 +1,16 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import base from '../../data/hegemony-v1.2-data.json' with { type: 'json' };
-import { activeCompany, addWorker, adjustWages, assign, build, companyAction, companyDefinition, createEconomy, credit, demonstrationStatus, economyView, funds, hirePublicCompany, hireUnemployed, makeFarm, operational,
+import { activeCompany, addWorker, adjustWages, assign, build, canStaffInvestment, companyAction, companyDefinition, createEconomy, credit, demonstrationStatus, economyView, funds, hirePublicCompany, hireUnemployed, makeFarm, operational,
   operationalCount, outsideEmployers, ownedCompanies, pay, produceCompany, refreshMarket, replacePublicCompany, sellCompany,
-  publicHiringChoices, publicSectorChoices, resizePublicSector, setWagePolicy, syncPublicStorage, unionMember, updateUnions, workerSupply, workplace } from './companies.mjs';
+  productionOrder, productionPlans, publicHiringChoices, publicSectorChoices, resizePublicSector, setWagePolicy, syncPublicStorage, unionMember, updateUnions, workerSupply, workplace } from './companies.mjs';
 import { cardDefinition, cardView, createDecks, fillHand } from './cards.mjs';
 import { catalogCard, createRoundContent, eventDraw, revealStateContent, revealTradeContent } from './content.mjs';
 import { adjustLegitimacy, choosePenalty, completeIndustry, eventPenalties, eventView, legitimacyToken, provide, resolveEvent, takeBenefits, transferPersonalBenefit } from './events.mjs';
 import { businessDeal, buyGoods, sellToState, specialExport } from './trade.mjs';
 import { GameError, requireRule } from './errors.mjs';
 import { adjustPrices, marketQuote } from './prices.mjs';
-import { advanceWorkerArrivals, beginPreparation, checkIMF, coverNeeds, createMatch, exportGoods, exportOffers, finalScore, finishIMF, gainMiddleProsperity,
-  legacyPreparation, matches, matchView, openNeeds, payTaxes, population, prepareWorkers, produceRound, quoteFood, recordResourceSale, repayLoan, scoreRound,
+import { advanceWorkerArrivals, beginPreparation, beginProduction, checkIMF, completeProduction, coverNeeds, createMatch, createTaxSettlement, exportGoods, exportOffers, finalScore, finishIMF, gainMiddleProsperity,
+  legacyPreparation, matches, matchView, openNeeds, payTaxStep, population, prepareWorkers, produceRound, quoteFood, recordResourceSale, repayLoan, scoreRound, settleProductionStep,
   stateElectionInfluence, supplyInfluence, taxMultiplier } from './rounds.mjs';
 
 export { GameError } from './errors.mjs';
@@ -177,7 +177,7 @@ function resumePolicy(game, resume) {
   updateUnions(game.economy);
   if (resume === 'imf') {
     game.match.needs.imf = finishIMF(game, game.match.needs.imf);
-    finishProduction(game);
+    startTaxSettlement(game);
     return;
   }
   if (resume === 'action') {
@@ -421,6 +421,21 @@ function workMoves(game, role, moves, { unemployed = false, employeeOnly = false
   assign(game.economy, role, moves, limit, { preserveUncommitted });
 }
 
+const investmentAdjustment = role => role === 'middle' ? 8 : 10;
+
+function investmentDeckQuotes(game, role, ids = game.economy.companyDecks?.[role] ?? []) {
+  const limit = role === 'capitalist' ? base.limits.capitalist_companies : base.limits.middle_companies;
+  const atLimit = ownedCompanies(game.economy, role).length >= limit;
+  const money = funds(game, role);
+  return ids.map(id => {
+    const item = companyDefinition(id);
+    const actualCost = item.cost + investmentAdjustment(role);
+    const blocked = actualCost > money ? '資金不足' : atLimit ? '已達企業上限'
+      : canStaffInvestment(game.economy, role, id) ? '' : '無法填滿必要工位';
+    return { ...item, actualCost, blocked };
+  });
+}
+
 function openCardChoice(game, role, effect, details) {
   game.content.cardChoice = { role, effect, ...details };
   game.phase = 'card-choice';
@@ -451,13 +466,35 @@ function finishCardChoice(game, role, command) {
     case 'export-insight':
       requireRule(choice.options.includes(command.option), '請選擇其中一張出口牌。');
       content.export = command.option;
-      if (command.offers?.length || role === 'middle') exportGoods(game, role, command.offers, undefined, role === 'middle' ? 2 : 1);
+      const mustExport = role === 'middle' && exportOffers(game, role).some(offer => offer.available);
+      requireRule(!mustExport || command.offers?.length, '請至少選擇一筆可出口的交易。');
+      if (command.offers?.length) exportGoods(game, role, command.offers, undefined, role === 'middle' ? 2 : 1);
       break;
     case 'investment-build':
+      if (command.option === 'cancel-investment') {
+        requireRule(investmentDeckQuotes(game, role, choice.options).every(item => item.blocked), '仍有可建造的企業。');
+        const discard = game.decks[role].discard;
+        const usedCard = discard.at(-1);
+        requireRule(usedCard && cardDefinition(role, usedCard).effect === choice.effect, '找不到可退回的投資機會卡。');
+        game.players[role].hand.push(discard.pop());
+        game.mainUsed = false;
+        log(game, `${names[role]}無法從牌庫建造，收回「投資機會」。`);
+        break;
+      }
       requireRule(choice.options.includes(command.company), '請選擇企業牌庫內的企業。');
-      build(game, role, command, { fromDeck: true, discount: role === 'middle' ? -8 : -10 });
+      build(game, role, command, { fromDeck: true, discount: -investmentAdjustment(role) });
       break;
     case 'shift-event': case 'priority-event':
+      if (choice.effect === 'shift-event' && command.option === 'cancel-shift-focus') {
+        requireRule(!content.events.length, '場上仍有可替換的事件。');
+        const discard = game.decks[role].discard;
+        const usedCard = discard.at(-1);
+        requireRule(usedCard && cardDefinition(role, usedCard).effect === choice.effect, '找不到可退回的轉移重點卡。');
+        game.players[role].hand.push(discard.pop());
+        game.mainUsed = false;
+        log(game, '國家因場上沒有事件，收回「轉移重點」。');
+        break;
+      }
       if (command.option) {
         requireRule(choice.options.includes(command.option), '請選擇剛看到的事件。');
         if (choice.effect === 'shift-event') {
@@ -510,6 +547,7 @@ function extendedCard(game, role, command, definition) {
       return;
     }
     case 'shift-event': case 'priority-event':
+      requireRule(effect !== 'shift-event' || game.content.events.length, '場上沒有事件，無法使用「轉移重點」。');
       requireRule(game.content.events.length || game.content.eventDeck.length, '沒有可處理的事件。');
       openCardChoice(game, role, effect, { options: eventDraw(game, 2, true) });
       return;
@@ -651,8 +689,9 @@ function extendedCard(game, role, command, definition) {
       if (command.fromDeck === true) {
         const options = [...(economy.companyDecks?.[role] ?? [])];
         requireRule(options.length, '企業牌庫已空。');
+        requireRule(investmentDeckQuotes(game, role, options).some(item => !item.blocked), '牌庫沒有付得起且能建造的企業。');
         openCardChoice(game, role, effect, { options });
-      } else build(game, role, command, { discount: role === 'middle' ? 8 : 10 });
+      } else build(game, role, command, { discount: investmentAdjustment(role) });
       return;
     case 'industry-build': {
       const offer = economy.markets.capitalist.includes(company) && companyDefinition(company);
@@ -920,19 +959,58 @@ function playCard(game, role, command, card) {
   log(game, `${names[role]}打出「${definition.name}」。`);
 }
 
-function settleFood(game, role, quantities) {
-  coverNeeds(game, role, quantities);
+function awaitProductionConfirmation(game, stage, role = productionOrder[0]) {
+  game.phase = 'production-confirm';
+  game.match.productionStep = { stage, role };
+}
+
+function settleFood(game, role, quantities, personalFood) {
+  coverNeeds(game, role, quantities, personalFood);
+  if (!game.match.needs.role) awaitProductionConfirmation(game, 'imf');
+}
+
+function startTaxSettlement(game) {
+  updateUnions(game.economy);
   const needs = game.match.needs;
-  if (needs.role) return;
-  needs.imf = checkIMF(game, Boolean(game.content));
-  if (game.content && needs.imf?.intervened && startPolicyChoices(game, [0, 3, 4, 5], 'imf')) return;
-  finishProduction(game);
+  needs.taxes = createTaxSettlement(game, needs.labor);
+  awaitProductionConfirmation(game, 'taxes');
+}
+
+function confirmProduction(game, role, command) {
+  const { stage, role: expected } = game.match.productionStep;
+  requireRule(command.type === 'production-confirm' && role === expected && command.option === stage, '等待指定階級確認目前的生產步驟。');
+  const nextRole = productionOrder[productionOrder.indexOf(role) + 1];
+  if (stage === 'wages' || stage === 'goods') {
+    settleProductionStep(game, role, stage);
+    if (stage === 'wages' && productionPlans(game, role).some(plan => plan.produced > 0)) {
+      awaitProductionConfirmation(game, 'goods', role);
+    }
+    else if (nextRole) awaitProductionConfirmation(game, 'wages', nextRole);
+    else {
+      delete game.match.productionStep;
+      completeProduction(game);
+      if (game.economy.demonstration) game.phase = 'demonstration';
+      else openNeeds(game);
+    }
+    return;
+  }
+  if (stage === 'imf') {
+    delete game.match.productionStep;
+    const needs = game.match.needs;
+    needs.imf = checkIMF(game, Boolean(game.content));
+    if (game.content && needs.imf?.intervened && startPolicyChoices(game, [0, 3, 4, 5], 'imf')) return;
+    startTaxSettlement(game);
+    return;
+  }
+  if (role !== 'state') payTaxStep(game, role, game.match.needs.taxes);
+  if (nextRole) awaitProductionConfirmation(game, 'taxes', nextRole);
+  else finishProduction(game);
 }
 
 function finishProduction(game) {
   const needs = game.match.needs;
-  updateUnions(game.economy);
-  needs.taxes = payTaxes(game, needs.labor);
+  delete game.match.productionStep;
+  log(game, `國庫收到稅款 $${needs.taxes.total}。`);
   needs.electionsHeld = game.bills.length > 0;
   if (needs.electionsHeld) {
     refill(game);
@@ -977,7 +1055,7 @@ function finishTransaction(game, role, type) {
   requireRule(transaction.role === role && ['transaction-confirm', 'transaction-cancel'].includes(type), '請先確認或取消待處理的購買／借貸。');
   if (type === 'transaction-confirm') {
     if (transaction.kind === 'food-loan') {
-      settleFood(game, role, transaction.quantities);
+      settleFood(game, role, transaction.quantities, transaction.fromPersonal);
     } else if (transaction.kind === 'repay') {
       repayLoan(game, role);
       game.freeUsed = true;
@@ -1065,6 +1143,10 @@ export function applyCommand(game, role, command, allSeated) {
     nextScheduledElection(game);
     return;
   }
+  if (game.phase === 'production-confirm') {
+    confirmProduction(game, role, command);
+    return;
+  }
   if (game.phase === 'demonstration') {
     requireRule(role === 'working' && type === 'demonstration-losses', '等待勞工分配示威扣分。');
     const { limits, losses } = demonstrationStatus(game.economy);
@@ -1105,7 +1187,7 @@ export function applyCommand(game, role, command, allSeated) {
   if (game.phase === 'needs') {
     requireRule(type === 'food', '請先完成食物需求結算。');
     if (game.content) {
-      const quote = quoteFood(game, role, command.quantities);
+      const quote = quoteFood(game, role, command.quantities, command.personalFood);
       if (quote.loans) {
         const taken = Object.values(game.economy.loans).reduce((sum, count) => sum + count, 0);
         requireRule(taken + quote.loans <= base.components.small_cards.loans, '全桌貸款牌不足，請先調整食物來源。');
@@ -1113,7 +1195,7 @@ export function applyCommand(game, role, command, allSeated) {
         return;
       }
     }
-    settleFood(game, role, command.quantities);
+    settleFood(game, role, command.quantities, command.personalFood);
     return;
   }
   if (game.phase === 'election') {
@@ -1143,10 +1225,11 @@ export function applyCommand(game, role, command, allSeated) {
     game.mainUsed = false;
     game.freeUsed = false;
     if (game.turn === roles.length * base.turns_per_role_per_round) {
-      if (game.economy) produceRound(game);
-      if (game.match && game.economy.demonstration) game.phase = 'demonstration';
-      else if (game.match) openNeeds(game);
-      else {
+      if (game.match) {
+        beginProduction(game);
+        awaitProductionConfirmation(game, 'wages');
+      } else {
+        if (game.economy) produceRound(game);
         if (game.bills.length) refill(game);
         nextScheduledElection(game);
       }
@@ -1284,13 +1367,16 @@ export function playerView(game, role) {
   const choice = game.content?.cardChoice;
   const transaction = game.transaction;
   const privateChoice = choice?.role === role ? { ...choice } : undefined;
-  if (privateChoice?.effect === 'investment-build') privateChoice.cards = choice.options.map(companyDefinition);
+  if (privateChoice?.effect === 'investment-build') privateChoice.cards = investmentDeckQuotes(game, role, choice.options);
+  const canInvestFromDeck = currentRole(game) === role && !mainUsed
+    && hand.some(card => cardDefinition(role, card).effect === 'investment-build')
+    && investmentDeckQuotes(game, role).some(item => !item.blocked);
   if (privateChoice?.effect === 'export-insight') privateChoice.cards = choice.options.map(id => ({
     ...catalogCard(id), offers: exportOffers({ ...game, content: { ...game.content, export: id } }, role),
   }));
   if (['shift-event', 'priority-event'].includes(privateChoice?.effect)) privateChoice.cards = choice.options.map(id => eventView(game, id));
   return {
-    phase, turn, currentRole: currentRole(game), mainUsed, freeUsed: Boolean(game.freeUsed), players,
+    phase, turn, currentRole: currentRole(game), canInvestFromDeck, mainUsed, freeUsed: Boolean(game.freeUsed), players,
     hand: hand.map(card => cardView(role, card)), publicServices, legitimacy, treasury,
     economy: economyView(game.economy),
     storageOptions: currentRole(game) === role && !game.freeUsed && !game.transaction ? purchasableStorage(game.economy, role) : [],

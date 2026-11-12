@@ -1,10 +1,11 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import catalog from '../../data/hegemony-base-catalog.json' with { type: 'json' };
 import base from '../../data/hegemony-v1.2-data.json' with { type: 'json' };
 import { applyCommand, createGame, GameError, names, playerView, policies, roles } from '../../packages/engine/game.mjs';
 import { requireRule } from '../../packages/engine/errors.mjs';
 import { domesticPriceLevels } from '../../packages/engine/prices.mjs';
 import { summarizeAction } from './action-summary.mjs';
+import { createPlayerAccounts } from './player-accounts.mjs';
 
 const turnCommands = ['play', 'assign', 'build', 'sell', 'buy', 'deal', 'export', 'strike', 'event', 'campaign',
   'propose', 'pressure', 'demonstrate', 'extra-shift', 'lobby', 'meet-mps', 'extra-tax', 'wages', 'repay', 'benefits',
@@ -20,7 +21,7 @@ function fingerprint(token) {
   return createHash('sha256').update(token).digest('hex');
 }
 
-const saveVersion = 1;
+const presenceTimeout = 30_000;
 
 export function json(response, status, value) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -62,19 +63,81 @@ export function newRoom(host, readRoom, full) {
   return { code, revision: 0, host, seats: {}, processed: {}, game: createGame({ full }) };
 }
 
-function authenticate(room, request) {
+function joinWaitingRoom(room, input, accountId, seatToken) {
+  if (room.game.phase !== 'lobby') throw new GameError('遊戲已開始。', 409);
+  const name = typeof input.name === 'string' ? input.name.trim() : '';
+  if (!name || name.length > 24) throw new GameError('請輸入 1 至 24 字的暱稱。');
+  if (!room.waiting) {
+    const players = Object.entries(room.seats).map(([role, seat]) =>
+      ({ ...seat, id: randomBytes(8).toString('hex'), role, ready: false }));
+    room.waiting = { players, host: players.find(player => player.role === room.host)?.id, selectionRevision: 0 };
+  }
+  const { waiting } = room;
+  if (waiting.players.length >= roles.length) throw new GameError('房間已滿。', 409);
+  const token = seatToken ?? randomBytes(32).toString('hex');
+  const id = randomBytes(8).toString('hex');
+  waiting.players.push({ id, name, key: fingerprint(token), role: null, ready: false, accountId });
+  waiting.host ??= id;
+  room.revision++;
+  return { code: room.code, token };
+}
+
+function roomMember(room, accountId) {
+  return (room.waiting?.players ?? Object.values(room.seats)).find(player => player.accountId === accountId);
+}
+
+function authenticate(room, request, accounts) {
   const token = /^Bearer ([a-f0-9]{64})$/.exec(request.headers.authorization ?? '')?.[1];
-  const role = token && roles.find(seat => room.seats[seat]?.key === fingerprint(token));
+  const matches = member => member && (member.accountId
+    ? accounts.seatToken(member.accountId, room.code) === token
+    : member.key === fingerprint(token));
+  const role = token && (room.waiting
+    ? room.waiting.players.find(matches)?.id
+    : roles.find(seat => matches(room.seats[seat])));
   if (!role) throw new GameError('席位憑證無效，請使用原本的瀏覽器分頁重連。', 401);
   return role;
 }
 
 function view(room, role) {
+  if (room.waiting) {
+    const { host, players, selectionRevision } = room.waiting;
+    return { code: room.code, role, host, revision: room.revision, restoredRevision: room.restoredRevision ?? 0, phase: 'lobby',
+      waiting: { selectionRevision, players: players.map(({ id, name, role, ready }) => ({ id, name, role, ready })) } };
+  }
   return {
     code: room.code, role, host: room.host, revision: room.revision, restoredRevision: room.restoredRevision ?? 0,
     seats: Object.fromEntries(roles.map(seat => [seat, room.seats[seat]?.name ?? null])),
     ...playerView(room.game, role),
   };
+}
+
+function updateWaitingRoom(room, id, input) {
+  const waiting = room.waiting;
+  const player = waiting.players.find(item => item.id === id);
+  if (input.type === 'select') {
+    requireRule(input.role === null || roles.includes(input.role), '請選擇有效的階級。');
+    if (player.role === input.role) return id;
+    player.role = input.role;
+    waiting.selectionRevision++;
+    for (const item of waiting.players) item.ready = false;
+  } else if (input.type === 'cancel') {
+    player.ready = false;
+  } else if (input.type === 'ready') {
+    requireRule(input.selectionRevision === waiting.selectionRevision, '階級選擇已更新，請重新確認。');
+    const choices = waiting.players.map(item => item.role);
+    requireRule(roles.every(role => choices.includes(role)), '四位玩家須選擇不同階級。');
+    player.ready = true;
+    if (waiting.players.every(item => item.ready)) {
+      room.seats = Object.fromEntries(waiting.players.map(({ role, name, key, accountId }) => [role, { name, key, accountId }]));
+      room.host = waiting.players.find(item => item.id === waiting.host).role;
+      delete room.waiting;
+      applyCommand(room.game, room.host, { type: 'start' }, true);
+      return player.role;
+    }
+  } else {
+    throw new GameError('不支援的等待區操作。');
+  }
+  return id;
 }
 
 function applySingleAction(game, role, input) {
@@ -83,61 +146,98 @@ function applySingleAction(game, role, input) {
   if (game.transaction) applyCommand(game, role, { type: 'transaction-confirm' }, true);
 }
 
-export function createGameApi({ readRoom, saveRoom, deleteRoom, getSaveKey, instance, quickReload = false, quickRooms = false, allowDelete, full = true }) {
-  const saveSignature = game => createHmac('sha256', getSaveKey()).update(JSON.stringify([saveVersion, game])).digest();
+export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRoomSave, listRoomSaves, readRoomSave, getSetting, insertSetting, listSettings, getSaveKey, clientId,
+  full = true, allowLegacyRooms = false }) {
+  const accounts = createPlayerAccounts({ getSetting, insertSetting, listSettings, getSaveKey, clientId });
+  const activeSeats = new Map();
   return async function route(request, response, path) {
     if (request.method === 'GET') {
       if (path === '/api/meta') return json(response, 200, { roles, names, policies, policyRules: base.policies, domesticPriceLevels, checkedCommands, turnCommands,
-        actionConfirmation: true, quickReload, quickRooms, instance,
+        actionConfirmation: true, loanPrincipal: base.loans.principal,
         playerTracks: { population: catalog.boards.population, prosperity: catalog.boards.prosperity, wealth: base.wealth } });
       if (path === '/api/catalog') return json(response, 200, catalogView);
     }
+    if (request.method === 'POST' && ['/api/player/register', '/api/player/login'].includes(path)) {
+      const player = await accounts.login(await readJson(request), path.endsWith('/register'), request);
+      return json(response, 200, player);
+    }
+    if (request.method === 'GET' && path === '/api/player/rooms') {
+      const player = accounts.authenticate(request);
+      const rooms = listRooms().flatMap(room => {
+        const member = roomMember(room, player.id);
+        if (!member) return [];
+        const host = room.waiting ? room.waiting.host === member.id : room.seats[room.host] === member;
+        return [{ code: room.code, phase: room.game.phase, round: room.game.match?.round, host }];
+      });
+      return json(response, 200, { name: player.name, rooms });
+    }
     if (request.method === 'POST' && path === '/api/rooms') {
       const input = await readJson(request);
-      const room = newRoom(input.role, readRoom, full);
-      const seat = claimSeat(room, input);
+      const legacy = allowLegacyRooms && !request.headers.authorization;
+      const player = legacy ? null : accounts.authenticate(request);
+      const room = newRoom(legacy ? input.role : undefined, readRoom, full);
+      const seat = legacy
+        ? (input.role === undefined ? joinWaitingRoom(room, input) : claimSeat(room, input))
+        : joinWaitingRoom(room, player, player.id, accounts.seatToken(player.id, room.code));
       saveRoom(room);
       return json(response, 201, seat);
     }
-    const match = /^\/api\/rooms\/([A-F0-9]{8})(?:\/(join|command|check|action-preview|action-confirm|save))?$/.exec(path);
+    const match = /^\/api\/rooms\/([A-F0-9]{8})(?:\/(join|waiting|command|check|action-preview|action-confirm|saves|restore))?$/.exec(path);
     if (!match) throw new GameError('找不到頁面。', 404);
     const [, code, action] = match;
-    if (action === 'save' && ['GET', 'POST'].includes(request.method)) {
-      const input = request.method === 'POST' ? await readJson(request, 8 * 1024 * 1024) : null;
+    if ((action === 'saves' && request.method === 'GET') || (['saves', 'restore'].includes(action) && request.method === 'POST')) {
+      const input = request.method === 'POST' ? await readJson(request) : null;
       const room = readRoom(code);
       if (!room) throw new GameError('找不到房間。', 404);
-      if (authenticate(room, request) !== room.host) throw new GameError('只有房主可以匯出或匯入遊戲。', 403);
-      if (!input) return json(response, 200, { version: saveVersion, game: room.game, signature: saveSignature(room.game).toString('hex') });
-      if (input.revision !== room.revision) throw new GameError('房間進度已更新，請重新確認匯入。', 409);
-      const { version, game, signature } = input.save ?? {};
-      requireRule(version === saveVersion && game && typeof game === 'object' && !Array.isArray(game)
-        && typeof signature === 'string' && /^[0-9a-f]{64}$/.test(signature), '存檔格式或版本不符。');
-      requireRule(timingSafeEqual(saveSignature(game), Buffer.from(signature, 'hex')), '存檔驗證失敗。請使用由這台伺服器匯出的原始檔案。');
-      requireRule(game.phase === 'lobby' || roles.every(role => room.seats[role]), '請先讓目前房間的四個席位入座，再匯入已開始的對局。');
+      if (authenticate(room, request, accounts) !== (room.waiting?.host ?? room.host)) throw new GameError('只有房長可以儲存或讀取遊戲。', 403);
+      if (!input) return json(response, 200, { saves: listRoomSaves(code) });
+      if (input.revision !== room.revision) throw new GameError('房間進度已更新，請重新操作。', 409);
+      if (action === 'saves') {
+        const record = { id: randomBytes(16).toString('hex'), createdAt: new Date().toISOString() };
+        addRoomSave(room, record);
+        return json(response, 201, record);
+      }
+      const saved = typeof input.id === 'string' && readRoomSave(code, input.id);
+      if (!saved) throw new GameError('找不到這個房間的存檔。', 404);
       const revision = room.revision + 1;
-      const next = { ...room, revision, restoredRevision: revision, game };
+      const next = { ...saved, revision, restoredRevision: revision, processed: room.processed };
+      if (next.waiting) next.waiting.selectionRevision = revision;
       saveRoom(next);
-      return json(response, 200, view(next, room.host));
+      return json(response, 200, view(next, next.waiting?.host ?? next.host));
     }
     if (request.method === 'DELETE' && !action) {
-      if (!allowDelete(request)) throw new GameError('請從本機快速開桌頁刪除房間。', 403);
       const room = readRoom(code);
       if (!room) throw new GameError('找不到房間。', 404);
-      if (authenticate(room, request) !== room.host) throw new GameError('只有房主可以刪除房間。', 403);
+      if (authenticate(room, request, accounts) !== (room.waiting?.host ?? room.host)) throw new GameError('只有房主可以刪除房間。', 403);
       deleteRoom(code);
       return json(response, 200, { deleted: code });
     }
-    if (request.method === 'POST' && action) {
+    if (request.method === 'POST' && action && !['saves', 'restore'].includes(action)) {
       const input = await readJson(request, ['check', 'action-preview', 'action-confirm'].includes(action) ? 16384 : 4096);
       const room = readRoom(code);
       if (!room) throw new GameError('找不到房間。', 404);
       if (action === 'join') {
-        const next = { ...room, seats: { ...room.seats } };
-        const seat = claimSeat(next, input);
-        saveRoom(next);
+        const legacy = allowLegacyRooms && !request.headers.authorization;
+        if (legacy) {
+          const seat = room.waiting || input.role === undefined ? joinWaitingRoom(room, input) : claimSeat(room, input);
+          saveRoom(room);
+          return json(response, 200, seat);
+        }
+        const player = accounts.authenticate(request);
+        const token = accounts.seatToken(player.id, room.code);
+        if (roomMember(room, player.id)) return json(response, 200, { code, token });
+        const seat = joinWaitingRoom(room, player, player.id, token);
+        saveRoom(room);
         return json(response, 200, seat);
       }
-      const role = authenticate(room, request);
+      const role = authenticate(room, request, accounts);
+      if (action === 'waiting' || room.waiting) {
+        if (action !== 'waiting' || !room.waiting) throw new GameError('目前無法使用此操作。', 409);
+        const viewer = updateWaitingRoom(room, role, input);
+        room.revision++;
+        saveRoom(room);
+        return json(response, 200, view(room, viewer));
+      }
       const { id, revision } = input;
       if (action === 'check') {
         if (!checkedCommands.includes(input.type)) throw new GameError('此操作不提供事前檢查。');
@@ -174,7 +274,15 @@ export function createGameApi({ readRoom, saveRoom, deleteRoom, getSaveKey, inst
     if (request.method === 'GET' && !action) {
       const room = readRoom(code);
       if (!room) throw new GameError('找不到房間。', 404);
-      return json(response, 200, view(room, authenticate(room, request)));
+      const role = authenticate(room, request, accounts);
+      if (request.headers['x-room-presence'] !== '1') return json(response, 200, view(room, role));
+      const members = room.waiting?.players ?? Object.entries(room.seats).map(([id, seat]) => ({ ...seat, id }));
+      const now = Date.now();
+      for (const [key, expires] of activeSeats) if (expires <= now) activeSeats.delete(key);
+      const presenceKey = member => room.code + ":" + member.key;
+      activeSeats.set(presenceKey(members.find(member => member.id === role)), now + presenceTimeout);
+      const presence = Object.fromEntries(members.map(member => [member.id, activeSeats.has(presenceKey(member))]));
+      return json(response, 200, { ...view(room, role), presence });
     }
     throw new GameError('不支援的請求。', 405);
   };

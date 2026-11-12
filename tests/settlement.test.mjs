@@ -79,6 +79,24 @@ test('demonstration pauses before food and enforces the exact VP distribution', 
   command('working', { type: 'demonstrate' });
   game.turn = 19;
   command('state', { type: 'end' });
+  for (const role of ['state', 'capitalist', 'middle', 'working']) {
+    assert.deepEqual(game.match.productionStep, { role, stage: 'wages' });
+    if (role === 'working') {
+      const { companies, income, pendingIncome } = playerView(game, role).match.productionStep;
+      assert.equal(pendingIncome, income);
+      assert(income > 0);
+      assert(companies.length > 0);
+      assert.equal(income, companies.reduce((sum, item) => sum + item.wage, 0));
+    }
+    const cash = game.players.working.cash;
+    command(role, { type: 'production-confirm', option: 'wages' });
+    if (role === 'working') {
+      const income = game.economy.production.filter(row => row.recipient === role).reduce((sum, row) => sum + row.wage, 0);
+      assert.equal(game.players.working.cash, cash + income);
+      assert.equal(game.match.pendingWorkingWages, undefined);
+    }
+    else if (game.match.productionStep.stage === 'goods') command(role, { type: 'production-confirm', option: 'goods' });
+  }
   const { demonstration } = playerView(game, 'working');
   assert.equal(game.phase, 'demonstration');
   assert.throws(() => command('state', { type: 'demonstration-losses' }), /等待勞工/);
@@ -148,6 +166,8 @@ test('IMF waits for State closures and both price decisions before collecting ta
   game.players.working.food = 10;
   command('middle', { type: 'food', quantities: {} });
   command('working', { type: 'food', quantities: {} });
+  assert.deepEqual(game.match.productionStep, { role: 'state', stage: 'imf' });
+  command('state', { type: 'production-confirm', option: 'imf' });
   assert.equal(game.phase, 'policy-choice');
   assert.equal(game.match.needs.taxes, null);
   const { policyChoice } = playerView(game, 'state');
@@ -158,9 +178,28 @@ test('IMF waits for State closures and both price decisions before collecting ta
   assert.equal(game.match.needs.taxes, null);
   command('middle', { type: 'policy-choice', prices: { food: 9 } });
   command('capitalist', { type: 'policy-choice' });
-  assert(game.match.needs.taxes);
+  assert.deepEqual(game.match.productionStep, { role: 'state', stage: 'taxes' });
+  assert.equal(game.match.needs.taxes.total, 0);
   assert.equal(game.economy.loans.state, 0);
   assert.equal(playerView(game, 'middle').match.prices.middle.food.price, 9);
+});
+
+test('middle-class food can come from either stock and own food must be used first', () => {
+  const game = createGame();
+  game.players.middle.food = 2;
+  game.economy.inventory.middle.food = 4;
+  openNeeds(game);
+  coverNeeds(game, 'middle', {}, 0);
+  assert.equal(game.players.middle.food, 2);
+  assert.equal(game.economy.inventory.middle.food, 1);
+  assert.equal(game.match.needs.meals[0].cost, 0);
+
+  game.economy.inventory.middle.food = 0;
+  openNeeds(game);
+  assert.throws(() => coverNeeds(game, 'middle', {}, 1), /先用足自有食物/);
+  coverNeeds(game, 'middle', {});
+  assert.equal(game.players.middle.food, 0);
+  assert.equal(game.match.needs.meals[0].imported, 1);
 });
 
 test('a four-player room exposes the official opening cash and resource allocations', () => {
@@ -344,6 +383,10 @@ test('settlement income updates on confirmed food sales and keeps borrowing sepa
 
   command('working', { type: 'food', quantities: {} });
   command('working', { type: 'transaction-confirm' });
+  command('state', { type: 'production-confirm', option: 'imf' });
+  for (const role of ['state', 'capitalist', 'middle', 'working']) {
+    command(role, { type: 'production-confirm', option: 'taxes' });
+  }
   const state = settlement('state');
   assert.equal(state.stage, 'settled');
   assert.equal(playerView(game, 'state').match.electionsHeld, false);

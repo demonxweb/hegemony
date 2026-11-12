@@ -1,5 +1,5 @@
 import base from '../../data/hegemony-v1.2-data.json' with { type: 'json' };
-import { activeCompany, addWorker, availableInfluence, credit, funds, operational, operationalCount, outsideEmployers, pay, publicCapacity, resizePublicSector, runProduction, setWagePolicy, storageCapacity, workerSupply } from './companies.mjs';
+import { activeCompany, addWorker, availableInfluence, credit, funds, operational, operationalCount, outsideEmployers, pay, publicCapacity, resizePublicSector, finishCompanyProduction, productionOrder, productionPlans, runProductionStep, setWagePolicy, storageCapacity, workerSupply } from './companies.mjs';
 import { catalogCard, drawImmigrant } from './content.mjs';
 import { marketPrices, marketQuote } from './prices.mjs';
 import { requireRule } from './errors.mjs';
@@ -52,25 +52,46 @@ export function openNeeds(game) {
   game.log.push(`第 ${game.match.round} 輪進入食物需求結算。`);
 }
 
-export function produceRound(game) {
+export function beginProduction(game) {
+  game.economy.production = [];
+  if (!game.match) return;
+  const capacity = Object.fromEntries(roles.map(role => [role, productionCapacity(game.economy, role)]));
+  const personal = Object.fromEntries(classes.map(role => [role, Object.fromEntries(
+    [...products, 'influence'].map(resource => [resource, game.players[role][resource] ?? 0]))]));
+  const warehouse = {
+    middle: { ...game.economy.inventory.middle },
+    capitalist: { ...game.economy.inventory.capitalist },
+    state: { ...game.publicServices },
+  };
+  game.match.productionOpening = { personal, warehouse, capacity };
+  game.match.pendingWorkingWages = 0;
+  game.match.wageLoans = Object.fromEntries(roles.map(role => [role, 0]));
+}
+
+export function settleProductionStep(game, role, stage) {
+  const before = game.economy.loans[role];
+  runProductionStep(game, role, stage);
+  if (role === 'working' && stage === 'wages' && game.match?.pendingWorkingWages !== undefined) {
+    credit(game, role, game.match.pendingWorkingWages);
+    delete game.match.pendingWorkingWages;
+  }
+  if (game.match && stage === 'wages') game.match.wageLoans[role] += game.economy.loans[role] - before;
+}
+
+export function completeProduction(game) {
   const strikes = Object.values(game.economy.companies).filter(item => item.strike && item.wage !== 3 && operational(item)).length;
-  const before = { ...game.economy.loans };
-  if (game.match) {
-    const capacity = Object.fromEntries(roles.map(role => [role, productionCapacity(game.economy, role)]));
-    const personal = Object.fromEntries(classes.map(role => [role, Object.fromEntries(
-      [...products, 'influence'].map(resource => [resource, game.players[role][resource] ?? 0]))]));
-    const warehouse = {
-      middle: { ...game.economy.inventory.middle },
-      capitalist: { ...game.economy.inventory.capitalist },
-      state: { ...game.publicServices },
-    };
-    game.match.productionOpening = { personal, warehouse, capacity };
-  }
-  runProduction(game);
-  if (game.match) {
-    game.match.wageLoans = Object.fromEntries(roles.map(role => [role, game.economy.loans[role] - before[role]]));
-  }
+  finishCompanyProduction(game);
   supplyInfluence(game, 'working', strikes + (game.economy.unions?.length ?? 0));
+}
+
+export function produceRound(game, pending) {
+  if (!pending) beginProduction(game);
+  const start = pending ? productionOrder.indexOf(pending.role) : 0;
+  for (const [index, role] of productionOrder.slice(start).entries()) {
+    if (index > 0 || pending?.stage !== 'goods') settleProductionStep(game, role, 'wages');
+    settleProductionStep(game, role, 'goods');
+  }
+  completeProduction(game);
 }
 
 export function foodOptions(game, role = game.match?.needs?.role) {
@@ -87,10 +108,16 @@ export function foodOptions(game, role = game.match?.needs?.role) {
   };
 }
 
-export function quoteFood(game, role, quantities) {
+export function quoteFood(game, role, quantities, personalFood) {
   const options = foodOptions(game);
   requireRule(options?.role === role, '目前由另一個階級結算食物。');
   requireRule(quantities && typeof quantities === 'object' && !Array.isArray(quantities), '請提供各供應者的購買量。');
+  const personalStock = game.players[role].food;
+  const warehouseStock = role === 'middle' ? game.economy.inventory.middle.food : 0;
+  const fromPersonal = personalFood === undefined ? Math.min(personalStock, options.own) : personalFood;
+  const fromWarehouse = options.own - fromPersonal;
+  requireRule(Number.isInteger(fromPersonal) && fromPersonal >= 0 && fromPersonal <= personalStock
+    && fromWarehouse >= 0 && fromWarehouse <= warehouseStock, '請依庫存分配自有食物，並先用足自有食物。');
   let purchased = 0;
   let localCost = 0;
   for (const [seller, amount] of Object.entries(quantities)) {
@@ -102,17 +129,16 @@ export function quoteFood(game, role, quantities) {
   const imported = options.shortage - purchased;
   const cost = localCost + imported * options.importPrice;
   const loans = Math.max(0, Math.ceil((cost - funds(game, role)) / base.loans.principal));
-  return { own: options.own, purchased, imported, tariffs: imported * options.tariff, cost, loans };
+  return { own: options.own, fromPersonal, fromWarehouse, purchased, imported, tariffs: imported * options.tariff, cost, loans };
 }
 
-export function coverNeeds(game, role, quantities) {
-  const quote = quoteFood(game, role, quantities);
-  const { own, cost, tariffs } = quote;
+export function coverNeeds(game, role, quantities, personalFood) {
+  const quote = quoteFood(game, role, quantities, personalFood);
+  const { fromPersonal, fromWarehouse, cost, tariffs } = quote;
   const loansBefore = game.economy.loans[role];
   pay(game, role, cost, true);
-  const fromPersonal = Math.min(game.players[role].food, own);
   game.players[role].food -= fromPersonal;
-  if (role === 'middle') game.economy.inventory.middle.food -= own - fromPersonal;
+  if (role === 'middle') game.economy.inventory.middle.food -= fromWarehouse;
   const sales = {};
   for (const [seller, amount] of Object.entries(quantities)) {
     const stock = seller === 'state' ? game.publicServices : game.economy.inventory[seller];
@@ -166,29 +192,54 @@ export function finishIMF(game, { canceledBills, closed }) {
   return { intervened: true, canceledBills, closed, paid, cleared };
 }
 
-export function payTaxes(game, labor) {
+export function createTaxSettlement(game, labor) {
+  return { labor, taxation: game.policies[2], multiplier: taxMultiplier(game), employment: 0, corporate: 0,
+    middleIncome: 0, middleEmployment: 0, workingIncome: 0, total: 0,
+    loans: Object.fromEntries(roles.map(role => [role, 0])) };
+}
+
+export function payTaxStep(game, role, taxes) {
   const { economy } = game;
-  const before = { ...economy.loans };
-  const multiplier = taxMultiplier(game);
-  const taxation = game.policies[2];
+  const { labor, taxation, multiplier } = taxes;
   const unit = base.income_tax.rows_labor_columns_taxation[labor][taxation];
-  const employment = operationalCount(economy, 'capitalist') * multiplier;
-  pay(game, 'capitalist', employment, true);
-  const revenue = game.players.capitalist.revenue;
-  const bracket = base.corporate_tax.brackets.find(row => revenue >= row.min && (row.max === null || revenue <= row.max));
-  const corporate = bracket[taxation] ?? 0;
-  pay(game, 'capitalist', corporate, true);
-  const external = outsideEmployers(economy, 'middle');
-  const middleIncome = external * unit;
-  const middleEmployment = operationalCount(economy, 'middle') * multiplier;
-  pay(game, 'middle', middleIncome + middleEmployment, true);
-  const workingIncome = population(game, 'working') * unit;
-  pay(game, 'working', workingIncome, true);
-  const total = employment + corporate + middleIncome + middleEmployment + workingIncome;
-  credit(game, 'state', total);
-  game.log.push(`國庫收到稅款 $${total}。`);
-  const loans = Object.fromEntries(roles.map(role => [role, economy.loans[role] - before[role]]));
-  return { labor, taxation, multiplier, employment, corporate, middleIncome, middleEmployment, workingIncome, total, loans };
+  const before = economy.loans[role];
+  let amount;
+  let calculation;
+  if (role === 'capitalist') {
+    const companies = operationalCount(economy, role);
+    taxes.employment = companies * multiplier;
+    pay(game, role, taxes.employment, true);
+    const revenue = game.players[role].revenue;
+    const bracket = base.corporate_tax.brackets.find(row => revenue >= row.min && (row.max === null || revenue <= row.max));
+    taxes.corporate = bracket[taxation] ?? 0;
+    amount = taxes.corporate;
+    calculation = { companies, revenue, bracket: { min: bracket.min, max: bracket.max } };
+    taxes.total += taxes.employment;
+    credit(game, 'state', taxes.employment);
+  } else if (role === 'middle') {
+    const employers = outsideEmployers(economy, role);
+    const companies = operationalCount(economy, role);
+    taxes.middleIncome = employers * unit;
+    taxes.middleEmployment = companies * multiplier;
+    calculation = { employers, companies };
+    amount = taxes.middleIncome + taxes.middleEmployment;
+  } else {
+    const people = population(game, role);
+    taxes.workingIncome = people * unit;
+    calculation = { people };
+    amount = taxes.workingIncome;
+  }
+  pay(game, role, amount, true);
+  credit(game, 'state', amount);
+  taxes.total += amount;
+  taxes.loans[role] = economy.loans[role] - before;
+  return { ...calculation, unit };
+}
+
+export function payTaxes(game, labor) {
+  const taxes = createTaxSettlement(game, labor);
+  for (const role of productionOrder.slice(1)) payTaxStep(game, role, taxes);
+  return taxes;
 }
 
 export function repayLoan(game, role) {
@@ -474,6 +525,7 @@ export function matchView(game, role) {
     prices, importPrices: { food: prices.foreign.food.price, luxury: prices.foreign.luxury.price },
     populations: { working: population(game, 'working'), middle: population(game, 'middle') },
     needs: game.phase === 'needs' && match.needs?.role === role ? foodOptions(game) : null,
+    productionStep: productionStepView(game, role),
     needsRole: game.phase === 'needs' ? match.needs?.role : null,
     roundPhase: roundPhase(game), electionsHeld: match.needs?.electionsHeld ?? null,
     settlement: settlementOverview(game, role), exports: exportOffers(game, role) };
@@ -483,11 +535,42 @@ export function legacyPreparation(game) {
   return game.phase === 'market' && game.match.history.at(-1)?.round === game.match.round;
 }
 
+function productionStepView(game, role) {
+  const step = game.match.productionStep;
+  if (game.phase !== 'production-confirm' || !step) return null;
+  if (step.role !== role) return step;
+  if (step.stage === 'wages' && role === 'working') {
+    const companies = game.economy.production.filter(row => row.recipient === role && row.wage > 0)
+      .map(({ company, owner, resource, wage }) => ({ company, owner, resource, wage }));
+    return { ...step, companies, income: companies.reduce((sum, item) => sum + item.wage, 0),
+      pendingIncome: game.match.pendingWorkingWages ?? 0 };
+  }
+  if (step.stage === 'wages' || step.stage === 'goods') {
+    const companies = productionPlans(game, role).map(({ definition, wage, recipient, produced }) =>
+      ({ company: definition.name, resource: definition.resource, wage, recipient, produced }));
+    if (step.stage === 'goods') return { ...step, companies };
+    const due = companies.reduce((sum, item) => sum + item.wage, 0);
+    const loans = Math.max(0, Math.ceil((due - funds(game, role)) / base.loans.principal));
+    return { ...step, companies, due, loans };
+  }
+  if (step.stage === 'taxes' && role !== 'state') {
+    const projected = structuredClone(game);
+    projected.settlementEstimate = true;
+    const taxes = projected.match.needs.taxes;
+    const before = taxes.total;
+    const calculation = payTaxStep(projected, role, taxes);
+    const { labor, taxation, multiplier, employment, corporate, middleIncome, middleEmployment, workingIncome } = taxes;
+    return { ...step, due: taxes.total - before, loans: taxes.loans[role],
+      taxDetails: { ...calculation, labor, taxation, multiplier, employment, corporate, middleIncome, middleEmployment, workingIncome } };
+  }
+  return step;
+}
+
 function roundPhase(game) {
   switch (game.phase) {
     case 'lobby': return null;
     case 'market': case 'worker-arrival': return 'preparation';
-    case 'needs': case 'demonstration': return 'production';
+    case 'production-confirm': case 'needs': case 'demonstration': return 'production';
     case 'policy-choice': return { imf: 'production', election: 'elections' }[game.policyChoice.resume] ?? 'action';
     case 'election': return game.election.immediate ? 'action' : 'elections';
     case 'vote-confirmation': return game.voteConfirmation.immediate ? 'action' : 'elections';
@@ -528,14 +611,17 @@ function settlementOverview(game, role) {
   }) : [];
   const cash = funds(game, role);
   const interest = game.economy.loans[role] * base.loans.preparation_interest;
-  const beforeProduction = !game.match.needs && !game.economy.production;
+  const step = game.match.productionStep;
+  const producing = step?.stage === 'wages' || step?.stage === 'goods';
+  const beforeProduction = !game.match.needs && (!game.economy.production || producing);
+  const awaitingTax = step?.stage === 'taxes';
   const awaitingIMF = game.policyChoice?.resume === 'imf';
   const pendingFood = game.match.needs?.role;
-  const estimate = !game.match.needs || Boolean(pendingFood) || awaitingIMF;
+  const estimate = !game.match.needs || Boolean(pendingFood) || awaitingIMF || step?.stage === 'imf' || awaitingTax;
   const projected = estimate ? structuredClone(game) : game;
   if (estimate) projected.settlementEstimate = true;
   if (!game.match.needs) {
-    if (beforeProduction) produceRound(projected);
+    if (beforeProduction) produceRound(projected, producing ? step : undefined);
     openNeeds(projected);
   }
   let food;
@@ -543,28 +629,34 @@ function settlementOverview(game, role) {
   if (existing) food = { required, ...existing, shortage: 0, settled: true };
   while (estimate && projected.match.needs.role) {
     const eater = projected.match.needs.role;
-    const quantities = eater === role && game.transaction?.kind === 'food-loan' && game.transaction.role === eater ? game.transaction.quantities : {};
+    const transaction = eater === role && game.transaction?.kind === 'food-loan' && game.transaction.role === eater ? game.transaction : null;
+    const quantities = transaction?.quantities ?? {};
     if (eater === role) {
       const { own, shortage } = foodOptions(projected);
-      const quote = quoteFood(projected, role, quantities);
+      const quote = quoteFood(projected, role, quantities, transaction?.fromPersonal);
       food = { required, own, shortage, cost: quote.cost, gap: Math.max(0, quote.cost - funds(projected, role)),
         settled: false, currentShortage: beforeProduction ? foodOptions(game, role).shortage : null };
     }
-    coverNeeds(projected, eater, quantities);
+    coverNeeds(projected, eater, quantities, transaction?.fromPersonal);
   }
   if (awaitingIMF) {
     const imf = projected.match.needs.imf;
     finishIMF(projected, { ...imf, closed: imf.closed.length ? imf.closed : resizePublicSector(projected) });
-  } else if (estimate) checkIMF(projected);
+  } else if (estimate && !awaitingTax) checkIMF(projected);
   const beforeTax = funds(projected, role);
-  const taxes = estimate ? payTaxes(projected, projected.match.needs.labor) : game.match.needs.taxes;
+  let taxes = game.match.needs?.taxes;
+  if (awaitingTax) {
+    taxes = projected.match.needs.taxes;
+    const start = Math.max(1, productionOrder.indexOf(step.role));
+    for (const seat of productionOrder.slice(start)) payTaxStep(projected, seat, taxes);
+  } else if (estimate) taxes = payTaxes(projected, projected.match.needs.labor);
   const taxDue = ({
     working: taxes?.workingIncome,
     middle: (taxes?.middleIncome ?? 0) + (taxes?.middleEmployment ?? 0),
     capitalist: (taxes?.employment ?? 0) + (taxes?.corporate ?? 0),
     state: 0,
   })[role] ?? 0;
-  const wages = wageOverview(projected.economy.production, role, beforeProduction ? cash : undefined);
+  const wages = wageOverview(projected.economy.production, role, beforeProduction && !producing ? cash : undefined);
   const meals = projected.match.needs.meals;
   const foodSales = meals.reduce((sum, meal) => sum + (meal.sales?.[role] ?? 0), 0);
   const tariffs = role === 'state' ? meals.reduce((sum, meal) => sum + meal.tariffs, 0) : 0;
@@ -576,7 +668,8 @@ function settlementOverview(game, role) {
     wages, income: { wages: wages.incoming, foodSales, tariffs, taxes: taxIncome,
       total: wages.incoming + foodSales + tariffs + taxIncome, salesIncomplete },
     tax: { due: taxDue, income: taxIncome,
-      gap: estimate ? Math.max(0, taxDue - beforeTax) : null },
+      gap: estimate && (!awaitingTax || productionOrder.indexOf(role) >= productionOrder.indexOf(step.role))
+        ? Math.max(0, taxDue - beforeTax) : null },
     interest: game.match.round < base.rounds ? { due: interest, gap: Math.max(0, interest - cash) } : null,
   };
 }

@@ -1,5 +1,5 @@
 import base from '../../data/hegemony-v1.2-data.json' with { type: 'json' };
-import { requireRule } from './errors.mjs';
+import { GameError, requireRule } from './errors.mjs';
 import { catalogCard, catalogDecks, marketSizes, shuffled, drawImmigrant } from './content.mjs';
 
 const definitions = {
@@ -476,6 +476,29 @@ function planBuildStaff(economy, item, role, staff, unemployedOperators) {
   return { operators, hires };
 }
 
+export function canStaffInvestment(economy, role, id) {
+  if (role !== 'middle') return true;
+  const item = company(id);
+  const required = item.slots.filter(slot => !slot.optional);
+  const workers = Object.values(economy.workers).filter(worker => worker.role === role
+    && !worker.committed && !unionMember(economy, worker.id));
+  function match(moves) {
+    const slot = required[moves.length];
+    if (slot) return workers.some(worker => fits(worker, slot) && !moves.some(move => move.worker === worker.id)
+      && match([...moves, { worker: worker.id, company: id, slot: moves.length }]));
+    const projected = structuredClone(economy);
+    projected.companies[id] = structuredClone(item);
+    try {
+      assign(projected, role, moves);
+      return true;
+    } catch (error) {
+      if (!(error instanceof GameError)) throw error;
+      return false;
+    }
+  }
+  return match([]);
+}
+
 export function build(game, role, command, options = {}) {
   const economy = game.economy;
   const { company: id, wage, operator, hire } = command;
@@ -608,7 +631,7 @@ export function availableInfluence(game) {
   return Math.max(0, base.components.wooden.influence - game.publicServices.influence - personal - benefits);
 }
 
-export function produceCompany(game, id, mandatory = false, operatorOnly = false) {
+function planProduction(game, id, operatorOnly = false) {
   const item = Object.hasOwn(game.economy.companies, id) && game.economy.companies[id];
   requireRule(item && operational(item), '此企業未營運。');
   const definition = activeCompany(game.economy, item.id);
@@ -618,32 +641,53 @@ export function produceCompany(game, id, mandatory = false, operatorOnly = false
   if (strike && owner !== 'middle') return null;
   const recipient = !strike && !operatorOnly && game.economy.workers[paidSlot?.worker]?.role;
   const wage = recipient ? (definition.wages?.[item.wage - 1] ?? 0) : 0;
-  if (wage) {
-    pay(game, owner, wage, mandatory);
-    credit(game, recipient, wage);
-  }
   const produced = definition.output + (owner === 'middle' && recipient ? definition.employee.output : 0)
     + (item.machine ? definition.machineryBonus ?? 0 : 0);
-  const { stored, discarded } = produce(game, definition, produced);
-  return { company: definition.name, owner, resource: definition.resource, produced, stored, discarded, recipient, wage };
+  return { definition, recipient, wage, produced };
 }
 
-export function runProduction(game) {
-  const economy = game.economy;
-  if (!economy) return;
-  const results = [];
-  for (const owner of ['state', 'capitalist', 'middle', 'working']) {
-    for (const item of Object.values(economy.companies)) {
-      const definition = activeCompany(economy, item.id);
-      if (definition.owner !== owner || !operational(item)) continue;
-      const result = produceCompany(game, item.id, true);
-      if (result) results.push(result);
-    }
+function payProductionWage(game, { definition, recipient, wage }, mandatory, deferWorking = false) {
+  if (!wage) return;
+  pay(game, definition.owner, wage, mandatory);
+  if (deferWorking && recipient === 'working' && game.match?.pendingWorkingWages !== undefined) {
+    game.match.pendingWorkingWages += wage;
+  } else credit(game, recipient, wage);
+}
+
+function storeProduction(game, { definition, recipient, wage, produced }) {
+  const { stored, discarded } = produce(game, definition, produced);
+  return { company: definition.name, owner: definition.owner, resource: definition.resource, produced, stored, discarded, recipient, wage };
+}
+
+export function produceCompany(game, id, mandatory = false, operatorOnly = false) {
+  const plan = planProduction(game, id, operatorOnly);
+  if (!plan) return null;
+  payProductionWage(game, plan, mandatory);
+  return storeProduction(game, plan);
+}
+
+export const productionOrder = ['state', 'capitalist', 'middle', 'working'];
+
+export function productionPlans(game, owner) {
+  return Object.values(game.economy.companies)
+    .filter(item => activeCompany(game.economy, item.id).owner === owner && operational(item))
+    .map(item => planProduction(game, item.id)).filter(Boolean);
+}
+
+export function runProductionStep(game, owner, stage) {
+  const plans = productionPlans(game, owner);
+  if (stage === 'wages') {
+    for (const plan of plans) payProductionWage(game, plan, true, true);
+  } else {
+    for (const plan of plans) game.economy.production.push(storeProduction(game, plan));
   }
+}
+
+export function finishCompanyProduction(game) {
+  const { economy } = game;
   for (const worker of Object.values(economy.workers)) worker.committed = unionMember(economy, worker.id);
   for (const item of Object.values(economy.companies)) delete item.strike;
-  economy.production = results;
-  game.log.push(`完成 ${results.length} 家營運企業的生產與發薪。`);
+  game.log.push(`完成 ${economy.production.length} 家營運企業的生產與發薪。`);
 }
 
 export function economyView(economy) {

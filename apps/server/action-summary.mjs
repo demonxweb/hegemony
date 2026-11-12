@@ -1,3 +1,4 @@
+import base from '../../data/hegemony-v1.2-data.json' with { type: 'json' };
 import { cardDefinition } from '../../packages/engine/cards.mjs';
 import { activeCompany, operational, publicCapacity, workplace } from '../../packages/engine/companies.mjs';
 import { catalogCard } from '../../packages/engine/content.mjs';
@@ -41,6 +42,8 @@ export function summarizeAction(before, after, role, command) {
   for (const seat of roles) {
     const label = names[seat];
     quantities(`${label} · `, stats, before.players[seat], after.players[seat]);
+    const borrowed = after.economy.loans[seat] - before.economy.loans[seat];
+    if (borrowed > 0) lines.push(`${label} · 本次新增貸款 ${borrowed} 筆，共 $${borrowed * base.loans.principal}`);
     change(`${label} · 貸款筆數`, before.economy.loans[seat], after.economy.loans[seat]);
     if (seat !== 'state') {
       change(`${label} · 合法性`, before.legitimacy[seat], after.legitimacy[seat]);

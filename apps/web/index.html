@@ -12,16 +12,31 @@
     <a class="brand" href="/" aria-label="Hegemony 首頁"><img src="/assets/icons/vote.svg" alt=""><span>HEGEMONY<small>議事廳 <strong id="header-room-code" hidden></strong></small></span></a>
     <span class="edition">四人連線試玩</span>
     <div id="header-room-actions" class="room-actions" hidden>
+      <button id="return-lobby" type="button" hidden>回到大廳</button>
       <button id="copy-invite" type="button">複製邀請連結</button>
-      <button id="export-game" type="button" hidden>匯出遊戲</button>
-      <button id="import-game" type="button" hidden>匯入遊戲</button>
-      <input id="game-save-file" type="file" accept=".json,application/json" hidden>
-      <a href="/quick" target="_blank" rel="noopener">快速開桌／切換房間</a>
+      <button id="save-room" type="button" hidden>儲存</button>
+      <button id="load-room" type="button" hidden>讀取</button>
+      <button id="close-room" type="button" hidden>關閉房間</button>
     </div>
     <a class="catalog-link" href="/catalog" target="_blank" rel="noopener">卡牌與元件圖鑑</a>
     <span id="connection" class="connection" role="status"></span>
+    <div id="header-account" class="header-account" hidden>
+      <span id="header-account-name"></span>
+      <button id="player-logout" type="button">登出</button>
+    </div>
   </header>
   <main id="app" aria-label="遊戲畫面"><p>正在載入房間設定…</p></main>
+  <dialog id="room-saves" class="action-confirmation" aria-labelledby="room-saves-title">
+    <h2 id="room-saves-title">讀取房間存檔</h2>
+    <p>讀取後，房間會回到所選的存檔進度。</p>
+    <form method="dialog">
+      <label>存檔日期與時間<select name="save" required></select></label>
+      <div class="buttons">
+        <button value="cancel" formnovalidate autofocus>取消</button>
+        <button value="load" class="primary">讀取</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="action-confirmation" class="action-confirmation" aria-labelledby="action-confirmation-title">
     <h2 id="action-confirmation-title"></h2>
     <p class="muted">確認後立即執行本次行動。</p>
@@ -35,14 +50,12 @@
     <h2 id="election-dialog-title"></h2>
     <div data-election-details></div>
     <div data-election-controls></div>
-    <p class="action-check" data-election-error role="alert" hidden></p>
     <button type="button" data-close-election>稍後投票</button>
   </dialog>
   <dialog id="vote-result-dialog" class="action-confirmation" aria-labelledby="vote-result-title">
     <h2 id="vote-result-title">表決結果</h2>
     <div data-vote-result></div>
     <form data-command="confirm-vote" class="buttons"><button class="primary" autofocus>確認</button></form>
-    <p class="action-check" data-election-error role="alert" hidden></p>
   </dialog>
   <dialog id="round-result-dialog" class="action-confirmation" aria-labelledby="round-result-title">
     <h2 id="round-result-title">本輪結算結果</h2>
@@ -59,5 +72,10 @@
   </dialog>
   <div id="board-tooltip" class="board-tooltip" role="tooltip" hidden><strong></strong><p></p></div>
   <p id="notice" class="notice" role="alert" hidden></p>
+  <dialog id="warning-dialog" class="action-confirmation warning-dialog" aria-labelledby="warning-title" aria-describedby="warning-text">
+    <h2 id="warning-title">警告</h2>
+    <p id="warning-text"></p>
+    <form method="dialog" class="buttons"><button class="primary" autofocus>確定</button></form>
+  </dialog>
 </body>
 </html>

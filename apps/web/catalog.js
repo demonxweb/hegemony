@@ -208,4 +208,8 @@ async function openCatalog() {
   render();
 }
 
-openCatalog().catch(() => { $('catalog-total').textContent = '圖鑑資料載入失敗，請重新整理頁面。'; });
+openCatalog().catch(() => {
+  $('catalog-total').textContent = '';
+  $('warning-text').textContent = '圖鑑資料載入失敗，請重新整理頁面。';
+  $('warning-dialog').showModal();
+});
