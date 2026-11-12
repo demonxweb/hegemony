@@ -71,7 +71,7 @@ export function cardDefinition(role, card) {
   const source = catalogCard(card.key);
   if (source?.role === role) {
     const legacy = definitions[role].find(item => item.name === source.nameZh);
-    return { ...legacy, key: source.id, name: source.nameZh, description: source.effectZh,
+    return { ...legacy, key: source.id, name: source.nameZh, nameEn: source.name, description: source.effectZh,
       policyAnyOf: source.policyAnyOf, legitimacy: source.legitimacyZh, effect: legacy?.effect ?? extraEffects[source.id] };
   }
   return definitions[role].find(item => card.key ? item.key === card.key : item.asset && item.asset === card.asset);
@@ -127,6 +127,6 @@ export function fillHand(game, role, size) {
 }
 
 export function cardView(role, card) {
-  const { key, name, asset, effect, policy, resource, description, policyAnyOf, legitimacy } = cardDefinition(role, card);
-  return { id: card.id, key, name, asset, effect, policy, resource, description, policyAnyOf, legitimacy, serial: card.serial };
+  const { key, name, nameEn, asset, effect, policy, resource, description, policyAnyOf, legitimacy } = cardDefinition(role, card);
+  return { id: card.id, key, name, nameEn, asset, effect, policy, resource, description, policyAnyOf, legitimacy, serial: card.serial };
 }

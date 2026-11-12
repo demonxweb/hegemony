@@ -382,19 +382,36 @@ FAQ：卡牌要求執行 Action 時，套用該 Action 的正常規則。Assign 
 
 若 `command.immediate === true` 直接報錯，避免前端誤送時默默忽略。
 
-### 7.11 「最多 N」可送 0（低，待確認）
+### 7.11 「最多 N」可送 0（中，待修）
 
 #### 現象
 
-- `trade.mjs:46-57` `sellToState` 允許 `amount >= 0`，因此醫療危機、高等教育計畫可賣 0；`game.mjs:674` 圍標即使賣 0 仍取得 1 影響力。
-- `game.mjs:604-613` 人口外移允許 `ids` 為空（仍要求待業 ≥ 4）。
-- 出口牌（Global Branding／Global Food Crisis／Foreign Market Insight）允許 0 筆交易。
+`numberField`（`app.js:569`）預設 `min = 0`、`value = 0`，因此所有數量欄位打開時都是 0，直接按確認就會送出「0 單位」。引擎多數效果只檢查 `amount >= 0`，於是打出卡牌後可以什麼都不做。
 
-規則未明確禁止「up to 0」。若採嚴格解讀，這些卡打出後應至少完成 1 單位或 1 筆交易才有效。
+規則書 p.12 只說「符合需求才能打牌發揮效果」，FAQ（規則書 p.36）則明確寫道：*"you cannot perform actions that are optional if you cannot cover their cost/requirement."* 由此解讀，「up to N」是上限而非允許空效果；打出一張牌卻完成 0 單位，等於白棄一張牌，應改為棄牌執行基本行動。以下是全部同類欄位的盤點：
 
-#### 建議
+| 卡牌／效果 | 程式位置 | 目前送 0 的結果 | 判定 |
+|---|---|---|---|
+| 醫療危機、高等教育計畫（`sell-health`／`sell-education`） | `trade.mjs:49` `sellToState` | 可確認，無任何效果 | 應至少 1 |
+| 圍標（`bid-rigging`） | `game.mjs:674` | **可確認，且仍得 1 點個人影響力** | 明確錯誤 |
+| 全球品牌、全球糧食危機（`brand-export`／`food-export`） | `game.mjs:766` `specialExport` | 可確認，無任何效果 | 應至少 1 |
+| 醫療觀光、外國學生（`export-health`／`export-education`） | `game.mjs:818` | 可確認，無任何效果 | 應至少 1 |
+| 移民（`migration`） | `game.mjs:604-613` | 可不勾選任何人（仍要求待業 ≥ 4） | 應至少 1 |
+| 公營企業加班（`public-overtime`） | `game.mjs:664` | 0 不向國家購買，企業仍照常增產 | 正確（卡面是 may buy） |
+| 言論壓制（`speech`） | `game.mjs:795` | 0 轉換，仍得 +2 影響力並降低兩個階級影響力 | 正確（主要效果在後段） |
+| 國家事件「支出」（`spend`，如 Neighbors at War、Developing Countries in Need） | `events.mjs:167` | 0 可結算，不換 VP | 待確認，傾向至少 1 |
+| 國家事件「分配影響力」（Political Scandal） | `events.mjs:215` | 0 分配仍付 $25 | 玩家不會故意送 0，低風險 |
 
-先確認裁決；若嚴格處理，對「up to」加最小 1 的驗證（純棄牌仍可透過一般行動）。
+另外，前端在 `quantity()` 的最大值為 0 時仍會渲染表單（`app.js:1675-1679` 等），玩家看到「可填 0～0」還能按確認，是 0 數量最容易被觸發的路徑。
+
+#### 建議修法
+
+1. `sellToState`、`specialExport`、`export-health`／`export-education` 改為 `amount >= 1`。
+2. `bid-rigging` 改為必須賣至少 1 份才給影響力（或直接套用第 1 點的驗證）。
+3. `migration` 加上 `ids.length >= 1`。
+4. 事件 `spend` 若要嚴格處理，改為 `amount >= 1`；先確認裁決。
+5. 前端：最大值 < 1 時不要渲染可確認的數量表單，顯示「目前沒有可出售數量」；最大值 ≥ 1 時 `min = 1`。
+6. 補測試：上述每張卡送 0 都應被拒絕，且 `bid-rigging` 送 0 不得取得影響力。
 
 ### 7.12 其他待確認
 

@@ -1,6 +1,7 @@
 import { availableUnionWorkers, boardHelpButton, boardSurface, companyGear, companyOutput, companyProductionTotal, companySlotDetails, companySlots as buildSlots, companyStopped, exportOfferLabel, playerDiagram, policyColors, policyDiagram, scoreEdge, slotRoleIcons, slotRoleLabel,
   track, workerColors, workerFigure } from './boards.js';
 import { attachPieces } from './pieces.js';
+import { catalogActionDetail } from './catalog-action-details.js';
 
 const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
@@ -1038,6 +1039,14 @@ const dropAttrs = (type, id = '') => `data-drop="${type}" data-drop-id="${escape
 const pieceAttrs = (type, id, label) => `data-piece="${type}" data-piece-id="${escape(id)}" data-piece-label="${escape(label)}"`;
 const tipAttrs = (title, lines, footer = []) => `data-tip-title="${escape(title)}" data-tip-body="${escape(lines.filter(Boolean).join('\n'))}"`
   + (footer.length ? ` data-tip-footer="${escape(footer.filter(Boolean).join('\n'))}"` : '');
+const cardTipAttrs = card => `data-tip-card="${escape(JSON.stringify({
+  name: card.name,
+  nameEn: card.nameEn ?? '',
+  effect: card.description ?? '',
+  policy: card.policyAnyOf?.length ? card.policyAnyOf.join(' 或 ') : '無政策限制',
+  legitimacy: card.legitimacy || '無',
+  detail: catalogActionDetail({ role: state.role, name: card.nameEn }) ?? '',
+}))}"`;
 const mainTurn = () => state.phase === 'action' && state.role === state.currentRole && !state.mainUsed && !state.transaction;
 const acting = type => mainTurn() && selectedAction === type;
 const canShop = () => acting('buy') && Boolean(state.content) && ['working', 'middle'].includes(state.role);
@@ -2373,7 +2382,7 @@ function handBoard(card) {
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10 12 3l9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>
     </button></div></div>
     <div class="hand-rack">${state.hand.map(item => `<button type="button" class="hand-card" aria-pressed="${item.id === card?.id}"
-      data-card="${escape(item.id)}" ${tipAttrs(item.name, [item.description, item.policyAnyOf?.length && `適用政策 · ${item.policyAnyOf.join('／')}`, item.legitimacy && `合法性 · ${item.legitimacy}`])}>
+      data-card="${escape(item.id)}" ${cardTipAttrs(item)}>
       <svg viewBox="0 0 70 86" aria-hidden="true">
         <path d="M8 22h54m-54 52h54M54 1l15 15"/><circle cx="35" cy="48" r="13"/>
       </svg>${item.serial ? `<small class="card-serial">${escape(item.serial)}</small>` : ''}<strong>${escape(item.name)}</strong></button>`).join('')}</div>
@@ -2385,8 +2394,7 @@ let selectedPileCard;
 function cardPileTile(item, pile) {
   return `<button type="button" class="pile-card" data-pile-card="${escape(item.id)}" data-pile="${pile}"
     aria-pressed="${selectedPileCard?.pile === pile && selectedPileCard?.id === item.id}"
-    ${tipAttrs(item.name, [item.description,
-    item.policyAnyOf?.length && `適用政策 · ${item.policyAnyOf.join('／')}`, item.legitimacy && `合法性 · ${item.legitimacy}`])}>
+    ${cardTipAttrs(item)}>
     ${item.serial ? `<small class="card-serial">${escape(item.serial)}</small>` : ''}
     <strong>${escape(item.name)}</strong>${item.policyAnyOf?.length ? `<small>${escape(item.policyAnyOf.join('／'))}</small>` : ''}</button>`;
 }
@@ -2666,13 +2674,58 @@ function positionTip() {
   tooltip.style.top = `${top}px`;
 }
 
-function showTip(anchor) {
-  if (!anchor || app.classList.contains('dragging')) return hideTip();
-  if (tipAnchor === anchor) return;
-  hideTip();
-  tipAnchor = anchor;
-  renderHelpText(tooltip.querySelector('strong'), anchor.dataset.tipTitle);
-  const body = tooltip.querySelector('p');
+function appendCardTipRow(list, label, value) {
+  const row = document.createElement('div');
+  const term = document.createElement('dt');
+  term.textContent = label;
+  const description = document.createElement('dd');
+  description.textContent = value;
+  row.append(term, description);
+  list.append(row);
+}
+
+function renderCardTip(raw) {
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return false;
+  }
+  const title = document.createElement('strong');
+  title.textContent = data.name;
+  tooltip.append(title);
+  if (data.nameEn) {
+    const english = document.createElement('span');
+    english.className = 'catalog-english';
+    english.textContent = data.nameEn;
+    tooltip.append(english);
+  }
+  const details = document.createElement('dl');
+  details.className = 'catalog-details';
+  appendCardTipRow(details, '效果', data.effect);
+  appendCardTipRow(details, '政策條件', data.policy);
+  appendCardTipRow(details, '國家合法性變化', data.legitimacy);
+  tooltip.append(details);
+  if (data.detail) {
+    const section = document.createElement('section');
+    section.className = 'catalog-action-detail';
+    const heading = document.createElement('h4');
+    heading.textContent = '詳細說明';
+    const body = document.createElement('p');
+    body.textContent = data.detail;
+    section.append(heading, body);
+    tooltip.append(section);
+  }
+  tooltip.classList.add('card-tip');
+  return true;
+}
+
+function renderTextTip(anchor) {
+  tooltip.classList.remove('card-tip');
+  const title = document.createElement('strong');
+  renderHelpText(title, anchor.dataset.tipTitle);
+  tooltip.append(title);
+  const body = document.createElement('p');
   renderHelpText(body, anchor.dataset.tipBody);
   if (anchor.dataset.tipFooter) {
     const footer = document.createElement('span');
@@ -2680,12 +2733,24 @@ function showTip(anchor) {
     renderHelpText(footer, anchor.dataset.tipFooter);
     body.append(footer);
   }
+  tooltip.append(body);
+  return true;
+}
+
+function showTip(anchor) {
+  if (!anchor || app.classList.contains('dragging')) return hideTip();
+  if (tipAnchor === anchor) return;
+  hideTip();
+  tipAnchor = anchor;
+  tooltip.replaceChildren();
+  const rendered = anchor.dataset.tipCard ? renderCardTip(anchor.dataset.tipCard) : renderTextTip(anchor);
+  if (!rendered) return hideTip();
   anchor.setAttribute('aria-describedby', tooltip.id);
   tooltip.hidden = false;
   positionTip();
 }
 
-const tipFor = target => target instanceof Element ? target.closest('[data-tip-title]') : null;
+const tipFor = target => target instanceof Element ? target.closest('[data-tip-title], [data-tip-card]') : null;
 app.addEventListener('pointerover', event => {
   if (event.pointerType !== 'touch') showTip(tipFor(event.target));
 });
