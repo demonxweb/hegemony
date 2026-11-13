@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from './random.mjs';
 import { catalogCard, catalogDecks } from './content.mjs';
 
 const scholarship = { key: 'scholarship', name: '國家獎學金', effect: 'service', resource: 'education', policy: 4,

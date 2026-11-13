@@ -1,4 +1,7 @@
-import { randomInt, randomUUID } from 'node:crypto';
+import { createRng, randomInt, randomUUID, withRng } from './random.mjs';
+import { stateMainCandidates } from './candidates.mjs';
+import { normalizeTurnLog } from './turn-log.mjs';
+import { recordProposal, resolveProposal } from './proposals.mjs';
 import base from '../../data/hegemony-v1.2-data.json' with { type: 'json' };
 import { activeCompany, addWorker, adjustWages, assign, build, canStaffMiddleCompany, companyAction, companyDefinition, createEconomy, credit, demonstrationStatus, economyView, fillRequiredHires, funds, hirePublicCompany, makeFarm, operational,
   operationalCount, outsideEmployers, ownedCompanies, pay, produceCompany, refreshMarket, replacePublicCompany, sellCompany,
@@ -22,10 +25,16 @@ export const policies = ['財政', '勞動市場', '稅制', '醫療福利', '�
 const sections = ['A', 'B', 'C'];
 const workerSkills = ['food', 'luxury', 'health', 'education', 'influence'];
 
-export function createGame({ full = true } = {}) {
+// seed 省略時使用系統亂數產生種子；每場遊戲的亂數狀態存在 game.rng。
+export function createGame({ full = true, seed } = {}) {
+  const rng = createRng(seed);
+  return withRng(rng, () => buildGame(full, rng));
+}
+
+function buildGame(full, rng) {
   const content = full ? createRoundContent() : null;
   return {
-    phase: 'lobby', turn: 0, mainUsed: false, freeUsed: false,
+    rng, phase: 'lobby', turn: 0, mainUsed: false, freeUsed: false,
     economy: createEconomy(content),
     match: createMatch(),
     decks: createDecks(full), content,
@@ -147,6 +156,7 @@ export function settleElection(game) {
     bag: { ...game.election.bagDraw, returned: returned.length, removed: drawn.length - returned.length, remaining: bagTotal(game) } };
   (game.voteResults ??= []).push(game.lastVote);
   game.bills = game.bills.filter(item => item.policy !== bill.policy);
+  resolveProposal(game, bill, passed ? 'passed' : 'failed', { favor, against });
   game.election = null;
   game.voteConfirmation = { immediate, confirmed: [] };
   game.phase = 'vote-confirmation';
@@ -271,6 +281,7 @@ function propose(game, role, command, waiveCost, nonAdjacent = false) {
     game.players[role].influence--;
   }
   game.bills.push(bill);
+  recordProposal(game, bill, immediate);
   log(game, `${names[role]}提出${policies[policy]} ${target}。`);
   if (immediate) openElection(game, bill, true);
   return bill;
@@ -451,11 +462,14 @@ function openCardChoice(game, role, effect, details) {
   game.phase = 'card-choice';
 }
 
-function shiftFocusBlocks(game, options) {
+// 逐一說明場上與翻出的事件為何不能處理（空字串代表可以）。
+// 轉移重點可以換掉場上事件；優先議題只能在場上有空位時加入新事件。
+function shiftFocusBlocks(game, options, effect = 'shift-event') {
   const active = game.content.events;
   const canPropose = availablePolicies(game, 'state').length > 0;
-  return Object.fromEntries([...new Set(active.length ? [...active, ...options] : [])]
-    .map(id => [id, eventProcessingBlock(game, id, canPropose)]));
+  const pool = effect === 'priority-event' ? [...active, ...(active.length < 2 ? options : [])]
+    : active.length ? [...active, ...options] : [];
+  return Object.fromEntries([...new Set(pool)].map(id => [id, eventProcessingBlock(game, id, canPropose)]));
 }
 
 function finishCardChoice(game, role, command) {
@@ -506,14 +520,15 @@ function finishCardChoice(game, role, command) {
       build(game, role, command, { fromDeck: true, discount: -investmentAdjustment(role) });
       break;
     case 'shift-event': case 'priority-event':
-      if (choice.effect === 'shift-event' && command.option === 'cancel-shift-focus') {
-        requireRule(Object.values(shiftFocusBlocks(game, choice.options)).every(Boolean), '仍有可以處理的事件。');
+      // 沒有任何事件能處理時可以收回這張牌，避免卡在無法完成的選擇。
+      if (command.option === (choice.effect === 'shift-event' ? 'cancel-shift-focus' : 'cancel-priority')) {
+        requireRule(Object.values(shiftFocusBlocks(game, choice.options, choice.effect)).every(Boolean), '仍有可以處理的事件。');
         const discard = game.decks[role].discard;
         const usedCard = discard.at(-1);
-        requireRule(usedCard && cardDefinition(role, usedCard).effect === choice.effect, '找不到可退回的轉移重點卡。');
+        requireRule(usedCard && cardDefinition(role, usedCard).effect === choice.effect, '找不到可退回的事件卡。');
         game.players[role].hand.push(discard.pop());
         game.mainUsed = false;
-        log(game, '國家因沒有可處理的事件，收回「轉移重點」。');
+        log(game, choice.effect === 'shift-event' ? '國家因沒有可處理的事件，收回「轉移重點」。' : '國家因沒有可處理的事件，收回「優先議題」。');
         break;
       }
       if (command.option) {
@@ -1303,7 +1318,38 @@ function adjustHostBenefits(game, benefits) {
   }
 }
 
+// 所有命令都在該場遊戲自己的亂數狀態下執行，不同房間、預覽複本互不干擾。
 export function applyCommand(game, role, command, allSeated) {
+  game.rng ??= createRng();
+  return withRng(game.rng, () => runCommand(game, role, command, allSeated));
+}
+
+// 國家在行動階段是否還有任何合法的主要行動。找到第一個合法的就停，通常只試幾次；
+// 只有真的無事可做時才會把所有候選試完。命令本身合法即可，不要求後續選擇也走得完。
+export function hasLegalMainAction(game, role) {
+  if (role !== 'state') return true;
+  const view = playerView(game, role);
+  return stateMainCandidates(view).some(command => {
+    const copy = structuredClone(game);
+    try {
+      applyCommand(copy, role, command, true);
+      return copy.phase !== 'card-choice' || cardChoiceCompletable(playerView(copy, role).content.cardChoice);
+    } catch {
+      return false;
+    }
+  });
+}
+
+// 打出的牌若只能事後收回（沒有任何事件可處理、沒有可建造的企業…），不算有行動可做。
+function cardChoiceCompletable(choice) {
+  if (!choice) return true;
+  if (choice.eventBlocks) return Object.values(choice.eventBlocks).some(reason => !reason);
+  if (choice.effect === 'investment-build') return choice.cards.some(item => !item.blocked);
+  if (choice.effect === 'second-bill') return choice.policies.length > 0;
+  return true;
+}
+
+function runCommand(game, role, command, allSeated) {
   const player = game.players[role];
   const { type } = command;
   if (type === 'host-adjust') {
@@ -1437,8 +1483,6 @@ export function applyCommand(game, role, command, allSeated) {
     if (game.content) {
       const quote = quoteFood(game, role, command.quantities, command.personalFood);
       if (quote.loans) {
-        const taken = Object.values(game.economy.loans).reduce((sum, count) => sum + count, 0);
-        requireRule(taken + quote.loans <= base.components.small_cards.loans, '全桌貸款牌不足，請先調整食物來源。');
         game.transaction = { role, kind: 'food-loan', quantities: command.quantities, ...quote };
         return;
       }
@@ -1482,6 +1526,14 @@ export function applyCommand(game, role, command, allSeated) {
         nextScheduledElection(game);
       }
     }
+    return;
+  }
+  if (type === 'pass') {
+    requireRule(role === 'state' && game.content, '只有國家在確實無行動可做時才能跳過。');
+    requireRule(!game.mainUsed && !game.transaction, '本回合的主要行動已完成。');
+    requireRule(!hasLegalMainAction(game, role), '國家仍有可執行的行動，不能跳過。');
+    game.mainUsed = true;
+    log(game, '國家沒有可執行的行動，跳過本回合的主要行動。');
     return;
   }
   if (type === 'swap-card') {
@@ -1651,8 +1703,8 @@ export function playerView(game, role) {
   if (privateChoice?.effect === 'export-insight') privateChoice.cards = choice.options.map(id => ({
     ...catalogCard(id), offers: exportOffers({ ...game, content: { ...game.content, export: id } }, role),
   }));
-  if (privateChoice?.effect === 'shift-event') {
-    privateChoice.eventBlocks = shiftFocusBlocks(game, choice.options);
+  if (['shift-event', 'priority-event'].includes(privateChoice?.effect)) {
+    privateChoice.eventBlocks = shiftFocusBlocks(game, choice.options, choice.effect);
   }
   if (['shift-event', 'priority-event'].includes(privateChoice?.effect)) privateChoice.cards = choice.options.map(id => eventView(game, id));
   return {
@@ -1683,7 +1735,7 @@ export function playerView(game, role) {
       civil: game.content.civil, civilPolicies: game.phase === 'event-choice' ? availablePolicies(game, 'state') : [],
       choosingRole: choice?.role, cardChoice: privateChoice, pollReveal, marketRole: game.content.marketRole,
       marketSkillPending: Boolean(game.content.marketSkillPending), eventHire: game.content.eventHire, startSkill: game.content.startSkill },
-    bills, log, lastVote, voteResults: game.voteResults ?? [], voteConfirmation: game.voteConfirmation ?? null,
+    bills, proposals: game.proposals ?? [], log, turnLog: normalizeTurnLog(game), lastVote, voteResults: game.voteResults ?? [], voteConfirmation: game.voteConfirmation ?? null,
     bag: choice?.drawn && choice.role !== role && choice.effect !== 'poll' ? Object.fromEntries(classes.map(seat => [seat, bag[seat] + choice.drawn.filter(cube => cube === seat).length])) : bag,
     policies: game.policies,
     taxMultiplier: taxMultiplier(game),

@@ -700,8 +700,8 @@ function buildFields(role, companies, { optional = false, prefix = '', land = fa
   });
   let budget = buildBudget(payer);
   if (mandatoryPay) {
-    const taken = Object.values(state.economy.loans).reduce((sum, count) => sum + count, 0);
-    budget += Math.max(0, meta.loanSupply - taken) * meta.loanPrincipal;
+    // 貸款不設上限，強制支出永遠付得起。
+    budget = Number.MAX_SAFE_INTEGER;
   }
   const choices = buildCompanyChoices(offers, budget, storage ? products[0] : null);
   const placeholder = optional ? '略過' : choices.some(([, , , disabled]) => !disabled) ? '選擇企業' : '目前無法建造';
@@ -1711,7 +1711,9 @@ function productionTotals(production, forecast = false) {
   return settlementTable(forecast ? '預計產量' : '各資源生產結算（份）', columns, totals);
 }
 
-function companyProductionDetails(production, forecast = false, ownerOrder = ['capitalist', 'middle', 'state'], { expanded = false } = {}) {
+// expanded：單一席位的薪資明細（直接顯示，依領薪對象分組）；
+// grouped：每個付薪席位一個摺疊區，裡面同樣依領薪對象（勞工、中產）分組，企業縮排在對象底下。
+function companyProductionDetails(production, forecast = false, ownerOrder = ['capitalist', 'middle', 'state'], { expanded = false, grouped = false } = {}) {
   if (!production?.length) return '';
   const columns = ['資源', '企業', '產量', forecast ? '預計取得' : '實際取得', '未取得', '薪資'];
   return ownerOrder.map(owner => {
@@ -1722,12 +1724,12 @@ function companyProductionDetails(production, forecast = false, ownerOrder = ['c
         coloredGameLabel(resources[row.resource], `var(--industry-${row.resource})`),
         coloredGameLabel(row.company, `var(--industry-${row.resource})`), row.produced, row.stored,
         row.produced - row.stored, row.wage
-          ? `${expanded ? '' : coloredGameLabel(meta.names[row.recipient], `var(--${row.recipient})`) + ' '}${coloredGameLabel(`$${row.wage}`, 'var(--gold)')}`
+          ? `${expanded || grouped ? '' : coloredGameLabel(meta.names[row.recipient], `var(--${row.recipient})`) + ' '}${coloredGameLabel(`$${row.wage}`, 'var(--gold)')}`
           : '-',
     ];
     const rows = companies.map(renderCompanyRow);
     const wages = companies.reduce((sum, row) => sum + (row.wage ?? 0), 0);
-    if (expanded) {
+    if (expanded || grouped) {
       const groups = [
         ...['working', 'middle'].map(role => ({
           label: coloredGameLabel(meta.names[role], `var(--${role})`),
@@ -1735,6 +1737,11 @@ function companyProductionDetails(production, forecast = false, ownerOrder = ['c
         })),
         { label: '無薪資支出', rows: companies.filter(row => !(row.wage > 0)).map(renderCompanyRow) },
       ].filter(group => group.rows.length);
+      if (grouped) {
+        return `<details><summary>${coloredGameLabel(meta.names[owner], `var(--${owner})`)}生產薪資明細</summary>
+          ${settlementTable(null, columns, rows, ['薪資合計', '', '', '', '', `$${wages}`], '', groups)}
+        </details>`;
+      }
       return settlementTable('薪資明細', columns, rows, ['薪資合計', '', '', '', '', `$${wages}`], '', groups);
     }
     return `<details><summary>${coloredGameLabel(meta.names[owner], `var(--${owner})`)}生產薪資明細</summary>
@@ -2045,6 +2052,24 @@ function modalCardStep() {
     || (state.phase === 'policy-choice' && ['action', 'immediate'].includes(state.policyChoice?.resume));
 }
 
+// 生產階段輪到自己確認的步驟（發薪與生產、食物需求與借貸、IMF、繳稅、示威扣分、IMF 政策調整）
+// 改用彈窗呈現，做法與卡牌後續選擇相同；別人的步驟仍在手牌下方顯示「等待…確認」。
+function modalProductionStep() {
+  if (!state.match) return false;
+  if (state.transaction) return state.transaction.kind === 'food-loan' && state.transaction.role === state.role;
+  switch (state.phase) {
+    case 'production-confirm': return state.match.productionStep?.role === state.role;
+    case 'needs': return state.match.needsRole === state.role;
+    case 'demonstration': return state.role === 'working';
+    case 'policy-choice': return state.policyChoice?.resume === 'imf' && state.policyChoice.role === state.role;
+    default: return false;
+  }
+}
+
+function productionStepDialog() {
+  return `<dialog id="production-step-dialog" class="action-confirmation" aria-label="生產階段確認">${actionPanel(undefined, true)}</dialog>`;
+}
+
 function cardStepDialog() {
   const panel = state.phase === 'policy-choice' ? policyPanel() : decisionPanel();
   return `<dialog id="card-step-dialog" class="action-confirmation" aria-label="完成卡牌或事件效果">${panel}</dialog>`;
@@ -2080,7 +2105,7 @@ function decisionPanel() {
         + form('market-skill', '確認技能', selectField('skill', '技術工的技能', skillOptions(products)))
       : '<p>等待中產選擇新增工人的技能。</p>'}</section>`;
     const controls = role === marketRole ? companyMarket(true, '可將企業拖到「棄置市場企業」，或勾選要棄置的牌。')
-      + form('market', '更新市場', checks('companies', companyOptions(state.economy.markets[role])) + companyCardChoices(state.economy.markets[role]))
+      + form('market', '更新市場', checks('companies', companyOptions(state.economy.markets[role])))
       : `<p>等待${meta.names[marketRole]}更新市場。</p>`;
     return `<section class="panel"><h2>企業市場補牌</h2>${controls}</section>`;
   }
@@ -2134,14 +2159,15 @@ function decisionPanel() {
     const canPlace = choice.effect === 'priority-event' ? active.length < 2 : active.length > 0;
     const options = canPlace ? choice.cards : [];
     controls = '';
-    if (choice.effect === 'shift-event' && choice.eventBlocks && Object.values(choice.eventBlocks).every(Boolean)) {
+    if (choice.eventBlocks && Object.values(choice.eventBlocks).every(Boolean)) {
+      const shift = choice.effect === 'shift-event';
       const reasons = [...active, ...choice.cards].flatMap(event => {
         const reason = choice.eventBlocks[event.id];
         return reason ? [`<li>${escape(event.nameZh)} · ${escape(reason)}</li>`] : [];
       }).join('');
-      controls += form('card-choice', '收回轉移重點',
+      controls += form('card-choice', shift ? '收回轉移重點' : '收回優先議題',
         `<p>沒有可處理的事件。收回後可重新選擇主要行動。</p>${reasons ? `<ul>${reasons}</ul>` : ''}
-          <input type="hidden" name="option" value="cancel-shift-focus">`);
+          <input type="hidden" name="option" value="${shift ? 'cancel-shift-focus' : 'cancel-priority'}">`);
     } else {
       const exchange = choice.effect === 'shift-event' && options.length > 0;
       controls += `<div data-event-choice-editor>
@@ -2196,7 +2222,8 @@ function demonstrationPanel() {
     ? form('demonstration-losses', '確認扣分', fields) : '<p>等待勞工分配扣分。</p>'}</section>`;
 }
 
-function actionPanel(card) {
+function actionPanel(card, inDialog = false) {
+  if (!inDialog && modalProductionStep()) return '<p class="muted">請在彈窗中確認生產階段的這個步驟。</p>';
   if (state.voteConfirmation) {
     const { confirmed } = state.voteConfirmation;
     const waiting = meta.roles.filter(role => !confirmed.includes(role)).map(role => meta.names[role]);
@@ -2229,6 +2256,11 @@ function actionPanel(card) {
     ? `<p>已購買${resources[state.purchaseReceipt.resource]}，${purchaseRows(state.purchaseReceipt).map(({ seller, quantity }) =>
       `${sellerName(seller)} ${quantity} 份`).join('、')}，共支付 $${state.purchaseReceipt.cost}。</p>` : ''}
     ${form('end', '結束回合')}</section>${freeActionPanel()}`;
+  if (state.noLegalAction) {
+    return `<section class="panel"><h2>無可用行動</h2>
+      <p class="muted">目前的手牌與盤面沒有任何可執行的主要行動，可以跳過本回合的主要行動。跳過後仍可使用免費行動並結束回合。</p>
+      ${form('pass', '跳過主要行動')}</section>${freeActionPanel()}`;
+  }
   const actions = basicActions();
   const selected = actions.find(([type, , fields]) => type === selectedAction && fields !== null);
   const cardForm = playForm(card);
@@ -2425,13 +2457,69 @@ function finalPanel() {
     ['貸款扣分', ...scores.map(result => result.penalty ? `-${result.penalty}` : 0)],
   ];
   const total = ['最終分數', ...scores.map(result => result.total)];
-  return `<section class="panel"><h2>${coloredGameText(winners.map(role => meta.names[role]).join('、'))}${winners.length > 1 ? '共同勝出' : '獲勝'}</h2>
-    ${settlementTable('終局計分（VP）', ['得分項目', ...meta.roles.map(role => coloredGameText(meta.names[role]))], rows, total)}
+  return `<section class="panel">${finalResultMarkup(winners, scores, rows, total)}</section>`;
+}
+
+// 終局結果：獲勝階級用大字置中，下面是計分表。終局彈窗與頁面內的區塊共用。
+function finalWinnerHeading(winners) {
+  return `<h2 class="final-winner">${coloredGameText(winners.map(role => meta.names[role]).join('、'))}${winners.length > 1 ? '共同勝出' : '獲勝'}</h2>`;
+}
+
+function finalResultMarkup(winners, scores, rows, total) {
+  return finalWinnerHeading(winners) + finalScoreBody(scores, rows, total);
+}
+
+// 終局彈窗：獲勝階級大字置中，下面用分頁切換計分與五輪合計的各項結算。
+function finalDialogMarkup() {
+  const { winners, scores, rows, total } = finalResultRows();
+  const history = state.match.history;
+  return finalWinnerHeading(winners) + statTabsMarkup([
+    ['score', '計分', finalScoreBody(scores, rows, total)],
+    ['bills', '法案', finalBillsTab()],
+    ['resources', '資源', expandDetails(totalResourceTables(history))],
+    ['tax', '稅款', totalTaxDetails(history)],
+    ['loans', '貸款', totalLoanDetails(history)],
+    ['wages', '生產薪資', expandDetails(companyProductionDetails(sumProduction(history), false, undefined, { grouped: true }))
+      || '<p class="muted">沒有生產紀錄。</p>'],
+  ]);
+}
+
+function finalScoreBody(scores, rows, total) {
+  return `${settlementTable('終局計分（VP）', ['得分項目', ...meta.roles.map(role => coloredGameText(meta.names[role]))], rows, total)}
     <details><summary>同分判定與貸款償還</summary>
       ${scores.map(result => `<p class="muted">${coloredGameText(meta.names[result.role])} · 符合政策 ${result.policyMatches} 項
         ${result.role !== 'state' ? `，袋內投票方塊 ${result.votingCubes} 枚` : ''}
         ${result.repaid ? `，貸款償還 - $${result.repaid}` : ''}</p>`).join('')}
-    </details></section>`;
+    </details>`;
+}
+
+function finalResultRows() {
+  const { winners, results } = state.match.final;
+  const scores = meta.roles.map(role => results.find(result => result.role === role));
+  const rows = [
+    ['累積分數', ...scores.map(result => result.before)],
+    ['政策', ...scores.map(result => `+${result.policy}`)],
+    ['金錢', ...scores.map(result => `+${result.money}`)],
+    ['庫存', ...scores.map(result => `+${result.inventory}`)],
+    ['貸款扣分', ...scores.map(result => result.penalty ? `-${result.penalty}` : 0)],
+  ];
+  return { winners, scores, rows, total: ['最終分數', ...scores.map(result => result.total)] };
+}
+
+// 遊戲結束時彈出終局結果。
+let shownFinalResult = '';
+
+function syncFinalResultDialog() {
+  if (state.phase !== 'complete' || !state.match?.final) return;
+  const key = `${state.code}:${state.restoredRevision ?? 0}`;
+  if (shownFinalResult === key) return;
+  shownFinalResult = key;
+  const dialog = document.querySelector('#final-result-dialog');
+  dialog.querySelector('[data-final-result]').innerHTML = finalDialogMarkup();
+  // 先看第五輪的計分結果，關閉後才彈出終局結算。
+  const show = () => { if (!dialog.open) dialog.showModal(); };
+  if (roundResultDialog.open) roundResultDialog.addEventListener('close', show, { once: true });
+  else show();
 }
 
 function showRoundResult(row) {
@@ -2451,8 +2539,19 @@ function showRoundResult(row) {
   const cumulative = ['累積分數', ...meta.roles.map(role =>
     final?.results.find(result => result.role === role)?.before ?? state.players[role].vp)];
   roundResultDialog.querySelector('h2').textContent = `第 ${row.round} 輪計分結果`;
-  roundResultDialog.querySelector('[data-round-result]').innerHTML = settlementTable('輪末計分（VP）',
+  const score = settlementTable('輪末計分（VP）',
     ['得分項目', ...meta.roles.map(role => coloredGameText(meta.names[role]))], scoreRows, cumulative, 'round-score-table');
+  // 計分之外，這一輪的結算明細（與頁面內「輪次結算」同一份資料）用分頁切換，每頁的區塊預設展開。
+  const open = expandDetails;
+  const tabs = [
+    ['score', '計分', score],
+    ['bills', '法案', roundBillsTab(row)],
+    ['resources', '資源', open(roundResourceTables(row))],
+    ['tax', '稅款', roundTaxTable(row.taxes) + roundImfNote(row)],
+    ['loans', '貸款', open(roundLoanDetails(row))],
+    ['wages', '生產薪資', open(companyProductionDetails(row.production, false, undefined, { grouped: true })) || '<p class="muted">本輪沒有生產紀錄。</p>'],
+  ];
+  roundResultDialog.querySelector('[data-round-result]').innerHTML = statTabsMarkup(tabs);
   if (!roundResultDialog.open) roundResultDialog.showModal();
 }
 
@@ -2483,7 +2582,7 @@ function roundResourceTables(row) {
     const columns = ['項目', ...(showsCapacity ? ['容量'] : []), ...(hasMeals ? ['生活資源'] : []),
       ...(hasWarehouse ? ['庫存', '生產', '丟棄', '賣出'] : []),
       ...(hasMeals ? ['購買國內', '購買國外', '使用', '資源缺額'] : []),
-      '剩餘資源', ...(hasMeals ? ['支出'] : [])];
+      '福利發放', '福利領取', '剩餘資源', ...(hasMeals ? ['支出'] : [])];
     const rows = products.map(resource => {
       const production = row.production?.filter(item => item.owner === role && item.resource === resource);
       const produced = production?.reduce((sum, item) => sum + item.produced, 0);
@@ -2512,6 +2611,7 @@ function roundResourceTables(row) {
         ...(hasMeals ? (resource === 'food'
           ? [food?.purchased ?? unrecorded, food?.imported ?? unrecorded, food ? food.own + bought : unrecorded, bought ?? unrecorded]
           : ['-', '-', '-', '-']) : []),
+        ...welfareCells(row.welfare, role, resource),
         row.remainingResources?.[role]?.[resource] ?? unrecorded,
         ...(hasMeals ? [food ? `$${food.cost}` : resource === 'food' ? unrecorded : '-'] : []),
       ];
@@ -2523,15 +2623,15 @@ function roundResourceTables(row) {
   }).join('');
 }
 
-function roundTaxTable(taxes) {
+function roundTaxTable(taxes, withPolicy = true) {
   const breakdown = {
     working: [taxes.workingIncome, null, null],
     middle: [taxes.middleIncome, taxes.middleEmployment, null],
     capitalist: [null, taxes.employment, taxes.corporate],
     state: [taxes.workingIncome + taxes.middleIncome, taxes.employment + taxes.middleEmployment, taxes.corporate],
   };
-  return `<p>${coloredGameLabel(`${meta.policies[1]} ${taxes.labor}`, policyColor(1))}／${coloredGameLabel(`${meta.policies[2]} ${taxes.taxation}`, policyColor(2))}
-    · ${coloredGameText(`稅倍率 ${taxes.multiplier}`)}</p>`
+  return (withPolicy ? `<p>${coloredGameLabel(`${meta.policies[1]} ${taxes.labor}`, policyColor(1))}／${coloredGameLabel(`${meta.policies[2]} ${taxes.taxation}`, policyColor(2))}
+    · ${coloredGameText(`稅倍率 ${taxes.multiplier}`)}</p>` : '')
     + transposedSettlementTable(null, ['稅目', '所得稅', '僱用稅', '公司稅', '合計'], meta.roles.map(role => {
       const amounts = breakdown[role];
       const total = role === 'state' ? taxes.total : amounts.reduce((sum, amount) => sum + (amount ?? 0), 0);
@@ -2559,11 +2659,149 @@ function roundLoanDetails(row) {
   </details>`;
 }
 
+// 分頁（計分、資源結算、稅款、貸款結算、生產薪資）：每輪結算與終局結算共用同一種版面。
+function statTabsMarkup(tabs) {
+  return `<div class="mat-help-tabs" role="tablist" aria-label="結算分類">
+    ${tabs.map(([id, label], index) => `<button type="button" role="tab" data-round-tab="${id}" aria-selected="${index === 0}">${label}</button>`).join('')}</div>
+    ${tabs.map(([id, , content], index) => `<div data-round-panel="${id}" role="tabpanel" ${index === 0 ? '' : 'hidden'}>${content}</div>`).join('')}`;
+}
+
+const expandDetails = markup => markup.replaceAll('<details>', '<details open>');
+
+// 終局用的五輪合計：把每一輪的紀錄加總，版面與單輪相同。
+function sumProduction(history) {
+  const merged = new Map();
+  for (const row of history) {
+    for (const item of row.production ?? []) {
+      const key = [item.owner, item.company, item.resource, item.recipient ?? ''].join('|');
+      const sum = merged.get(key) ?? { ...item, produced: 0, stored: 0, discarded: 0, wage: 0 };
+      sum.produced += item.produced;
+      sum.stored += item.stored;
+      sum.discarded += item.discarded ?? 0;
+      sum.wage += item.wage ?? 0;
+      merged.set(key, sum);
+    }
+  }
+  return [...merged.values()];
+}
+
+// 福利：國家發放到該階級福利區的量，與該階級實際領走的量。國家一欄的「發放」是對所有階級發放的合計。
+function welfareCells(welfare, role, resource) {
+  if (!welfare) return ['未記錄', '未記錄'];
+  return welfareAmounts([welfare], role, resource);
+}
+
+function welfareAmounts(rows, role, resource) {
+  const classesOnly = meta.roles.filter(seat => seat !== 'state');
+  const sum = (kind, seats) => rows.reduce((total, welfare) => total + seats.reduce((inner, seat) => inner + (welfare?.[kind]?.[seat]?.[resource] ?? 0), 0), 0);
+  return role === 'state' ? [sum('given', classesOnly), '-'] : [sum('given', [role]), sum('taken', [role])];
+}
+
+function totalWelfareCells(history, role, resource) {
+  return welfareAmounts(history.map(row => row.welfare), role, resource);
+}
+
+function totalResourceTables(history) {
+  const add = (values) => values.reduce((sum, value) => sum + (value ?? 0), 0);
+  return meta.roles.map(role => {
+    const hasMeals = role === 'working' || role === 'middle';
+    const hasWarehouse = role !== 'working';
+    const columns = ['項目', ...(hasWarehouse ? ['生產', '丟棄', '賣出'] : []),
+      ...(hasMeals ? ['購買國內', '購買國外', '使用', '資源缺額'] : []), '福利發放', '福利領取', ...(hasMeals ? ['支出'] : [])];
+    const meals = history.map(row => row.foodSettlement?.[role] ?? row.meals?.find(meal => meal.role === role)).filter(Boolean);
+    const rows = products.map(resource => {
+      const produced = history.map(row => (row.production ?? []).filter(item => item.owner === role && item.resource === resource));
+      const hasWarehouseSpace = role === 'state' || resource !== 'influence';
+      const food = resource === 'food' ? {
+        purchased: add(meals.map(meal => meal.purchased)), imported: add(meals.map(meal => meal.imported)),
+        own: add(meals.map(meal => meal.own)), cost: add(meals.map(meal => meal.cost)),
+      } : null;
+      return [
+        coloredGameLabel(resources[resource], `var(--industry-${resource})`),
+        ...(hasWarehouse ? [
+          add(produced.flat().map(item => item.produced)),
+          hasWarehouseSpace ? add(produced.flat().map(item => item.discarded)) : '-',
+          hasWarehouseSpace ? add(history.map(row => row.resourceSales?.[role]?.[resource])) : '-',
+        ] : []),
+        ...(hasMeals ? (food
+          ? [food.purchased, food.imported, food.own + food.purchased + food.imported, food.purchased + food.imported]
+          : ['-', '-', '-', '-']) : []),
+        ...totalWelfareCells(history, role, resource),
+        ...(hasMeals ? [food ? `$${food.cost}` : '-'] : []),
+      ];
+    });
+    return `<details><summary>${coloredGameText(meta.names[role])}資源結算</summary>
+      ${transposedSettlementTable(null, columns, rows, { total: hasMeals, tableClass: hasMeals ? 'resource-needs-table' : 'resource-stock-table' })}
+    </details>`;
+  }).join('');
+}
+
+function totalTaxDetails(history) {
+  const fields = ['employment', 'corporate', 'middleIncome', 'middleEmployment', 'workingIncome', 'total'];
+  const taxes = Object.fromEntries(fields.map(field => [field, history.reduce((sum, row) => sum + (row.taxes?.[field] ?? 0), 0)]));
+  const imf = history.map(row => roundImfNote(row) ? `<h4>第 ${row.round} 輪</h4>${roundImfNote(row)}` : '').join('');
+  return `<p>五輪稅收合計 <strong>$${taxes.total}</strong></p>${roundTaxTable(taxes, false)}${imf}`;
+}
+
+function totalLoanDetails(history) {
+  const sum = pick => history.reduce((total, row) => total + (pick(row) ?? 0), 0);
+  const count = value => `${value} 筆`;
+  const rows = meta.roles.map(role => {
+    const meals = history.flatMap(row => row.meals.filter(meal => meal.role === role));
+    const imfRole = role === 'state';
+    const paid = imfRole ? sum(row => row.imf?.paid) : 0;
+    const interest = sum(row => row.loans?.[role]?.nextInterest);
+    return [coloredGameText(meta.names[role]), count(sum(row => row.loans?.[role]?.wages)),
+      meals.length ? count(meals.reduce((total, meal) => total + (meal.loans ?? 0), 0)) : '-',
+      count(sum(row => row.loans?.[role]?.taxes)),
+      imfRole ? count(sum(row => row.imf?.cleared ?? row.imf?.repaid)) : '-', paid ? `- $${paid}` : '-',
+      count(history.at(-1)?.loans?.[role]?.outstanding ?? 0), interest ? `- $${interest}` : '-'];
+  });
+  return `<p class="muted">五輪合計。食物借款只顯示你這一席的明細。利息是各輪輪末未清貸款於下輪準備階段支付的合計；終局未清是第五輪輪末的筆數。- 表示不適用或無紀錄。</p>
+    ${transposedSettlementTable(null, ['項目', '發薪借款', '食物借款', '繳稅借款', 'IMF 相關結清', '國庫支付', '終局未清', '利息合計'], rows)}`;
+}
+
+// 法案分頁：本輪結算只列該輪通過的法案；終局結算列出整場所有提案，依輪次分組。
+const proposalStatus = { passed: '通過', failed: '未通過', canceled: 'IMF 取消', pending: '待表決' };
+
+function proposalCells(item) {
+  const bill = `${coloredGameLabel(`${meta.policies[item.policy]} → ${item.target}`, policyColor(item.policy))}${item.immediate ? ' <small class="muted">即時表決</small>' : ''}`;
+  return [bill, coloredGameLabel(meta.names[item.role], `var(--${item.role})`)];
+}
+
+function roundBillsTab(row) {
+  const passed = (state.proposals ?? []).filter(item => item.round === row.round && item.status === 'passed');
+  if (!passed.length) return '<p class="muted">本輪沒有通過的法案。</p>';
+  return settlementTable(null, ['法案', '提案人', '票數'], passed.map(item => [...proposalCells(item), `${item.favor} 比 ${item.against}`]));
+}
+
+function finalBillsTab() {
+  const proposals = state.proposals ?? [];
+  const result = item => `${proposalStatus[item.status] ?? item.status}${item.favor != null ? ` · ${item.favor} 比 ${item.against}` : ''}`;
+  if (proposals.length) {
+    const rounds = [...new Set(proposals.map(item => item.round))];
+    const groups = rounds.map(round => ({
+      label: round == null ? '輪次不明' : `第 ${round} 輪`,
+      rows: proposals.filter(item => item.round === round).map(item => [...proposalCells(item), result(item)]),
+    }));
+    return settlementTable(null, ['法案', '提案人', '結果'], [], undefined, '', groups);
+  }
+  // 較早建立的房間沒有提案紀錄，只能列出曾經表決過的法案。
+  const voted = state.voteResults ?? [];
+  if (!voted.length) return '<p class="muted">這場遊戲沒有法案紀錄。</p>';
+  return settlementTable(null, ['法案', '提案人', '結果'], voted.map(vote => [...proposalCells(vote.bill),
+    `${vote.passed ? '通過' : '未通過'} · ${vote.favor} 比 ${vote.against}`]));
+}
+
+function roundImfNote(row) {
+  return row.imf?.intervened ? `<p>${coloredGameText(`取消法案 ${row.imf.canceledBills} 項，支付 $${row.imf.paid}${row.imf.closed.length ? `，關閉 ${row.imf.closed.join('、')}` : ''}。`)}</p>`
+    : row.imf?.repaid ? `<p>國庫償還 ${row.imf.repaid} 筆貸款，避免 IMF 介入。</p>` : '';
+}
+
 function roundSettlementDetails(row) {
   return `${roundResourceTables(row)}
     <details><summary>稅款明細</summary>${roundTaxTable(row.taxes)}</details>
-    ${row.imf?.intervened ? `<p>${coloredGameText(`取消法案 ${row.imf.canceledBills} 項，支付 $${row.imf.paid}${row.imf.closed.length ? `，關閉 ${row.imf.closed.join('、')}` : ''}。`)}</p>`
-      : row.imf?.repaid ? `<p>國庫償還 ${row.imf.repaid} 筆貸款，避免 IMF 介入。</p>` : ''}`;
+    ${roundImfNote(row)}`;
 }
 
 function roundHistory() {
@@ -2978,12 +3216,22 @@ function hostAdjustCommand() {
   return command;
 }
 
+// 資訊列的「記錄」：本輪各回合的行動（與彈窗同一種格式，最新的在上），
+// 另保留最近的系統訊息（生產、表決、計分等不屬於任何一個回合的事）。
+function recordPanel() {
+  const entries = recordEntries(state);
+  const records = entries.length ? `<div class="waiting-actions">${turnRecordMarkup(state, entries, undefined, true)}</div>`
+    : '<p class="muted">本輪還沒有行動。</p>';
+  return `<section class="panel">${records}<details class="system-log"><summary>系統訊息</summary>
+    <ul class="log">${state.log.slice(-10).reverse().map(entry => `<li>${escape(entry)}</li>`).join('')}</ul></details></section>`;
+}
+
 function playerInfoTabs() {
   const tabs = [
     ['settlement', '試算', settlementPanel() || '<p class="panel muted">目前沒有試算。</p>'],
     ['prices', '價格', resourcePricePanel() || '<p class="panel muted">目前沒有資源價格。</p>'],
     ['seats', '摘要', `<section class="panel"><div class="seat-grid">${seatCards()}</div></section>`],
-    ['log', '記錄', `<section class="panel"><ul class="log">${state.log.slice(-10).reverse().map(entry => `<li>${escape(entry)}</li>`).join('')}</ul></section>`],
+    ['log', '記錄', recordPanel()],
   ];
   return `<div class="player-info-tabs" role="group" aria-label="對局資訊">${tabs.map(([id, label]) =>
     `<button type="button" id="player-tab-${id}" data-board-tab="${id}" popovertarget="player-panel-${id}">${label}</button>`
@@ -3290,6 +3538,23 @@ window.addEventListener('keydown', event => {
   hideTip();
 });
 
+// 房主可以把空席交給 AI，每個席位各自選擇強度。
+function botSection(strategies) {
+  const { players } = state.waiting;
+  const free = meta.roles.filter(role => !players.some(player => player.role === role));
+  const bots = players.filter(player => player.bot);
+  const strategyName = id => strategies.find(item => item.id === id)?.name ?? id;
+  return `<section class="waiting-bots"><h2>AI 補位</h2>
+    <form data-waiting-add-bot><label>階級<select name="role" required ${free.length && players.length < 4 ? '' : 'disabled'}>
+      ${free.map(role => `<option value="${role}">${escape(meta.names[role])}</option>`).join('')}</select></label>
+      <label>強度<select name="strategy">${strategies.map(item =>
+        `<option value="${escape(item.id)}" title="${escape(item.description)}">${escape(item.name)}</option>`).join('')}</select></label>
+      <button type="submit" ${free.length && players.length < 4 ? '' : 'disabled'}>加入 AI</button></form>
+    ${bots.length ? `<ul>${bots.map(bot => `<li><span>${escape(meta.names[bot.role])} · ${escape(strategyName(bot.strategy))}</span>
+      <form data-waiting-remove-bot><input type="hidden" name="id" value="${escape(bot.id)}"><button type="submit">移除</button></form></li>`).join('')}</ul>` : '<p class="muted">目前沒有 AI。</p>'}
+  </section>`;
+}
+
 function waitingRoom() {
   const { players } = state.waiting;
   const candidates = state.waiting.invitationCandidates ?? [];
@@ -3322,6 +3587,7 @@ function waitingRoom() {
       ${self.ready ? '<p role="status">等待其他玩家確認</p>' : ''}
       <button class="primary" ${!self.ready && (!canStart || (state.waiting.skillSelection && self.role === 'middle' && !self.skill)) ? 'disabled' : ''}>${self.ready ? '取消' : '開始'}</button>
     </form>
+    ${state.waiting.strategies ? botSection(state.waiting.strategies) : ''}
     ${state.waiting.invitations ? `<section class="waiting-invitations"><h2>邀請玩家</h2>
       <form data-waiting-invite><label>帳號名稱<select name="name" required ${candidates.length ? '' : 'disabled'}>
         <option value="" selected disabled>${candidates.length ? '選擇玩家' : '沒有可邀請的玩家'}</option>
@@ -3393,7 +3659,7 @@ function render() {
       </div>
       <div id="player-boards">${playerDiagram(state, state.role, meta, well, resources, escape, assignmentUnionWorkers())}</div>
     </aside>
-  </div>${modalCardStep() ? cardStepDialog() : ''}`;
+  </div>${modalCardStep() ? cardStepDialog() : ''}${modalProductionStep() ? productionStepDialog() : ''}`;
   fillDraft();
   syncCompanyCards(app);
   syncDealCards(app);
@@ -3402,11 +3668,12 @@ function render() {
   if (!syncVoteResultDialog()) {
     syncElectionDialog();
     syncRoundResultDialog();
+    syncFinalResultDialog();
   }
-  const cardStep = app.querySelector('#card-step-dialog');
-  if (cardStep) {
-    cardStep.addEventListener('cancel', event => event.preventDefault());
-    cardStep.showModal();
+  for (const dialog of app.querySelectorAll('#card-step-dialog, #production-step-dialog')) {
+    // 必須完成這個步驟才能繼續，所以不能按 Esc 關掉。
+    dialog.addEventListener('cancel', event => event.preventDefault());
+    dialog.showModal();
   }
   app.querySelectorAll('select[data-colored-options]').forEach(syncSelectColor);
   const food = app.querySelector('[data-command="food"]');
@@ -3515,6 +3782,122 @@ chatForm.addEventListener('submit', async event => {
   }
 });
 
+// 發薪後，收到薪資的席位（勞工、中產）會看到薪資收入視窗：哪一方付了哪些企業的薪資、金額，
+// 以及目前的金額。這只是提示，不會擋住遊戲進行；勞工的薪資要到自己確認發薪才入帳，所以另列待入帳金額。
+const wageIncomeDialog = document.querySelector('#wage-income-dialog');
+let wageIncomeKey = '';
+let wageIncomeSeen = 0;
+let wageIncomePending = [];
+
+function wageIncomeMarkup(view) {
+  const payers = [...new Set(wageIncomePending.map(item => item.payer))];
+  const sections = payers.map(payer => {
+    const items = wageIncomePending.filter(item => item.payer === payer);
+    const total = items.reduce((sum, item) => sum + item.wage, 0);
+    return `<section class="${payer}"><h3>${escape(meta.names[payer])} 支付薪資</h3>${settlementTable('', ['企業', '薪資收入'],
+      items.map(item => [coloredGameLabel(item.company, `var(--industry-${item.resource})`), `$${item.wage}`]), ['合計', `$${total}`])}</section>`;
+  });
+  const me = view.players[view.role];
+  const pending = view.match.pendingWorkingWages;
+  const balance = view.role === 'working'
+    ? `目前現金 <strong>$${me.cash}</strong>；本輪累計待入帳薪資 <strong>+$${pending ?? 0}</strong>，將在你確認發薪時入帳。`
+    : `薪資已入帳，目前現金 <strong>$${me.cash}</strong>。`;
+  return `${sections.join('')}<p class="wage-balance">${balance}</p>`;
+}
+
+function syncWageIncome(view) {
+  const payments = view.match?.wagePayments;
+  if (!payments) return;
+  const key = `${view.code}:${view.match.round}:${view.restoredRevision ?? 0}`;
+  if (key !== wageIncomeKey) {
+    // 剛進房間或換了一輪：先前已發的薪資不重複提示。
+    wageIncomeKey = key;
+    wageIncomeSeen = payments.length;
+    wageIncomePending = [];
+  }
+  // 新的一輪重新發薪時，紀錄會清空重來。
+  if (payments.length < wageIncomeSeen) wageIncomeSeen = 0;
+  if (payments.length === wageIncomeSeen) return;
+  wageIncomePending.push(...payments.slice(wageIncomeSeen));
+  wageIncomeSeen = payments.length;
+  wageIncomeDialog.querySelector('[data-wage-income]').innerHTML = wageIncomeMarkup(view);
+  if (!wageIncomeDialog.open) wageIncomeDialog.showModal();
+}
+
+wageIncomeDialog.addEventListener('close', () => { wageIncomePending = []; });
+
+// 行動紀錄：等待別人行動時、輪到自己時、資訊列的「記錄」共用同一份資料（view.turnLog）與同一個畫面。
+// 每個回合一段，標明輪數與回合數；每個行動可展開，內容就是該行動確認執行時列出的變化。
+// 最新的一筆預設展開。
+let waitingActionsCount = -1;
+let turnSummaryKey = '';
+const waitingActionsDialog = document.querySelector('#waiting-actions-dialog');
+
+// 只取格式完整的紀錄，萬一伺服器回傳舊格式也不會讓整個畫面畫不出來。
+function recordEntries(view) {
+  return (view.turnLog ?? []).filter(entry => Array.isArray(entry.changes) && entry.label);
+}
+
+function turnRecordMarkup(view, entries, pendingTurn, newestFirst = false) {
+  const latest = entries.at(-1);
+  const sections = [...new Set(entries.map(entry => entry.turn))].map(turn => {
+    const mine = entries.filter(entry => entry.turn === turn);
+    const { role, round } = mine[0];
+    const groups = mine.map(entry => `<details${entry === latest ? ' open' : ''}><summary>${escape(entry.label)}</summary>
+      <ul>${entry.changes.map(line => `<li>${escape(line)}</li>`).join('')}</ul></details>`).join('');
+    return `<section class="${role}"><h3>第 ${round} 輪 · 第 ${roomTurnNumber(turn)} 回合 · ${escape(meta.names[role])}${role === view.role ? '（你）' : ''}</h3>${groups}</section>`;
+  });
+  if (pendingTurn !== undefined && !entries.some(entry => entry.turn === pendingTurn)) {
+    sections.push(`<section class="${view.currentRole}"><h3>第 ${view.match.round} 輪 · 第 ${roomTurnNumber(pendingTurn)} 回合 · ${escape(meta.names[view.currentRole])}</h3>
+      <p class="muted">行動中…</p></section>`);
+  }
+  return (newestFirst ? sections.reverse() : sections).join('');
+}
+
+function openRecordDialog(mode, title, markup) {
+  waitingActionsDialog.dataset.mode = mode;
+  waitingActionsDialog.querySelector('#waiting-actions-title').textContent = title;
+  waitingActionsDialog.querySelector('[data-waiting-actions]').innerHTML = markup;
+  if (!waitingActionsDialog.open) waitingActionsDialog.showModal();
+}
+
+// 輪到自己時，列出自己上一個回合起各席做了什麼（含自己）。每個回合只顯示一次。
+function showTurnSummary(view) {
+  if (view.phase !== 'action' || view.currentRole !== view.role || view.mainUsed) return;
+  const key = `${view.match?.round}:${view.turn}`;
+  if (key === turnSummaryKey) return;
+  const entries = recordEntries(view).filter(entry => entry.turn >= view.turn - meta.roles.length && entry.turn < view.turn);
+  if (!entries.length) {
+    turnSummaryKey = key;
+    return;
+  }
+  if (waitingActionsDialog.open || document.querySelector('dialog[open]')) return;
+  turnSummaryKey = key;
+  openRecordDialog('summary', '輪到你了 · 上次你行動後各席的行動', turnRecordMarkup(view, entries));
+}
+
+// 等待其他玩家行動時，列出這一輪四席輪完一圈的行動。每當有新的內容，只要最新的不是自己的，
+// 就會（再次）彈出，關閉後也一樣。
+function syncWaitingActions(view) {
+  const waiting = view.phase === 'action' && view.currentRole && view.currentRole !== view.role;
+  if (!waiting) {
+    // 輪到自己時關掉「等待中」的彈窗；自己的回合摘要則留著，由使用者關閉。
+    if (waitingActionsDialog.open && waitingActionsDialog.dataset.mode !== 'summary') waitingActionsDialog.close();
+    showTurnSummary(view);
+    return;
+  }
+  const log = recordEntries(view);
+  const count = log.reduce((sum, entry) => sum + 1 + entry.changes.length, 0);
+  if (count === waitingActionsCount) return;
+  waitingActionsCount = count;
+  if (!count || log.at(-1).role === view.role) return;
+  if (waitingActionsDialog.open && waitingActionsDialog.dataset.mode === 'summary') waitingActionsDialog.close();
+  if (!waitingActionsDialog.open && document.querySelector('dialog[open]')) return;
+  const cycleStart = Math.floor(view.turn / meta.roles.length) * meta.roles.length;
+  openRecordDialog('waiting', `第 ${view.match.round} 輪 · 第 ${roomTurnNumber(view.turn)} 回合 · 各席行動`,
+    turnRecordMarkup(view, log.filter(entry => entry.turn >= cycleStart), view.turn));
+}
+
 function update(next) {
   updateRoomChat(next.code, next.chat, next);
   if (!state || next.code !== state.code || next.revision > state.revision) {
@@ -3534,8 +3917,14 @@ function update(next) {
       draft = null;
       purchaseDraft = null;
     }
+    if (!state || state.code !== next.code) {
+      waitingActionsCount = -1;
+      turnSummaryKey = '';
+    }
     state = next;
     render();
+    syncWaitingActions(next);
+    syncWageIncome(next);
   }
 }
 
@@ -3562,6 +3951,7 @@ function leaveRoom(code) {
   state = undefined;
   updateRoomChat(undefined);
   document.querySelector('#card-result-dialog').close();
+  waitingActionsDialog.close();
   connection.textContent = '';
   headerRoomCode.hidden = true;
   showLobby();
@@ -3783,6 +4173,13 @@ async function submitGameForm(event) {
       update(await request(`/api/rooms/${seat.code}/waiting`, input));
       return;
     }
+    if (form.hasAttribute('data-waiting-add-bot') || form.hasAttribute('data-waiting-remove-bot')) {
+      const input = form.hasAttribute('data-waiting-add-bot')
+        ? { type: 'add-bot', role: fields.get('role'), strategy: fields.get('strategy') }
+        : { type: 'remove-bot', id: fields.get('id') };
+      update(await request(`/api/rooms/${seat.code}/waiting`, input));
+      return;
+    }
     if (form.hasAttribute('data-waiting-confirm')) {
       const { players, selectionRevision } = state.waiting;
       const ready = players.find(player => player.id === state.role).ready;
@@ -3895,6 +4292,15 @@ hostAdjustDialog.querySelector('form[data-host-adjust]').addEventListener('submi
   }
 });
 voteResultDialog.addEventListener('submit', submitGameForm);
+// 本輪結算視窗的分頁切換。
+for (const dialog of [roundResultDialog, document.querySelector('#final-result-dialog')]) {
+  dialog.addEventListener('click', event => {
+    const tab = event.target.closest('[data-round-tab]');
+    if (!tab) return;
+    for (const button of dialog.querySelectorAll('[data-round-tab]')) button.setAttribute('aria-selected', String(button === tab));
+    for (const panel of dialog.querySelectorAll('[data-round-panel]')) panel.hidden = panel.dataset.roundPanel !== tab.dataset.roundTab;
+  });
+}
 voteResultDialog.addEventListener('cancel', event => {
   if (pendingVoteDialogId) event.preventDefault();
 });

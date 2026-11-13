@@ -64,6 +64,11 @@
       <button value="confirm" class="primary">確認執行</button>
     </form>
   </dialog>
+  <dialog id="waiting-actions-dialog" class="action-confirmation" aria-labelledby="waiting-actions-title">
+    <h2 id="waiting-actions-title"></h2>
+    <div class="waiting-actions" data-waiting-actions></div>
+    <form method="dialog" class="buttons"><button class="primary" autofocus>關閉</button></form>
+  </dialog>
   <dialog id="card-result-dialog" class="action-confirmation" aria-labelledby="card-result-title">
     <h2 id="card-result-title">卡牌效果結算</h2>
     <div data-card-result></div>
@@ -86,6 +91,15 @@
     <h2 id="round-result-title">本輪結算結果</h2>
     <div class="round-result-body" data-round-result></div>
     <form method="dialog" class="buttons"><button class="primary" autofocus>確認</button></form>
+  </dialog>
+  <dialog id="wage-income-dialog" class="action-confirmation" aria-labelledby="wage-income-title">
+    <h2 id="wage-income-title">薪資收入</h2>
+    <div class="wage-income" data-wage-income></div>
+    <form method="dialog" class="buttons"><button class="primary" autofocus>確認</button></form>
+  </dialog>
+  <dialog id="final-result-dialog" class="action-confirmation final-result-dialog" aria-label="終局結算">
+    <div class="round-result-body" data-final-result></div>
+    <form method="dialog" class="buttons"><button class="primary" autofocus>關閉</button></form>
   </dialog>
   <dialog id="mat-help-dialog" class="action-confirmation" aria-labelledby="mat-help-title">
     <header class="mat-help-header">

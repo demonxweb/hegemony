@@ -1,13 +1,16 @@
 import { createHash, randomBytes } from 'node:crypto';
 import catalog from '../../data/hegemony-base-catalog.json' with { type: 'json' };
 import base from '../../data/hegemony-v1.2-data.json' with { type: 'json' };
-import { applyCommand, createGame, GameError, names, playerView, policies, roles } from '../../packages/engine/game.mjs';
+import { applyCommand, createGame, GameError, hasLegalMainAction, names, playerView, policies, roles } from '../../packages/engine/game.mjs';
 import { companyDefinition, syncPublicStorage } from '../../packages/engine/companies.mjs';
 import { requireRule } from '../../packages/engine/errors.mjs';
 import { domesticPriceLevels } from '../../packages/engine/prices.mjs';
 import { cardDefinition } from '../../packages/engine/cards.mjs';
-import { summarizeAction } from './action-summary.mjs';
+import { summarizeAction } from '../../packages/engine/action-summary.mjs';
 import { createPlayerAccounts } from './player-accounts.mjs';
+import { applyRecorded } from '../../packages/engine/turns.mjs';
+import { createRecord, recordCommand, replayRecord } from '../../packages/engine/replay.mjs';
+import { BotStuckError, defaultStrategy, getStrategy, listStrategies, runBots } from '../../packages/bots/index.mjs';
 
 const turnCommands = ['play', 'assign', 'build', 'sell', 'buy', 'deal', 'export', 'strike', 'event', 'campaign',
   'propose', 'pressure', 'demonstrate', 'extra-shift', 'lobby', 'meet-mps', 'extra-tax', 'wages', 'repay', 'benefits',
@@ -18,6 +21,28 @@ const catalogView = {
   storage: { ...catalog.boards.storages, tiles: catalog.components.storage_tiles, freeTradeTiles: catalog.components.free_trade_zone },
   sources: { official: catalog.officialRules, cards: catalog.source },
 };
+
+// AI 席位：記錄在席位資料上，策略 id 為字串，存檔相容；找不到的策略退回預設。
+function botSeats(room) {
+  return Object.fromEntries(roles.flatMap(role => room.seats[role]?.bot ? [[role, getStrategy(room.seats[role].strategy).id]] : []));
+}
+
+// 讓 AI 席位持續行動到輪到真人為止。無法繼續時記錄在日誌，不中斷真人操作。
+function runRoomBots(room) {
+  const seats = botSeats(room);
+  if (!Object.keys(seats).length) return;
+  try {
+    runBots(room.game, seats, { host: room.host, onStep: ({ actor, command }) => recordCommand(room.record, room.game, actor, command) });
+  } catch (error) {
+    if (!(error instanceof BotStuckError)) throw error;
+    room.game.log.push(`AI 無法繼續：${error.message}`);
+  }
+}
+
+// 席位或階級變動時，真人須重新確認；AI 永遠視為已確認。
+function unreadyHumans(waiting) {
+  for (const item of waiting.players) item.ready = Boolean(item.bot);
+}
 
 function fingerprint(token) {
   return createHash('sha256').update(token).digest('hex');
@@ -126,11 +151,13 @@ function roomView(room, role, accounts) {
         ])),
         middleMarket: room.game.content && players.find(player => player.id === role)?.role === 'middle'
           ? room.game.economy.markets.middle.map(companyDefinition) : undefined,
-        players: players.map(({ id, name, role, ready, skill }) => ({ id, name, role, ready, skill })) } };
+        strategies: role === host ? listStrategies() : undefined,
+        players: players.map(({ id, name, role, ready, skill, bot, strategy }) => ({ id, name, role, ready, skill, ...(bot && { bot, strategy }) })) } };
   }
   return {
     code: room.code, roomName: room.name ?? room.code, role, host: room.host, revision: room.revision, restoredRevision: room.restoredRevision ?? 0,
     seats: Object.fromEntries(roles.map(seat => [seat, room.seats[seat]?.name ?? null])),
+    botSeats: botSeats(room),
     ...playerView(room.game, role),
   };
 }
@@ -158,23 +185,39 @@ function updateWaitingRoom(room, id, input, accounts) {
       if (index >= 0) {
         waiting.players.splice(index, 1);
         waiting.selectionRevision++;
-        for (const item of waiting.players) item.ready = false;
+        unreadyHumans(waiting);
       }
     }
+  } else if (input.type === 'add-bot' || input.type === 'remove-bot') {
+    if (id !== waiting.host) throw new GameError('只有房主可以管理 AI。', 403);
+    if (input.type === 'add-bot') {
+      requireRule(roles.includes(input.role), '請選擇 AI 要坐的階級。');
+      requireRule(waiting.players.length < roles.length, '房間已滿。');
+      requireRule(!waiting.players.some(item => item.role === input.role), '這個階級已有人選擇。');
+      const strategy = getStrategy(input.strategy ?? defaultStrategy);
+      waiting.players.push({ id: randomBytes(8).toString('hex'), name: `AI·${strategy.name}`, key: null, role: input.role,
+        ready: true, bot: true, strategy: strategy.id, ...(input.role === 'middle' && { skill: 'food' }) });
+    } else {
+      const index = waiting.players.findIndex(item => item.id === input.id && item.bot);
+      if (index < 0) throw new GameError('找不到這個 AI 席位。', 404);
+      waiting.players.splice(index, 1);
+    }
+    waiting.selectionRevision++;
+    unreadyHumans(waiting);
   } else if (input.type === 'select') {
     requireRule(input.role === null || roles.includes(input.role), '請選擇有效的階級。');
     if (player.role === input.role) return id;
     player.role = input.role;
     delete player.skill;
     waiting.selectionRevision++;
-    for (const item of waiting.players) item.ready = false;
+    unreadyHumans(waiting);
   } else if (input.type === 'start-skill') {
     requireRule(room.game.content && player.role === 'middle' && !player.ready
       && ['food', 'luxury', 'health', 'education', 'influence'].includes(input.skill), '請由中產選擇有效的開局技術工技能。');
     if (player.skill === input.skill) return id;
     player.skill = input.skill;
     waiting.selectionRevision++;
-    for (const item of waiting.players) item.ready = false;
+    unreadyHumans(waiting);
   } else if (input.type === 'cancel') {
     player.ready = false;
   } else if (input.type === 'ready') {
@@ -184,12 +227,17 @@ function updateWaitingRoom(room, id, input, accounts) {
     requireRule(!room.game.content || player.role !== 'middle' || player.skill, '請先選擇中產的開局技術工技能。');
     player.ready = true;
     if (waiting.players.every(item => item.ready)) {
-      room.seats = Object.fromEntries(waiting.players.map(({ role, name, key, accountId }) => [role, { name, key, accountId }]));
+      room.seats = Object.fromEntries(waiting.players.map(({ role, name, key, accountId, bot, strategy }) =>
+        [role, { name, key, accountId, ...(bot && { bot, strategy }) }]));
       room.host = waiting.players.find(item => item.id === waiting.host).role;
       if (room.game.content) room.game.content.startSkill = waiting.players.find(item => item.role === 'middle').skill;
       delete room.waiting;
       room.invitationsLocked = true;
-      applyCommand(room.game, room.host, { type: 'start' }, true);
+      // 從開局起記錄種子與每筆成功的命令，供事後重播。
+      room.record = createRecord(room.game);
+      applyRecorded(room.game, room.host, { type: 'start' }, true);
+      recordCommand(room.record, room.game, room.host, { type: 'start' });
+      runRoomBots(room);
       return player.role;
     }
   } else {
@@ -198,16 +246,62 @@ function updateWaitingRoom(room, id, input, accounts) {
   return id;
 }
 
-function applySingleAction(game, role, input) {
+function applySingleAction(game, role, input, record) {
   requireRule(turnCommands.includes(input.type) && game.phase === 'action' && !game.transaction, '目前無法確認此行動。');
-  applyCommand(game, role, input, true);
-  if (game.transaction) applyCommand(game, role, { type: 'transaction-confirm' }, true);
+  applyRecorded(game, role, input, true);
+  record?.(role, input);
+  if (game.transaction) {
+    applyRecorded(game, role, { type: 'transaction-confirm' }, true);
+    record?.(role, { type: 'transaction-confirm' });
+  }
+}
+
+// 依命令紀錄從初始狀態重播。沒有 step 時回傳每一步的摘要；指定 step 時另附該步之後、
+// 以請求者席位視角看到的畫面。重播不可靠時（引擎改版、紀錄缺漏）在 warnings 說明。
+function replayResponse(room, role, stepText) {
+  if (!room.record) {
+    return { available: false, steps: [], warnings: ['這個房間在重播功能加入前建立，沒有命令紀錄，或尚未開局。'] };
+  }
+  const step = stepText === undefined ? undefined : Number(stepText);
+  if (step !== undefined) requireRule(Number.isInteger(step) && step >= 0 && step <= room.record.commands.length, '沒有這一步。');
+  const steps = [];
+  const { game, applied, warnings } = replayRecord(room.record, {
+    upTo: step,
+    onStep: ({ index, entry, game: current, logs }) => steps.push({ n: index + 1, role: entry.role, type: entry.command.type, logs,
+      round: current.match?.round ?? null, turn: current.turn, phase: current.phase }),
+  });
+  if (step === undefined && applied === room.record.commands.length && game.log.length !== room.game.log.length) {
+    warnings.push('重播結果與目前對局的紀錄不一致，可能有未被記錄的變更。');
+  }
+  return {
+    available: true, engineVersion: room.record.engineVersion, total: room.record.commands.length, applied, warnings, steps,
+    ...(step !== undefined && { step, view: playerView(game, role) }),
+    // 完整紀錄含種子，等於含全部牌庫順序；目前只在對局結束後給房主下載。
+    ...(room.game.phase === 'complete' && role === room.host && step === undefined && { record: room.record }),
+  };
 }
 
 export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRooms, addRoomSave, listRoomSaves, readRoomSave, getSetting, insertSetting, listSettings, getSaveKey, clientId,
   full = true, allowLegacyRooms = false }) {
   const accounts = createPlayerAccounts({ getSetting, insertSetting, listSettings, getSaveKey, clientId });
-  const view = (room, role) => ({ ...roomView(room, role, accounts), chat: (room.chat ?? []).slice(-chatLimit) });
+  // 國家是否沒有任何合法的主要行動（可跳過）。只在國家的回合計算，並依房間版本快取：
+  // 房主調整、換牌、還原存檔都會讓版本改變，下次視圖就會重算。pass 命令本身不信任這個快取。
+  const passCache = new Map();
+  function noLegalAction(room, role) {
+    const { game } = room;
+    if (role !== 'state' || room.waiting || game.phase !== 'action' || !game.content || game.mainUsed || game.transaction
+      || roles[game.turn % roles.length] !== 'state') return undefined;
+    const key = `${room.code}:${room.revision}`;
+    if (!passCache.has(key)) {
+      if (passCache.size > 200) passCache.clear();
+      passCache.set(key, !hasLegalMainAction(game, 'state'));
+    }
+    return passCache.get(key);
+  }
+  const view = (room, role) => {
+    const stuck = noLegalAction(room, role);
+    return { ...roomView(room, role, accounts), ...(stuck !== undefined && { noLegalAction: stuck }), chat: (room.chat ?? []).slice(-chatLimit) };
+  };
   const activeSeats = new Map();
   function normalizePublicStorage(room) {
     if (room?.game.economy?.publicCapacityOverride) {
@@ -220,7 +314,7 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
   return async function route(request, response, path) {
     if (request.method === 'GET') {
       if (path === '/api/meta') return json(response, 200, { roles, names, policies, policyRules: base.policies, domesticPriceLevels, checkedCommands, turnCommands,
-        actionConfirmation: true, loanPrincipal: base.loans.principal, loanSupply: base.components.small_cards.loans,
+        actionConfirmation: true, loanPrincipal: base.loans.principal,
         playerTracks: { population: catalog.boards.population, prosperity: catalog.boards.prosperity, wealth: base.wealth } });
       if (path === '/api/catalog') return json(response, 200, catalogView);
     }
@@ -258,7 +352,7 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
       saveRoom(room);
       return json(response, 201, seat);
     }
-    const match = /^\/api\/rooms\/([A-F0-9]{8})(?:\/(join|waiting|command|check|action-preview|action-confirm|saves|restore|name|chat))?$/.exec(path);
+    const match = /^\/api\/rooms\/([A-F0-9]{8})(?:\/(join|waiting|command|check|action-preview|action-confirm|saves|restore|name|chat|replay(?:\/\d+)?))?$/.exec(path);
     if (!match) throw new GameError('找不到頁面。', 404);
     const [, code, action] = match;
     if (action === 'name' && request.method === 'GET') {
@@ -304,10 +398,16 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
       if (next.waiting) {
         next.waiting.selectionRevision = revision;
         next.waiting.players = next.waiting.players.filter(player => !next.invitations?.some(invite => invite.revoked && invite.id === player.accountId));
-        for (const player of next.waiting.players) player.ready = false;
+        unreadyHumans(next.waiting);
       }
       saveRoom(next);
       return json(response, 200, view(next, next.waiting?.host ?? next.host));
+    }
+    if (request.method === 'GET' && action?.startsWith('replay')) {
+      const room = readRoom(code);
+      if (!room) throw new GameError('找不到房間。', 404);
+      const role = authenticate(room, request, accounts);
+      return json(response, 200, replayResponse(room, role, action.split('/')[1]));
     }
     if (request.method === 'DELETE' && !action) {
       const room = readRoom(code);
@@ -381,9 +481,14 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
         throw new GameError('畫面已更新，請確認後重試。', 409);
       }
       if (['start', 'next-round'].includes(input.type) && room.host !== role) throw new GameError('由房主開始新一輪。', 403);
-      const next = { ...room, game: structuredClone(room.game), processed: { ...room.processed } };
-      if (action === 'action-confirm') applySingleAction(next.game, role, input);
-      else applyCommand(next.game, role, input, roles.every(seat => next.seats[seat]));
+      const next = { ...room, game: structuredClone(room.game), processed: { ...room.processed },
+        ...(room.record && { record: { ...room.record, commands: [...room.record.commands] } }) };
+      const record = (seat, command) => recordCommand(next.record, next.game, seat, command);
+      if (action === 'action-confirm') applySingleAction(next.game, role, input, record);
+      else {
+        applyRecorded(next.game, role, input, roles.every(seat => next.seats[seat]));
+        record(role, input);
+      }
       const cardStep = ['card-choice', 'event-hire', 'civil-bill', 'civil-confirm'].includes(input.type)
         || (input.type === 'policy-choice' && ['action', 'immediate'].includes(room.game.policyChoice?.resume));
       const playedCard = input.type === 'play' && room.game.players[role].hand.find(card => card.id === input.cardId);
@@ -407,6 +512,7 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
         changes: summarizeAction(room.game, next.game, role, input, { committed: true }).changes,
       } : null;
       next.processed[key] = cardResult ? { cardResult } : true;
+      runRoomBots(next);
       next.revision++;
       saveRoom(next);
       return json(response, 200, { ...view(next, role), ...(cardResult && { cardResult }) });

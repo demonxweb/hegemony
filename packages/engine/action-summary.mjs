@@ -1,9 +1,9 @@
 import base from '../../data/hegemony-v1.2-data.json' with { type: 'json' };
-import { cardDefinition } from '../../packages/engine/cards.mjs';
-import { activeCompany, operational, publicCapacity, workplace } from '../../packages/engine/companies.mjs';
-import { catalogCard } from '../../packages/engine/content.mjs';
-import { names, policies, roles } from '../../packages/engine/game.mjs';
-import { marketQuote } from '../../packages/engine/prices.mjs';
+import { cardDefinition } from './cards.mjs';
+import { activeCompany, operational, publicCapacity, workplace } from './companies.mjs';
+import { catalogCard } from './content.mjs';
+import { names, policies, roles } from './game.mjs';
+import { marketQuote } from './prices.mjs';
 
 const goods = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育', influence: '影響力' };
 const stats = { cash: '現金', revenue: '營收', capital: '資本', vp: '勝利分數', ...goods };
@@ -157,6 +157,7 @@ export function summarizeAction(before, after, role, command, { committed = fals
     } else if (['shift-event', 'priority-event'].includes(choice?.effect)) {
       const eventName = id => catalogCard(id)?.nameZh;
       if (command.option === 'cancel-shift-focus') lines.unshift('已收回轉移重點，恢復本回合主要行動。');
+      else if (command.option === 'cancel-priority') lines.unshift('已收回優先議題，恢復本回合主要行動。');
       else {
         lines.unshift(`翻出的事件 · ${choice.options.map(eventName).join('、') || '無'}`);
         if (command.replaced && command.option) lines.push(`換下「${eventName(command.replaced)}」`);

@@ -3,6 +3,7 @@ import { activeCompany, addWorker, availableInfluence, credit, funds, operationa
 import { catalogCard, drawImmigrant } from './content.mjs';
 import { marketPrices, marketQuote } from './prices.mjs';
 import { requireRule } from './errors.mjs';
+import { resolveProposal } from './proposals.mjs';
 
 const roles = base.turn_order;
 const classes = roles.slice(0, 3);
@@ -20,7 +21,7 @@ const middleProsperity = [0, 1, 2, 3, 4, 5, 5, 6, 6, 7, 7];
 const preferences = { working: 'A', middle: 'B', capitalist: 'C' };
 
 export function createMatch() {
-  return { round: 1, needs: null, history: [], resourceSales: {}, wealth: 0, middleProsperity: 0, immigrationIndex: 0, final: null };
+  return { round: 1, needs: null, history: [], resourceSales: {}, welfare: { given: {}, taken: {} }, wealth: 0, middleProsperity: 0, immigrationIndex: 0, final: null };
 }
 
 export function population(game, role) {
@@ -65,6 +66,7 @@ export function beginProduction(game) {
   };
   game.match.productionOpening = { personal, warehouse, capacity };
   game.match.pendingWorkingWages = 0;
+  game.match.wagePayments = [];
   game.match.wageLoans = Object.fromEntries(roles.map(role => [role, 0]));
 }
 
@@ -152,6 +154,13 @@ export function coverNeeds(game, role, quantities, personalFood) {
   game.match.needs.role = role === 'middle' ? 'working' : null;
 }
 
+// 福利：given 是國家發放到各階級福利區的量，taken 是各階級實際領走的量。每輪重新累計。
+export function recordWelfare(game, kind, role, resource, amount) {
+  if (!game.match?.welfare || !amount) return;
+  const side = game.match.welfare[kind][role] ??= {};
+  side[resource] = (side[resource] ?? 0) + amount;
+}
+
 export function recordResourceSale(game, seller, resource, amount) {
   if (!game.match?.resourceSales || !amount) return;
   const sales = game.match.resourceSales[seller] ??= {};
@@ -172,6 +181,7 @@ export function checkIMF(game, defer = false) {
   }
   for (const bill of game.bills) supplyInfluence(game, bill.role, 1);
   const canceledBills = game.bills.length;
+  for (const bill of game.bills) resolveProposal(game, bill, 'canceled');
   game.bills = [];
   for (const [policy, section] of Object.entries(base.imf.forced_policies)) game.policies[Number(policy) - 1] = section;
   setWagePolicy(game, base.imf.forced_wage_level);
@@ -358,7 +368,7 @@ export function scoreRound(game) {
     ? { ...match.needs.imf, paid: match.needs.imf.repaid * base.loans.endgame_repay_non_capitalist }
     : match.needs.imf;
   match.history.push({ round: match.round, ...match.needs, imf, production: economy.production,
-    productionOpening: match.productionOpening, remainingResources: remainingResources(game), resourceSales: match.resourceSales,
+    productionOpening: match.productionOpening, remainingResources: remainingResources(game), resourceSales: match.resourceSales, welfare: match.welfare,
     loans, points, wealthBonus, legitimacy, agendaPoints });
   game.log.push(`第 ${match.round} 輪計分完成。`);
   game.phase = 'scoring';
@@ -372,6 +382,7 @@ export function beginPreparation(game) {
   delete match.wageLoans;
   delete match.productionOpening;
   match.resourceSales = {};
+  match.welfare = { given: {}, taken: {} };
   economy.production = null;
   game.turn = 0;
   game.mainUsed = false;
@@ -526,6 +537,9 @@ export function matchView(game, role) {
     populations: { working: population(game, 'working'), middle: population(game, 'middle') },
     needs: game.phase === 'needs' && match.needs?.role === role ? foodOptions(game) : null,
     productionStep: productionStepView(game, role),
+    // 本輪已發出、付給自己的薪資；勞工的薪資要到自己確認發薪才入帳，這裡另附累計的待入帳金額。
+    wagePayments: (match.wagePayments ?? []).filter(item => item.recipient === role),
+    pendingWorkingWages: role === 'working' ? match.pendingWorkingWages : undefined,
     needsRole: game.phase === 'needs' ? match.needs?.role : null,
     roundPhase: roundPhase(game), electionsHeld: match.needs?.electionsHeld ?? null,
     settlement: settlementOverview(game, role), exports: exportOffers(game, role) };

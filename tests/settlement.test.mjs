@@ -129,16 +129,16 @@ test('a split business deal pays tariffs and keeps both stocks separate', () => 
   assert.equal(game.treasury, before + deal.tariffByForeignTrade.B);
 });
 
-test('worker and loan supplies are finite and first-round event redraw preserves the restricted card', () => {
+test('worker supply is finite, loans are unlimited, and first-round event redraw preserves the restricted card', () => {
   const game = createGame();
   while (workerSupply(game.economy, 'working', 'any')) addWorker(game.economy, 'working', 'any');
   assert.throws(() => addWorker(game.economy, 'working', 'any'), /替代|技術工/);
   const worker = addWorker(game.economy, 'working', 'any', 'luxury');
   assert.equal(game.economy.workers[worker].skill, 'luxury');
   game.economy.loans.state = 10;
-  assert.throws(() => pay(game, 'working', 31, true), /貸款牌不足/);
-  assert.equal(game.players.working.cash, 30);
-  assert.equal(game.economy.loans.working, 0);
+  pay(game, 'working', 31, true);
+  assert.equal(game.economy.loans.working, 1);
+  assert.equal(game.players.working.cash, 49);
   const [restricted, one, two] = catalogDecks.events;
   const previous = restricted.minimumRound;
   restricted.minimumRound = 2;

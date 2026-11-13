@@ -1,6 +1,6 @@
 import { catalogCard } from './content.mjs';
 import { build, canBuildIndustry, credit, funds, operationalCount, pay, publicCapacity, ownedCompanies } from './companies.mjs';
-import { population } from './rounds.mjs';
+import { population, recordWelfare } from './rounds.mjs';
 import { marketQuote } from './prices.mjs';
 import { GameError, requireRule } from './errors.mjs';
 
@@ -59,6 +59,7 @@ export function giveBenefit(game, role, resource, amount, keep = false) {
   const benefits = game.content.benefits;
   if (!keep) benefits[role] = {};
   benefits[role][resource] = (benefits[role][resource] ?? 0) + amount;
+  recordWelfare(game, 'given', role, resource, amount);
 }
 
 export function provide(game, role, resource, amount, keep = false) {
@@ -108,6 +109,7 @@ export function takeBenefits(game, role) {
     if (resource === 'cash') credit(game, role, amount);
     else if (resource === 'votes') game.bag[role] += amount;
     else game.players[role][resource] = (game.players[role][resource] ?? 0) + amount;
+    recordWelfare(game, 'taken', role, resource, amount);
   }
   game.content.benefits[role] = {};
   game.players.state.vp++;

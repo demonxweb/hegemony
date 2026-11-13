@@ -1,8 +1,37 @@
 # AI 補位玩家評估與實作計劃
 
-> 狀態：評估完成，尚未實作程式碼  
+> 狀態：最小合法補位已實作（`claude` 分支），以下第 4 節之後仍為原規劃  
 > 依據：官方《Crisis & Control》v1.2 Automas 章節（p.3–13）  
 > 關聯文件：[PLAN.md](PLAN.md)、[RULES-REVIEW.md](RULES-REVIEW.md)
+
+## 0. 目前實作
+
+```text
+packages/bots/
+  index.mjs        策略註冊表：getStrategy / listStrategies / registerStrategy
+  runner.mjs       runBots(game, seats, { host })：輪到 AI 就代打，直到輪到真人
+  context.mjs      AI 的上下文：私人視圖 + 在複本上試跑（tryCommand）
+  turn.mjs         pendingActors：目前輪到哪些席位
+  phases.mjs       各特殊階段的共用預設（所有策略共用，策略只需覆寫想變聰明的部分）
+  candidates.mjs   事件與出牌的參數候選
+  strategies/      minimal（最小合法）、basic（再加領福利與還貸）
+packages/engine/random.mjs   每場遊戲獨立的亂數（game.rng = { seed, counter }）：雜湊計數器產生，同種子必得同結果，
+                             但由手牌 id 等輸出無法反推種子；預覽用的複本帶自己的狀態，不會消耗真實遊戲的亂數
+scripts/bot-arena.mjs        自我對戰與強度比較
+```
+
+- **每席獨立選策略**：席位資料記為 `room.seats[role] = { bot: true, strategy }`，策略 id 不存在時退回 `minimal`。房主在等待室用「AI 補位」加入或移除。
+- **新增一種強度**：寫一個 `{ id, name, description, turn(ctx), free?(ctx), phases? }` 模組並在 `index.mjs` 登記。`turn` 與 `phases` 回傳依優先順序的候選命令，runner 取第一個通過試跑的；沒覆寫的階段自動用共用預設，不會漏處理而卡住。
+- **強度可證**：同一批種子下比較同一席位換策略的平均分差：
+
+```bash
+node scripts/bot-arena.mjs --compare working=basic,minimal --games 100
+node scripts/bot-arena.mjs --games 20 --seats working=basic,middle=basic,capitalist=basic
+```
+
+  目前結果（60 局、同種子配對）：勞工 `basic` 比 `minimal` 多 13.6 分（標準誤 0.7），中產多 1.4 分（標準誤 0.14）。
+- **國家無行動可做**：國家在少數盤面（約 3%）沒有任何合法的主要行動。引擎的 `hasLegalMainAction` 會試遍國家所有候選（找到一個合法的就停），確實沒有時才接受 `pass` 命令，視圖會帶 `noLegalAction: true`（依房間版本快取，房主調整後自動重算）。AI 遇到時自動跳過。候選列舉在 `packages/engine/candidates.mjs`，AI 與跳過驗證共用；`tests/pass.test.mjs` 用獨立的暴力搜尋確認這些盤面真的沒有合法行動。
+- **優先議題收回**：打出「優先議題」後若沒有任何事件能處理，原本會永遠卡在選擇畫面（只有「轉移重點」有收回選項）。已比照加入 `cancel-priority`。打出但只能收回的牌，不算「有行動可做」。
 
 ## 1. 目標
 

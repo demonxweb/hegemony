@@ -301,8 +301,6 @@ export function pay(game, role, amount, mandatory = false, capitalFirst = false)
   const required = Math.max(0, Math.ceil((amount - funds(game, role)) / base.loans.principal));
   if (required) {
     requireRule(mandatory, '資金不足，自願支出不能借貸。');
-    const taken = Object.values(game.economy.loans).reduce((sum, count) => sum + count, 0);
-    requireRule(game.settlementEstimate || taken + required <= base.components.small_cards.loans, '全桌貸款牌不足，無法支付這筆強制支出。');
   }
   while (funds(game, role) < amount) {
     const loans = game.economy.loans;
@@ -711,7 +709,14 @@ export function productionPlans(game, owner) {
 export function runProductionStep(game, owner, stage) {
   const plans = productionPlans(game, owner);
   if (stage === 'wages') {
-    for (const plan of plans) payProductionWage(game, plan, true, true);
+    for (const plan of plans) {
+      payProductionWage(game, plan, true, true);
+      // 記下誰付給誰多少，供收到薪資的席位在發薪後查看。
+      if (plan.wage && plan.recipient && game.match?.wagePayments) {
+        game.match.wagePayments.push({ payer: plan.definition.owner, recipient: plan.recipient,
+          company: plan.definition.name, resource: plan.definition.resource, wage: plan.wage });
+      }
+    }
   } else {
     for (const plan of plans) game.economy.production.push(storeProduction(game, plan));
   }

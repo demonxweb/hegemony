@@ -1,4 +1,4 @@
-import { summarizeAction } from '../apps/server/action-summary.mjs';
+import { summarizeAction } from '../packages/engine/action-summary.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import base from '../data/hegemony-v1.2-data.json' with { type: 'json' };
@@ -425,7 +425,7 @@ test('regular rooms keep the deck private and reject test commands', () => {
   assert.equal(game.players.working.hand[0].id, swap.pileCardId);
 });
 
-test('Small Business Grant borrows for the State only when loan cards are available', () => {
+test('Small Business Grant borrows for the State even when many loans are already out', () => {
   const game = createGame();
   applyCommand(game, 'working', { type: 'start' }, true);
   game.turn = 1;
@@ -436,14 +436,11 @@ test('Small Business Grant borrows for the State only when loan cards are availa
   const worker = addWorker(game.economy, 'middle', 'food');
   assert(worker);
   const command = { type: 'play', cardId: 'grant', company: 'organic', wage: 3, staff: [worker, null] };
-  const blocked = structuredClone(game);
-  blocked.economy.loans.working = base.components.small_cards.loans;
-  assert.throws(() => applyCommand(blocked, 'middle', command, true), /貸款牌不足/);
-  assert.equal(blocked.players.middle.hand[0].id, 'grant');
-  assert.equal(blocked.economy.companies.organic, undefined);
+  game.economy.loans.working = 10;
   applyCommand(game, 'middle', command, true);
   assert.equal(game.economy.loans.state, 1);
   assert.equal(game.economy.loans.middle, 0);
+  assert.equal(game.economy.loans.working, 10);
   assert.equal(game.treasury, base.loans.principal - companyDefinition('organic').cost);
   assert.equal(game.economy.companies.organic.slots[0].worker, worker);
 });

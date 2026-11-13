@@ -1,4 +1,4 @@
-import { randomInt } from 'node:crypto';
+import { randomInt } from './random.mjs';
 import catalog from '../../data/hegemony-base-catalog.json' with { type: 'json' };
 
 export const { decks: catalogDecks, boards, marketSizes } = catalog;

@@ -68,9 +68,9 @@ p { line-height: 1.6; }
 .lobby-invitations { background: #243a55; }
 .lobby-room-group > form { margin-top: 8px; }
 .lobby-room-group + .lobby-room-group { margin-top: 12px; }
-.waiting-invitations { display: grid; gap: 8px; }
-.waiting-invitations ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.waiting-invitations li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.waiting-invitations, .waiting-bots { display: grid; gap: 8px; }
+.waiting-invitations ul, .waiting-bots ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.waiting-invitations li, .waiting-bots li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .hero { margin-bottom: 22px; }
 .hero p { max-width: 48ch; margin-top: 9px; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -624,3 +624,24 @@ body:has(#app.dragging) .board-tooltip { visibility: hidden; }
   .middle .mat-storage-wells { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mat-storage-wells .resource-well > span .icon { display: block; margin: 0 auto 2px; }
 }
+.waiting-bots form[data-waiting-add-bot] { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.waiting-actions { display: grid; gap: 12px; max-height: 60vh; overflow: auto; }
+.waiting-actions section { border-left: 3px solid var(--role); padding: 4px 0 4px 10px; }
+.waiting-actions h3 { margin: 0 0 4px; font-size: 1rem; color: var(--role); }
+.waiting-actions details { margin: 2px 0; }
+.waiting-actions summary { cursor: pointer; }
+.waiting-actions ul { margin: 4px 0 4px; padding-left: 18px; }
+.system-log { margin-top: 12px; }
+.system-log summary { cursor: pointer; opacity: .7; }
+.final-winner { text-align: center; font-size: 2.4rem; line-height: 1.3; margin: 8px 0 18px; }
+.final-result-dialog { width: min(48rem, calc(100% - 24px)); }
+.wage-income { display: grid; gap: 14px; }
+.wage-income section { border-left: 3px solid var(--role); padding: 4px 0 4px 10px; }
+.wage-income h3 { margin: 0 0 6px; font-size: 1rem; color: var(--role); }
+.wage-income .wage-balance { margin: 0; }
+#final-result-dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
+#final-result-dialog > form { flex: none; }
+.round-result-body details { margin-block: 12px; }
+.round-result-body details + details { margin-top: 14px; }
+.round-result-body h4 { margin: 14px 0 4px; font-size: .9rem; }
+.round-result-body .mat-help-tabs { margin-bottom: 10px; }
