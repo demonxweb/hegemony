@@ -49,6 +49,8 @@ Cloudflare Workers 從儲存庫根目錄執行 `npx wrangler deploy`。Wrangler 
 
 使用 Python 3 執行 `python scripts/build_data.py`，輸出至 `data/hegemony-v1.2-data.json`，同時核對四類元件總數。腳本只建立已整理的基礎資料，不會下載或補入卡牌。
 
+
+
 已有完整內容目錄，可直接讀取 JSON。需要重新產生時，先儲存 [Ludex 卡牌索引](https://www.ludex.dev/hegemony/cards/) 的 HTML，再執行 `python scripts/build_catalog.py --html <HTML 路徑>`。
 
 ## 下一項工作
