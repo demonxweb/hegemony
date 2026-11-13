@@ -3437,8 +3437,20 @@ new ResizeObserver(() => {
 }).observe(roomChat);
 let chatRoomCode;
 let lastChatId;
+let lastChatSenders = '';
 
-function updateRoomChat(code, messages = []) {
+function chatRoleBySender(source) {
+  const roles = new Map();
+  for (const player of source?.waiting?.players ?? []) {
+    if (player.name) roles.set(player.name, player.role);
+  }
+  for (const [role, name] of Object.entries(source?.seats ?? {})) {
+    if (name) roles.set(name, role);
+  }
+  return roles;
+}
+
+function updateRoomChat(code, messages = [], source = state) {
   const changedRoom = chatRoomCode !== code;
   if (changedRoom) {
     chatRoomCode = code;
@@ -3446,10 +3458,14 @@ function updateRoomChat(code, messages = []) {
     chatDetails.open = false;
   }
   roomChat.hidden = !code;
+  const roles = chatRoleBySender(source);
+  const senderRole = message => roles.get(message.name) ?? message.role;
+  const senders = messages.map(message => `${message.name}:${senderRole(message) ?? ''}`).join('|');
   const latest = messages.at(-1);
-  if (!changedRoom && (latest?.id ?? 0) <= lastChatId) return;
+  if (!changedRoom && (latest?.id ?? 0) <= lastChatId && senders === lastChatSenders) return;
   lastChatId = latest?.id ?? 0;
-  const sender = message => `<span class="chat-sender">${headerClassLabel(message.role)}${escape(message.name)}:</span>`;
+  lastChatSenders = senders;
+  const sender = message => `<span class="chat-sender">${headerClassLabel(senderRole(message))}${escape(message.name)}:</span>`;
   const line = message => `${sender(message)}<span class="chat-text">${escape(message.text)}</span>`;
   const atBottom = chatHistory.scrollHeight - chatHistory.scrollTop <= chatHistory.clientHeight + 4;
   chatLatest.innerHTML = latest ? line(latest) : '<span class="chat-empty">目前沒有訊息</span>';
@@ -3487,7 +3503,7 @@ chatForm.addEventListener('submit', async event => {
 });
 
 function update(next) {
-  updateRoomChat(next.code, next.chat);
+  updateRoomChat(next.code, next.chat, next);
   if (!state || next.code !== state.code || next.revision > state.revision) {
     const restored = wasRestored(next);
     if (restored) {
@@ -3555,7 +3571,7 @@ async function refresh() {
     const next = await request(`/api/rooms/${currentSeat.code}`, undefined, { presence: true, signal: AbortSignal.timeout(5000) });
     if (seat !== currentSeat || (state?.code === next.code && next.revision < state.revision)) return;
     if (connection.textContent) connection.textContent = '';
-    updateRoomChat(next.code, next.chat);
+    updateRoomChat(next.code, next.chat, next);
     if (!pieceControls.active() && (!busy || wasRestored(next))) update(next);
   } catch (error) {
     if (seat !== currentSeat) return;
