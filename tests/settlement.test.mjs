@@ -731,6 +731,8 @@ test('final scores repay non-capitalist loans in units of five and retain fixed 
 
 test('host adjustment updates cash, living resources, warehouses and public storage', () => {
   const game = createGame({ full: false });
+  game.phase = 'action';
+  game.testMode = true;
   const adjust = (target, command) => applyCommand(game, 'capitalist', { type: 'host-adjust', target, ...command }, true);
   adjust('capitalist', {
     cash: 123, revenue: 45, capital: 6, living: { food: 2, influence: 4 },
@@ -769,4 +771,31 @@ test('host adjustment updates cash, living resources, warehouses and public stor
   assert.throws(() => adjust('capitalist', { prices: { food: 1 } }), /圖版上的售價/);
   assert.throws(() => adjust('working', { prices: { food: 15 } }), /只有中產與資本家/);
   assert.throws(() => adjust('nobody', { cash: 1 }), /請選擇要調整的階級/);
+});
+
+test('test-room policy edits update public companies, capacity, wages, and market quotes', () => {
+  const game = createGame({ full: false });
+  game.phase = 'action';
+  game.testMode = true;
+  const countPublic = () => playerView(game, 'state').economy.companies.filter(item => item.owner === 'state').length;
+  const changePolicy = (fiscal, labor, trade) => {
+    const policies = [...game.policies];
+    policies[0] = fiscal;
+    policies[1] = labor;
+    policies[5] = trade;
+    applyCommand(game, 'working', { type: 'host-adjust', target: 'policy', policies }, true);
+  };
+  const originalTreasury = game.treasury;
+  const originalCapacity = publicCapacity(game.economy, 'health');
+  changePolicy('A', 'A', 'C');
+  assert.equal(countPublic(), 9);
+  assert(publicCapacity(game.economy, 'health') > originalCapacity);
+  assert.equal(marketQuote(game, 'foreign', 'food').tariff, 0);
+  assert(playerView(game, 'state').economy.companies.filter(item => item.wages).every(item => item.wage === 3));
+  game.publicServices.health = publicCapacity(game.economy, 'health');
+  game.economy.publicCapacityOverride = { health: 99 };
+  changePolicy('C', 'C', 'A');
+  assert.equal(countPublic(), 3);
+  assert.equal(game.publicServices.health, originalCapacity);
+  assert.equal(game.treasury, originalTreasury);
 });

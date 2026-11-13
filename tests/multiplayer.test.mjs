@@ -30,7 +30,7 @@ test('waiting room starts only after four distinct roles and four current confir
     for (const name of ['Host', ...roles.slice(1)]) {
       accounts.push(await request('/api/player/register', { body: { name, password: 'p' } }));
     }
-    const host = await request('/api/rooms', { body: {}, token: accounts[0].token, status: 201 });
+    const host = await request('/api/rooms', { body: { testMode: true }, token: accounts[0].token, status: 201 });
     const path = '/api/rooms/' + host.code;
     const tokens = [host.token];
     for (const account of accounts.slice(1)) tokens.push((await request(path + '/join', { body: {}, token: account.token })).token);
@@ -49,7 +49,10 @@ test('waiting room starts only after four distinct roles and four current confir
     assert(conflict.waiting.players.every(player => !Object.hasOwn(player, 'key')));
     await change(0, { type: 'ready', selectionRevision: conflict.waiting.selectionRevision }, 400);
     const resolved = await change(1, { type: 'select', role: 'middle' });
-    const ready = { type: 'ready', selectionRevision: resolved.waiting.selectionRevision };
+    await change(0, { type: 'start-skill', skill: 'health' }, 400);
+    await change(1, { type: 'ready', selectionRevision: resolved.waiting.selectionRevision }, 400);
+    const selected = await change(1, { type: 'start-skill', skill: 'health' });
+    const ready = { type: 'ready', selectionRevision: selected.waiting.selectionRevision };
     await change(0, { type: 'ready', selectionRevision: conflict.waiting.selectionRevision }, 400);
     await change(0, ready);
     await change(0, { type: 'cancel' });
@@ -63,6 +66,8 @@ test('waiting room starts only after four distinct roles and four current confir
       assert.equal(view.presence.working, true);
       assert.equal(view.presence.middle, true);
     }
+    const started = storedRoom(store, host.code).game;
+    assert.equal(started.economy.workers[started.economy.startingMiddleSkill].skill, 'health');
     const beforeAdjust = await request(path, { token: tokens[0], presence: true });
     await request(path + '/command', { token: tokens[1], body: {
       type: 'host-adjust', target: 'middle', cash: 1, id: randomUUID(), revision: beforeAdjust.revision,
@@ -71,6 +76,8 @@ test('waiting room starts only after four distinct roles and four current confir
       type: 'host-adjust', target: 'middle', cash: 99, living: { influence: 4 }, inventory: { food: 5 },
       storageUnits: { food: 3 }, prices: { food: 15 }, id: randomUUID(), revision: beforeAdjust.revision,
     } });
+    assert.equal(adjusted.testMode, true);
+    assert(adjusted.cardPiles.draw.length > 0);
     assert.equal(adjusted.players.middle.cash, 99);
     assert.equal(adjusted.players.middle.influence, 4);
     assert.equal(adjusted.economy.inventory.middle.food, 5);
@@ -179,6 +186,8 @@ test('four connected seats complete five rounds using the full catalog', { timeo
       assert(cardIndex >= 0);
       draw.push(...draw.splice(cardIndex, 1));
     }
+    // The scripted turns prioritize card coverage over earning enough to buy food for five rounds.
+    room.game.players.working.cash += 500;
     const events = room.game.content.eventDeck;
     events.unshift(...events.splice(events.indexOf('event-fear-of-deflation'), 1));
     await server.stop();

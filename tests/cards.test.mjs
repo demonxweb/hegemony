@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import base from '../data/hegemony-v1.2-data.json' with { type: 'json' };
 import { cardDefinition } from '../packages/engine/cards.mjs';
 import { addWorker, company, companyDefinition, fillRequiredHires } from '../packages/engine/companies.mjs';
 import { catalogDecks } from '../packages/engine/content.mjs';
@@ -397,4 +398,42 @@ test('migration and zero-unit event effects are rejected', () => {
     type: 'event', cardId, eventId: 'event-political-scandal',
     distribution: { working: 0, middle: 0, capitalist: 0 },
   }, true), /至少/);
+});
+
+test('regular rooms keep the deck private and reject test commands', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  const view = playerView(game, 'working');
+  assert.equal(view.cardPiles, undefined);
+  const swap = { type: 'swap-card', pile: 'draw', handCardId: view.hand[0].id,
+    pileCardId: game.decks.working.draw[0].id };
+  assert.throws(() => applyCommand(game, 'working', swap, true), /測試房間/);
+  assert.throws(() => applyCommand(game, 'working', { type: 'host-adjust', target: 'working', cash: 1 }, true), /測試房間/);
+  game.testMode = true;
+  assert.equal(playerView(game, 'working').cardPiles.draw[0].id, swap.pileCardId);
+  applyCommand(game, 'working', swap, true);
+  assert.equal(game.players.working.hand[0].id, swap.pileCardId);
+});
+
+test('Small Business Grant borrows for the State only when loan cards are available', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.turn = 1;
+  game.policies[0] = 'B';
+  game.treasury = 0;
+  game.players.middle.hand = [{ id: 'grant', key: 'action-middle-small-business-grant' }];
+  game.economy.markets.middle = ['organic'];
+  const worker = addWorker(game.economy, 'middle', 'food');
+  assert(worker);
+  const command = { type: 'play', cardId: 'grant', company: 'organic', wage: 3, staff: [worker, null] };
+  const blocked = structuredClone(game);
+  blocked.economy.loans.working = base.components.small_cards.loans;
+  assert.throws(() => applyCommand(blocked, 'middle', command, true), /貸款牌不足/);
+  assert.equal(blocked.players.middle.hand[0].id, 'grant');
+  assert.equal(blocked.economy.companies.organic, undefined);
+  applyCommand(game, 'middle', command, true);
+  assert.equal(game.economy.loans.state, 1);
+  assert.equal(game.economy.loans.middle, 0);
+  assert.equal(game.treasury, base.loans.principal - companyDefinition('organic').cost);
+  assert.equal(game.economy.companies.organic.slots[0].worker, worker);
 });

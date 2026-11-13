@@ -102,7 +102,8 @@ function view(room, role) {
   if (room.waiting) {
     const { host, players, selectionRevision } = room.waiting;
     return { code: room.code, role, host, revision: room.revision, restoredRevision: room.restoredRevision ?? 0, phase: 'lobby',
-      waiting: { selectionRevision, players: players.map(({ id, name, role, ready }) => ({ id, name, role, ready })) } };
+      testMode: room.game.testMode === true,
+      waiting: { selectionRevision, skillSelection: Boolean(room.game.content), players: players.map(({ id, name, role, ready, skill }) => ({ id, name, role, ready, skill })) } };
   }
   return {
     code: room.code, role, host: room.host, revision: room.revision, restoredRevision: room.restoredRevision ?? 0,
@@ -118,6 +119,14 @@ function updateWaitingRoom(room, id, input) {
     requireRule(input.role === null || roles.includes(input.role), '請選擇有效的階級。');
     if (player.role === input.role) return id;
     player.role = input.role;
+    delete player.skill;
+    waiting.selectionRevision++;
+    for (const item of waiting.players) item.ready = false;
+  } else if (input.type === 'start-skill') {
+    requireRule(room.game.content && player.role === 'middle' && !player.ready
+      && ['food', 'luxury', 'health', 'education', 'influence'].includes(input.skill), '請由中產選擇有效的開局技術工技能。');
+    if (player.skill === input.skill) return id;
+    player.skill = input.skill;
     waiting.selectionRevision++;
     for (const item of waiting.players) item.ready = false;
   } else if (input.type === 'cancel') {
@@ -126,10 +135,12 @@ function updateWaitingRoom(room, id, input) {
     requireRule(input.selectionRevision === waiting.selectionRevision, '階級選擇已更新，請重新確認。');
     const choices = waiting.players.map(item => item.role);
     requireRule(roles.every(role => choices.includes(role)), '四位玩家須選擇不同階級。');
+    requireRule(!room.game.content || player.role !== 'middle' || player.skill, '請先選擇中產的開局技術工技能。');
     player.ready = true;
     if (waiting.players.every(item => item.ready)) {
       room.seats = Object.fromEntries(waiting.players.map(({ role, name, key, accountId }) => [role, { name, key, accountId }]));
       room.host = waiting.players.find(item => item.id === waiting.host).role;
+      if (room.game.content) room.game.content.startSkill = waiting.players.find(item => item.role === 'middle').skill;
       delete room.waiting;
       applyCommand(room.game, room.host, { type: 'start' }, true);
       return player.role;
@@ -153,7 +164,7 @@ export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRo
   return async function route(request, response, path) {
     if (request.method === 'GET') {
       if (path === '/api/meta') return json(response, 200, { roles, names, policies, policyRules: base.policies, domesticPriceLevels, checkedCommands, turnCommands,
-        actionConfirmation: true, loanPrincipal: base.loans.principal,
+        actionConfirmation: true, loanPrincipal: base.loans.principal, loanSupply: base.components.small_cards.loans,
         playerTracks: { population: catalog.boards.population, prosperity: catalog.boards.prosperity, wealth: base.wealth } });
       if (path === '/api/catalog') return json(response, 200, catalogView);
     }
@@ -176,6 +187,7 @@ export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRo
       const legacy = allowLegacyRooms && !request.headers.authorization;
       const player = legacy ? null : accounts.authenticate(request);
       const room = newRoom(legacy ? input.role : undefined, readRoom, full);
+      room.game.testMode = input.testMode === true;
       const seat = legacy
         ? (input.role === undefined ? joinWaitingRoom(room, input) : claimSeat(room, input))
         : joinWaitingRoom(room, player, player.id, accounts.seatToken(player.id, room.code));
@@ -201,6 +213,7 @@ export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRo
       if (!saved) throw new GameError('找不到這個房間的存檔。', 404);
       const revision = room.revision + 1;
       const next = { ...saved, revision, restoredRevision: revision, processed: room.processed };
+      next.game.testMode = room.game.testMode === true;
       if (next.waiting) next.waiting.selectionRevision = revision;
       saveRoom(next);
       return json(response, 200, view(next, next.waiting?.host ?? next.host));

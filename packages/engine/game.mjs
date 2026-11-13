@@ -1122,10 +1122,19 @@ export function applyHostAdjustment(game, command) {
   if (command.target === 'policy') {
     if (command.policies !== undefined) {
       requireRule(Array.isArray(command.policies) && command.policies.length === game.policies.length, '政策數量不符。');
-      command.policies.forEach((section, index) => {
-        requireRule(sections.includes(section), '請選擇 A、B 或 C 區政策。');
-        game.policies[index] = section;
-      });
+      const [fiscal, labor] = game.policies;
+      requireRule(command.policies.every(section => sections.includes(section)), '請選擇 A、B 或 C 區政策。');
+      game.policies = [...command.policies];
+      if (game.policies[1] !== labor) setWagePolicy(game);
+      if (game.policies[0] !== fiscal) {
+        for (const resource of ['health', 'education', 'influence']) {
+          delete game.economy.publicCapacityOverride?.[resource];
+        }
+        const { opening, count, companies } = publicSectorChoices(game);
+        const selected = opening ? companies.slice(0, count) : companies.slice(companies.length - count);
+        resizePublicSector(game, selected.map(item => item.id), { testing: true });
+      }
+      updateUnions(game.economy);
     }
     if (command.bag !== undefined) {
       requireRule(command.bag && typeof command.bag === 'object' && !Array.isArray(command.bag), '投票袋格式錯誤。');
@@ -1209,6 +1218,8 @@ export function applyCommand(game, role, command, allSeated) {
   const player = game.players[role];
   const { type } = command;
   if (type === 'host-adjust') {
+    requireRule(game.testMode === true, '只有測試房間可以使用房長調整。');
+    requireRule(game.phase === 'action' && !game.transaction, '請在行動階段且沒有待確認交易時調整。');
     applyHostAdjustment(game, command);
     return;
   }
@@ -1385,6 +1396,7 @@ export function applyCommand(game, role, command, allSeated) {
     return;
   }
   if (type === 'swap-card') {
+    requireRule(game.testMode === true, '只有測試房間可以換牌。');
     // 檢查用途：把手牌與待抽牌庫／棄牌堆中的指定卡牌交換，方便逐一驗證卡牌效果。
     requireRule(game.decks?.[role], '目前對局沒有手牌庫資料。');
     requireRule(['draw', 'discard'].includes(command.pile), '請選擇要交換的牌堆。');
@@ -1540,7 +1552,8 @@ export function playerView(game, role) {
   return {
     phase, turn, currentRole: currentRole(game), canInvestFromDeck, mainUsed, freeUsed: Boolean(game.freeUsed), players,
     hand: hand.map(card => cardView(role, card)), publicServices, legitimacy, treasury,
-    cardPiles: game.decks?.[role] ? {
+    testMode: game.testMode === true,
+    cardPiles: game.testMode === true && game.decks?.[role] ? {
       draw: game.decks[role].draw.map(card => cardView(role, card)),
       discard: game.decks[role].discard.map(card => cardView(role, card)),
     } : undefined,

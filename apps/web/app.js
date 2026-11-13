@@ -354,9 +354,9 @@ async function loadPlayerRooms() {
   }
 }
 
-async function enterPlayerRoom(code) {
+async function enterPlayerRoom(code, testMode = false) {
   const path = code ? `/api/rooms/${code}/join` : '/api/rooms';
-  seat = await request(path, {}, { token: accountToken });
+  seat = await request(path, code ? {} : { testMode }, { token: accountToken });
   rememberSeat();
   history.replaceState(null, '', `/?room=${seat.code}`);
   update(await request(`/api/rooms/${seat.code}`, undefined, { presence: true }));
@@ -388,6 +388,7 @@ function showLobby() {
     <div class="hero"><h1>四個席位，一個國家</h1></div>
     <section class="panel"><h2>建立／加入房間</h2><form data-room>
       <label>房間代碼<input name="code" value="${escape(code)}" spellcheck="false"></label>
+      <label class="check" data-test-room ${code ? 'hidden' : ''}><input type="checkbox" name="testMode">建立測試房間</label>
       <button class="primary">${code ? '加入房間' : '建立房間'}</button>
     </form></section>
     <section class="panel"><h2>我的房間</h2>${account.rooms.length ? account.rooms.map(room =>
@@ -623,9 +624,13 @@ function buildCompanyChoices(offers, budget, storageResource, excluded) {
 }
 
 function buildFields(role, companies, { optional = false, prefix = '', land = false, idle = false,
-  price = item => item.cost, payer = role, storage = false, firstCompany } = {}) {
+  price = item => item.cost, payer = role, mandatoryPay = false, storage = false, firstCompany } = {}) {
   const offers = companies.map(item => ({ ...item, owner: item.owner ?? role, actualCost: item.actualCost ?? price(item) }));
-  const budget = buildBudget(payer);
+  let budget = buildBudget(payer);
+  if (mandatoryPay) {
+    const taken = Object.values(state.economy.loans).reduce((sum, count) => sum + count, 0);
+    budget += Math.max(0, meta.loanSupply - taken) * meta.loanPrincipal;
+  }
   const choices = buildCompanyChoices(offers, budget - (firstCompany?.cost ?? 0), storage ? products[0] : null, firstCompany?.id);
   const first = offers.find((_, index) => !choices[index][3]);
   return `<fieldset class="card-build" data-card-build="${escape(JSON.stringify({ offers, prefix, land, idle, budget, storage, expansion: prefix === 'build1-' }))}">
@@ -1704,7 +1709,7 @@ function playForm(card) {
     }
     case 'personal-buy': return play(purchaseFields({ flexible: true }));
     case 'grant-build': case 'land-build':
-      return markets[role]?.length ? play(buildFields(role, markets[role], { land: effect === 'land-build', payer: effect === 'grant-build' ? 'state' : role })) : '';
+      return markets[role]?.length ? play(buildFields(role, markets[role], { land: effect === 'land-build', payer: effect === 'grant-build' ? 'state' : role, mandatoryPay: effect === 'grant-build' })) : '';
     case 'industry-build': {
       const offers = markets[role]?.filter(item => ['food', 'luxury'].includes(item.resource));
       return offers?.length ? play(buildFields(role, offers, { price: item => Math.ceil(item.cost / 2) })) : '';
@@ -2415,7 +2420,7 @@ function handBoard(card) {
     '這裡顯示你目前持有的行動卡。其他玩家只看得到手牌張數。',
     '第 2 到第 5 輪的準備階段，保留還沒用掉的手牌，再抽牌補到 7 張。牌庫抽空時，將棄牌洗成新的牌庫。',
     '選好手牌後，在主要行動選單選「卡牌效果」，即可在選單下方查看牌面說明。做主要行動時，可打出這張牌執行效果，或棄掉它來做基本行動。若牌上有政策等使用條件，必須符合條件才能執行牌上效果。')}</h2>
-    <div class="desk-tools"><span>${state.hand.length} 張</span><button type="button" class="pile-button" data-card-piles
+    <div class="desk-tools"><span>${state.hand.length} 張</span><button type="button" class="pile-button" ${state.cardPiles ? '' : 'hidden'} data-card-piles
       aria-haspopup="dialog" aria-label="查看手牌庫與已使用的手牌" title="查看手牌庫與已使用的手牌">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10 12 3l9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>
     </button></div></div>
@@ -2493,6 +2498,7 @@ function selectPileCard(button) {
 }
 
 function showCardPiles() {
+  if (!state?.testMode || !state.cardPiles) return;
   renderCardPiles();
   if (!cardPilesDialog.open) cardPilesDialog.showModal();
 }
@@ -2557,6 +2563,9 @@ function adjustLivingFields() {
 
 function hostAdjustBodyMarkup() {
   if (!state?.players) return '<p class="muted">目前沒有可調整的對局。</p>';
+  if (adjustTab === 'policy') return adjustSection('政治議題', meta.policies.map((name, index) =>
+    selectField('policy-' + index, escape(name), ['A', 'B', 'C'].map(section => [section, section])
+      .sort((a, b) => Number(b[0] === state.policies[index]) - Number(a[0] === state.policies[index])))).join(''));
   const economy = state.economy ?? {};
   const player = state.players[adjustTab];
   if (adjustTab === 'state') {
@@ -2592,15 +2601,15 @@ function hostAdjustBodyMarkup() {
 
 function renderHostAdjust() {
   if (!state) return;
-  if (!adjustRoles.includes(adjustTab)) adjustTab = 'state';
+  if (!adjustTabs.includes(adjustTab)) adjustTab = 'state';
   hostAdjustDialog.className = `action-confirmation host-adjust-dialog ${state.role}`;
-  hostAdjustTabs.innerHTML = adjustRoles.map(role => `<button type="button" role="tab" data-adjust-tab="${role}"
+  hostAdjustTabs.innerHTML = adjustTabs.map(role => `<button type="button" role="tab" data-adjust-tab="${role}"
     aria-selected="${role === adjustTab}" tabindex="${role === adjustTab ? 0 : -1}">${adjustRoleLabels[role]}</button>`).join('');
   hostAdjustBody.innerHTML = hostAdjustBodyMarkup();
 }
 
 function showHostAdjust() {
-  if (busy || !state || state.role !== state.host || !state.players) return;
+  if (busy || !state?.testMode || state.role !== state.host || state.phase !== 'action' || state.transaction) return;
   renderHostAdjust();
   if (!hostAdjustDialog.open) hostAdjustDialog.showModal();
 }
@@ -2608,6 +2617,10 @@ function showHostAdjust() {
 function hostAdjustCommand() {
   const fields = new FormData(hostAdjustDialog.querySelector('form[data-host-adjust]'));
   const command = { type: 'host-adjust', target: adjustTab };
+  if (adjustTab === 'policy') {
+    command.policies = meta.policies.map((_, index) => fields.get('policy-' + index));
+    return command;
+  }
   const number = name => Number(fields.get(name));
   const collect = (prefix, keys) => Object.fromEntries(keys.filter(key => fields.has(`${prefix}-${key}`))
     .map(key => [key, number(`${prefix}-${key}`)]));
@@ -2954,7 +2967,7 @@ function waitingRoom() {
       ${locked ? '<svg class="seat-lock" viewBox="0 0 16 16" role="img" aria-label="已確認" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3.5" y="7" width="9" height="7" rx="1.5"/><path d="M5.5 7V4.5a2.5 2.5 0 0 1 5 0V7M8 9.5v2"/></svg>' : ''}
     </div>`;
   }).join('');
-  return `<div class="lobby"><section class="panel"><h1>等待區</h1>
+  return `<div class="lobby"><section class="panel"><h1>${state.testMode ? '測試房等待區' : '等待區'}</h1>
     <p>已加入 ${players.length} / 4 人 · ${players.map(player =>
       `${escape(player.name)}${player.id === state.role ? '（你）' : ''}${player.ready ? ' ✓' : ''}`).join('、')}</p>
     <div class="waiting-seats">${seats}</div>
@@ -2962,9 +2975,12 @@ function waitingRoom() {
       <option value="">請選擇</option>${meta.roles.map(role =>
       `<option value="${role}" ${role === self.role ? 'selected' : ''}>${escape(meta.names[role])}</option>`).join('')}
     </select></label>
+    ${state.waiting.skillSelection && self.role === 'middle' ? `<label>開局技術工技能<select data-waiting-skill ${self.ready ? 'disabled' : ''}>
+      <option value="">請選擇</option>${skillOptions(products).map(([skill, label, color]) =>
+        `<option value="${skill}" style="color:${color}" ${self.skill === skill ? 'selected' : ''}>${escape(label)}</option>`).join('')}</select></label>` : ''}
     <form data-waiting-confirm>
       ${self.ready ? '<p role="status">等待其他玩家確認</p>' : ''}
-      <button class="primary" ${!canStart && !self.ready ? 'disabled' : ''}>${self.ready ? '取消' : '開始'}</button>
+      <button class="primary" ${!self.ready && (!canStart || (state.waiting.skillSelection && self.role === 'middle' && !self.skill)) ? 'disabled' : ''}>${self.ready ? '取消' : '開始'}</button>
     </form>
   </section></div>`;
 }
@@ -2982,7 +2998,7 @@ function render() {
   headerRoomActions.hidden = false;
   returnLobby.hidden = !account;
   closeRoom.hidden = state.role !== state.host;
-  adjustGameButton.hidden = state.role !== state.host || !state.players;
+  adjustGameButton.hidden = !state.testMode || state.role !== state.host || state.phase !== 'action' || Boolean(state.transaction);
   saveRoomButton.hidden = loadRoomButton.hidden = closeRoom.hidden;
   copyInvite.hidden = state.phase !== 'lobby';
   copyInvite.textContent = '複製邀請連結';
@@ -3306,7 +3322,7 @@ async function submitGameForm(event) {
         warning('房間代碼須為 8 碼，只能包含數字 0–9 和英文字母 A–F。', form.elements.code);
         return;
       }
-      await enterPlayerRoom(code);
+      await enterPlayerRoom(code, fields.has('testMode'));
       return;
     }
     if (form.hasAttribute('data-waiting-confirm')) {
@@ -3381,10 +3397,10 @@ hostAdjustTabs.addEventListener('click', event => {
 hostAdjustTabs.addEventListener('keydown', event => {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
   event.preventDefault();
-  const index = adjustRoles.indexOf(adjustTab);
-  const next = event.key === 'Home' ? 0 : event.key === 'End' ? adjustRoles.length - 1
-    : (index + (event.key === 'ArrowRight' ? 1 : -1) + adjustRoles.length) % adjustRoles.length;
-  adjustTab = adjustRoles[next];
+  const index = adjustTabs.indexOf(adjustTab);
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? adjustTabs.length - 1
+    : (index + (event.key === 'ArrowRight' ? 1 : -1) + adjustTabs.length) % adjustTabs.length;
+  adjustTab = adjustTabs[next];
   renderHostAdjust();
   hostAdjustTabs.querySelector(`[data-adjust-tab="${adjustTab}"]`)?.focus();
 });
@@ -3413,14 +3429,16 @@ voteResultDialog.addEventListener('cancel', event => {
 });
 
 app.addEventListener('change', async event => {
-  if (event.target.matches('[data-waiting-role]')) {
+  if (event.target.matches('[data-waiting-role], [data-waiting-skill]')) {
     if (busy || !state?.waiting) return;
     const select = event.target;
     busy = true;
     select.disabled = true;
     message();
     try {
-      update(await request(`/api/rooms/${seat.code}/waiting`, { type: 'select', role: select.value || null }));
+      const input = select.hasAttribute('data-waiting-skill')
+        ? { type: 'start-skill', skill: select.value } : { type: 'select', role: select.value || null };
+      update(await request(`/api/rooms/${seat.code}/waiting`, input));
     } catch (error) {
       render();
       warning(error.message);
@@ -3560,6 +3578,7 @@ app.addEventListener('change', async event => {
 app.addEventListener('input', event => {
   const roomForm = event.target.closest('form[data-room]');
   if (roomForm && event.target.name === 'code') {
+    roomForm.querySelector('[data-test-room]').hidden = Boolean(event.target.value.trim());
     roomForm.querySelector('button').textContent = event.target.value.trim() ? '加入房間' : '建立房間';
   }
   const cardPurchase = event.target.closest('[data-card-purchase="true"]');

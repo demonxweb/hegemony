@@ -66,7 +66,7 @@ input, select { width: 100%; color: var(--ink); background: #0d1723; border: 1px
 select[data-colored-options] option { color: var(--ink); background: #0d1723; }
 select option:disabled, select[data-colored-options] option:disabled { color: #87909b; }
 input[type="checkbox"] { min-height: 0; width: auto; }
-.check { display: flex; align-items: center; gap: 7px; }
+.check:not([hidden]) { display: flex; align-items: center; gap: 7px; }
 button, .catalog-link { border: 1px solid #4c637c; color: var(--ink); background: #263b52; padding: 6px 12px; cursor: pointer; }
 button.primary { border-color: var(--gold); background: var(--gold); color: #18202c; font-weight: 750; }
 button:disabled { cursor: default; opacity: .55; }
@@ -357,7 +357,7 @@ summary { cursor: pointer; font-weight: 700; }
 .hand-detail { padding: 9px; border: 1px solid var(--line); border-left: 3px solid var(--role); border-radius: 5px; background: #111a26; }
 .hand-detail p { font-size: .81rem; }
 .desk-tools { display: flex; align-items: center; gap: 6px; }
-.pile-button { display: inline-grid; place-items: center; width: 1.55rem; height: 1.55rem; min-height: 0; padding: 2px; color: var(--role);
+.pile-button:not([hidden]) { display: inline-grid; place-items: center; width: 1.55rem; height: 1.55rem; min-height: 0; padding: 2px; color: var(--role);
   border-color: color-mix(in srgb, var(--role) 55%, #253345); background: #101c2b; }
 .pile-button svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 #card-piles-dialog { width: min(calc(100% - 24px), 48rem); }
