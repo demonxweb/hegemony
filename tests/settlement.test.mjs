@@ -799,3 +799,34 @@ test('test-room policy edits update public companies, capacity, wages, and marke
   assert.equal(game.publicServices.health, originalCapacity);
   assert.equal(game.treasury, originalTreasury);
 });
+
+test('host adjustment overwrites the voting bag atomically within limits', () => {
+  const game = createGame({ full: false });
+  game.phase = 'action';
+  game.testMode = true;
+  const adjust = command => applyCommand(game, 'working', { type: 'host-adjust', target: 'policy', ...command }, true);
+  adjust({ bag: { working: 3, middle: 4, capitalist: 5 } });
+  assert.deepEqual(game.bag, { working: 3, middle: 4, capitalist: 5 });
+  assert.throws(() => adjust({ bag: { working: 6, middle: 26 } }), /不可超過 25/);
+  assert.deepEqual(game.bag, { working: 3, middle: 4, capitalist: 5 });
+  assert.throws(() => adjust({ bag: { foreign: 1 } }), /未知階級/);
+});
+
+test('host adjustment sets state benefits without touching treasury or public stock', () => {
+  const game = createGame({ full: false });
+  game.phase = 'action';
+  game.testMode = true;
+  game.content = { benefits: { working: {}, middle: {}, capitalist: {} } };
+  const treasury = game.treasury;
+  const publicFood = game.publicServices.food;
+  const adjust = command => applyCommand(game, 'state', { type: 'host-adjust', target: 'state', ...command }, true);
+  adjust({ benefits: { working: { cash: 5, votes: 2 }, capitalist: { food: 3, influence: 1 } } });
+  assert.deepEqual(game.content.benefits.working, { cash: 5, votes: 2 });
+  assert.deepEqual(game.content.benefits.capitalist, { food: 3, influence: 1 });
+  assert.equal(game.treasury, treasury);
+  assert.equal(game.publicServices.food, publicFood);
+  assert.throws(() => adjust({ benefits: { working: { unknown: 1 } } }), /未知項目/);
+  assert.throws(() => adjust({ benefits: { arbeiter: { cash: 1 } } }), /未知階級/);
+  assert.throws(() => applyCommand(game, 'working', { type: 'host-adjust', target: 'working', benefits: { working: { cash: 1 } } }, true), /只有國家/);
+});
+

@@ -2505,6 +2505,7 @@ function showCardPiles() {
 
 const adjustRoles = ['state', 'working', 'middle', 'capitalist'];
 const adjustTabs = [...adjustRoles, 'policy'];
+const adjustClasses = ['working', 'middle', 'capitalist'];
 const adjustRoleLabels = { state: '國家', working: '勞工', middle: '中產', capitalist: '資本家', policy: '公共政策' };
 const adjustLivingLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育', influence: '個人影響力' };
 const adjustStoredLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育' };
@@ -2544,6 +2545,17 @@ function adjustSelect(label, name, options, current) {
     <select name="${escape(name)}">${options.map(price => `<option value="${price}"${price === current ? ' selected' : ''}>$${price}</option>`).join('')}</select></label>`;
 }
 
+function adjustChoice(label, name, options, current) {
+  return `<label class="adjust-field">${escape(label)}
+    <select name="${escape(name)}">${options.map(value => `<option value="${escape(value)}"${value === current ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label>`;
+}
+
+function adjustBenefitFields(role) {
+  return adjustSection(`國家福利・${adjustRoleLabels[role]}`,
+    Object.keys(adjustBenefitLabels).map(key => adjustInput(adjustBenefitLabels[key], `benefit-${role}-${key}`, state.content?.benefits?.[role]?.[key] ?? 0)).join(''),
+    role === 'working' ? '設定各階級國家福利區的待領項目；不會自動支付國庫或扣除公共庫存。' : '');
+}
+
 function adjustPriceFields(role) {
   const levels = meta.domesticPriceLevels?.[role];
   if (!levels) return '<p class="muted adjust-note">此階級沒有可調整的國內售價。</p>';
@@ -2563,9 +2575,14 @@ function adjustLivingFields() {
 
 function hostAdjustBodyMarkup() {
   if (!state?.players) return '<p class="muted">目前沒有可調整的對局。</p>';
-  if (adjustTab === 'policy') return adjustSection('政治議題', meta.policies.map((name, index) =>
-    selectField('policy-' + index, escape(name), ['A', 'B', 'C'].map(section => [section, section])
-      .sort((a, b) => Number(b[0] === state.policies[index]) - Number(a[0] === state.policies[index])))).join(''));
+  if (adjustTab === 'policy') {
+    return adjustSection('七大政策', meta.policies.map((name, index) =>
+      adjustChoice(name, `policy-${index}`, ['A', 'B', 'C'], state.policies[index])).join(''),
+      '直接設定七大政策的現行區段，不會觸發政策變更的連鎖結算。')
+      + adjustSection('投票袋',
+        adjustClasses.map(role => adjustInput(adjustRoleLabels[role], `bag-${role}`, state.bag?.[role] ?? 0, { max: 25 })).join(''),
+        '直接覆寫袋內各階級方塊數；各階級上限 25 枚，福利區保留的方塊不在此欄內。');
+  }
   const economy = state.economy ?? {};
   const player = state.players[adjustTab];
   if (adjustTab === 'state') {
@@ -2578,6 +2595,7 @@ function hostAdjustBodyMarkup() {
       + adjustSection('公共容量',
         Object.keys(adjustPublicLabels).map(key => adjustInput(adjustPublicLabels[key], `publicCapacity-${key}`, economy.publicStorageCapacity?.[key] ?? 0)).join(''),
         '公共容量原本由公營企業產能決定；這裡可覆寫為指定份數。')
+      + adjustClasses.map(role => adjustBenefitFields(role)).join('')
       + '<p class="muted adjust-note">國家的食物、奢侈品與媒體影響力為固定價；醫療與教育售價由福利政策決定，沒有可直接調整的國內售價。</p>';
   }
   if (adjustTab === 'working') {
@@ -2617,13 +2635,16 @@ function showHostAdjust() {
 function hostAdjustCommand() {
   const fields = new FormData(hostAdjustDialog.querySelector('form[data-host-adjust]'));
   const command = { type: 'host-adjust', target: adjustTab };
-  if (adjustTab === 'policy') {
-    command.policies = meta.policies.map((_, index) => fields.get('policy-' + index));
-    return command;
-  }
   const number = name => Number(fields.get(name));
   const collect = (prefix, keys) => Object.fromEntries(keys.filter(key => fields.has(`${prefix}-${key}`))
     .map(key => [key, number(`${prefix}-${key}`)]));
+  if (adjustTab === 'policy') {
+    command.policies = meta.policies.map((_, index) => fields.get('policy-' + index));
+    const bag = Object.fromEntries(adjustClasses.filter(role => fields.has(`bag-${role}`))
+      .map(role => [role, number(`bag-${role}`)]));
+    if (Object.keys(bag).length) command.bag = bag;
+    return command;
+  }
   if (fields.has('treasury')) command.treasury = number('treasury');
   if (fields.has('cash')) command.cash = number('cash');
   if (fields.has('revenue')) command.revenue = number('revenue');
@@ -2642,6 +2663,12 @@ function hostAdjustCommand() {
   if (Object.keys(publicStock).length) command.public = publicStock;
   const publicCapacity = collect('publicCapacity', Object.keys(adjustPublicLabels));
   if (Object.keys(publicCapacity).length) command.publicCapacity = publicCapacity;
+  const benefits = {};
+  for (const role of adjustClasses) {
+    const values = collect(`benefit-${role}`, Object.keys(adjustBenefitLabels));
+    if (Object.keys(values).length) benefits[role] = values;
+  }
+  if (Object.keys(benefits).length) command.benefits = benefits;
   return command;
 }
 

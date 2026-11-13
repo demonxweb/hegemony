@@ -1138,11 +1138,13 @@ export function applyHostAdjustment(game, command) {
     }
     if (command.bag !== undefined) {
       requireRule(command.bag && typeof command.bag === 'object' && !Array.isArray(command.bag), '投票袋格式錯誤。');
+      const bag = { ...game.bag };
       for (const [role, count] of Object.entries(command.bag)) {
         requireRule(hostAdjustClasses.includes(role), '投票袋包含未知階級。');
-        game.bag[role] = hostAdjustCount(count, `${names[role]}投票袋`);
-        requireRule(game.bag[role] <= 25, '投票袋方塊數不可超過 25。');
+        bag[role] = hostAdjustCount(count, `${names[role]}投票袋`);
+        requireRule(bag[role] <= 25, '投票袋方塊數不可超過 25。');
       }
+      game.bag = bag;
     }
     log(game, '房長調整了公共政策與投票袋。');
     return;

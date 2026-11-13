@@ -83,6 +83,18 @@ test('waiting room starts only after four distinct roles and four current confir
     assert.equal(adjusted.economy.inventory.middle.food, 5);
     assert.equal(adjusted.economy.storageCapacity.middle.food, 24);
     assert.equal(adjusted.match.prices.middle.food.price, 15);
+    const policyAdjusted = await request(path + '/command', { token: tokens[0], body: {
+      type: 'host-adjust', target: 'policy', policies: adjusted.policies.map((section, index) => index ? section : 'A'),
+      bag: { working: 7, middle: 9, capitalist: 11 }, id: randomUUID(), revision: adjusted.revision,
+    } });
+    assert.equal(policyAdjusted.policies[0], 'A');
+    assert.deepEqual(policyAdjusted.bag, { working: 7, middle: 9, capitalist: 11 });
+    const benefitAdjusted = await request(path + '/command', { token: tokens[0], body: {
+      type: 'host-adjust', target: 'state', benefits: { working: { cash: 4, votes: 1 } },
+      id: randomUUID(), revision: policyAdjusted.revision,
+    } });
+    assert.equal(benefitAdjusted.content.benefits.working.cash, 4);
+    assert.equal(benefitAdjusted.content.benefits.working.votes, 1);
     await server.stop();
     server = await startServer(store, false, false);
     const login = await request('/api/player/login', { body: { name: 'Host', password: 'p' } });
