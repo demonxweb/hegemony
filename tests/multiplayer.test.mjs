@@ -52,6 +52,9 @@ test('waiting room starts only after four distinct roles and four current confir
     await change(0, { type: 'start-skill', skill: 'health' }, 400);
     await change(1, { type: 'ready', selectionRevision: resolved.waiting.selectionRevision }, 400);
     const selected = await change(1, { type: 'start-skill', skill: 'health' });
+    assert.equal(selected.waiting.middleMarket.length, 3);
+    assert(selected.waiting.middleMarket.every(company => company.skills.length));
+    assert.equal((await request(path, { token: host.token })).waiting.middleMarket, undefined);
     const ready = { type: 'ready', selectionRevision: selected.waiting.selectionRevision };
     await change(0, { type: 'ready', selectionRevision: conflict.waiting.selectionRevision }, 400);
     await change(0, ready);

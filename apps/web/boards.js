@@ -137,22 +137,23 @@ function policyEffect(index, section, rules) {
 }
 
 export function policyDiagram(state, meta, escape, tipAttrs, choiceAttrs = () => '') {
-  return `<svg class="policy-table" viewBox="0 0 638 325" aria-label="政治議題政策表">
+  return `<svg class="policy-table" viewBox="0 0 638 410" aria-label="政治議題政策表">
     <text class="policy-axis" x="14" y="16">社會主義</text><path d="M82 11h302m-6-5 6 5-6 5"/><text class="policy-axis" x="449" y="16" text-anchor="end">新自由主義</text>
     <text class="policy-axis" x="551" y="16" text-anchor="middle">民族主義 → 全球主義</text>
     ${state.policies.map((active, index) => {
       const side = index >= 5;
       const x = side ? 455 : 4;
-      const y = side ? 25 + (index - 5) * 149 : 25 + index * 59;
+      const y = side ? 25 + (index - 5) * 192 : 25 + index * 76;
       const width = side ? 179 : 444;
-      const height = side ? 142 : 54;
+      const height = side ? 184 : 72;
+      const choiceWidth = side ? 163 : 128;
       const bill = state.bills.find(item => item.policy === index);
       const name = meta.policies[index];
       return `<g class="policy-band" transform="translate(${x} ${y})" style="--policy:${policyColors[index]}"
         ${tipAttrs(`${index + 1}${active} ${name}・生效中`, [policyEffect(index, active, meta.policyRules)[1]])}>
         <rect class="policy-band-bg" width="${width}" height="${height}" rx="6"/>
-        <text class="policy-number" x="10" y="${side ? 27 : 39}">${index + 1}</text>
-        <text class="policy-name" x="${side ? 97 : 240}" y="${side ? 21 : 16}" text-anchor="middle">${escape(name)}</text>
+        <text class="policy-number" x="10" y="${side ? 27 : 48}">${index + 1}</text>
+        <text class="policy-name" x="${side ? 97 : 240}" y="${side ? 22 : 18}" text-anchor="middle">${escape(name)}</text>
         ${['A', 'B', 'C'].map((section, column) => {
           const [short, effect] = policyEffect(index, section, meta.policyRules);
           const isActive = section === active;
@@ -161,9 +162,10 @@ export function policyDiagram(state, meta, escape, tipAttrs, choiceAttrs = () =>
           return `<g class="policy-choice${isActive ? ' active' : ''}${isPending ? ' pending' : ''}" tabindex="0" role="group" aria-label="${escape(title + (isActive ? '・生效中' : '') + (isPending ? '・待表決' : ''))}"
             ${choiceAttrs(index, section)}
             ${tipAttrs(title, [effect, isActive && '目前生效', isPending && `${meta.names[bill.role]}提案，待表決`])}
-            transform="translate(${side ? 8 : 42 + column * 133} ${side ? 33 + column * 35 : 22})">
-            <rect width="${side ? 163 : 128}" height="28" rx="3"/>
-            <text class="policy-letter" x="7" y="19">${section}</text><text class="policy-value" x="24" y="18">${escape(short)}</text>
+            transform="translate(${side ? 8 : 42 + column * 133} ${side ? 35 + column * 47 : 25})">
+            <rect width="${choiceWidth}" height="43" rx="3"/>
+            <text class="policy-letter" x="${choiceWidth / 2}" y="17" text-anchor="middle">${section}</text>
+            <text class="policy-value" x="${choiceWidth / 2}" y="35" text-anchor="middle">${escape(short)}</text>
             ${isActive ? `<circle class="policy-marker" cx="${side ? 151 : 118}" cy="14" r="5"/>` : ''}
             ${isPending ? `<path class="policy-bill" d="M${side ? 150 : 117} 7l6 7-6 7-6-7z"/>` : ''}
           </g>`;

@@ -98,7 +98,6 @@ export function createEconomy(content) {
     markets: { capitalist: ['fish', 'radio', 'academy'], middle: ['organic', 'games', 'lab'] },
     inventory: { capitalist: { food: 1, luxury: 2, health: 0, education: 2 }, middle: { food: 1, luxury: 0, health: 1, education: 0 } },
     storageUnits: { middle: {}, capitalist: {} },
-    publicCapacityOverride: {},
     tradeZone: { food: 0, luxury: 0 },
     loans: { state: 0, capitalist: 0, middle: 0, working: 0 },
     production: null,
@@ -363,8 +362,6 @@ export function setWagePolicy(game, forcedLevel) {
 }
 
 export function publicCapacity(economy, resource) {
-  const override = economy.publicCapacityOverride?.[resource];
-  if (Number.isInteger(override) && override >= 0) return override;
   return Object.values(economy.companies).map(item => activeCompany(economy, item.id))
     .filter(item => item.owner === 'state' && item.resource === resource).reduce((sum, item) => sum + item.output, 6);
 }
@@ -442,8 +439,8 @@ export function resizePublicSector(game, selections, { testing = false } = {}) {
     if (item && item.slots.some(slot => economy.workers[slot.worker]?.role === 'working')) checkDemonstration(economy, item);
   }
   syncPublicStorage(game);
-  if (added.length) game.log.push(`公營部門開設 ${added.join('、')}。`);
-  if (closed.length) game.log.push(`公營部門關閉 ${closed.join('、')}。`);
+  if (added.length) game.log.push(`公營企業開設 ${added.join('、')}。`);
+  if (closed.length) game.log.push(`公營企業關閉 ${closed.join('、')}。`);
   return closed;
 }
 

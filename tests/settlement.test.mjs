@@ -1,3 +1,4 @@
+import { catalogCard } from '../packages/engine/content.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { applyCommand, createGame, playerView } from '../packages/engine/game.mjs';
@@ -754,12 +755,16 @@ test('host adjustment updates cash, living resources, warehouses and public stor
   assert.equal(marketQuote(game, 'capitalist', 'food').price, 15);
   assert.equal(marketQuote(game, 'capitalist', 'luxury').price, 5);
 
-  adjust('state', { treasury: 77, living: { influence: 3 }, public: { food: 4, influence: 2 }, publicCapacity: { food: 9 } });
+  adjust('state', { treasury: 77, living: { influence: 3 }, public: { food: 6, influence: 2 } });
   assert.equal(game.treasury, 77);
   assert.equal(game.players.state.influence, 3);
-  assert.equal(game.publicServices.food, 4);
+  assert.equal(game.publicServices.food, 6);
   assert.equal(game.publicServices.influence, 2);
-  assert.equal(publicCapacity(game.economy, 'food'), 9);
+  assert.equal(publicCapacity(game.economy, 'food'), 6);
+  assert.throws(() => adjust('state', { treasury: 1, public: { food: 7 } }), /超過容量上限 6/);
+  assert.equal(game.treasury, 77);
+  assert.equal(game.publicServices.food, 6);
+  assert.throws(() => adjust('state', { publicCapacity: { food: 9 } }), /自動計算/);
 
   adjust('working', { cash: 8, living: { health: 2 } });
   assert.equal(game.players.working.cash, 8);
@@ -794,8 +799,39 @@ test('test-room policy edits update public companies, capacity, wages, and marke
   assert(playerView(game, 'state').economy.companies.filter(item => item.wages).every(item => item.wage === 3));
   game.publicServices.health = publicCapacity(game.economy, 'health');
   game.economy.publicCapacityOverride = { health: 99 };
+  assert.equal(publicCapacity(game.economy, 'health'), game.publicServices.health);
   changePolicy('C', 'C', 'A');
   assert.equal(countPublic(), 3);
   assert.equal(game.publicServices.health, originalCapacity);
   assert.equal(game.treasury, originalTreasury);
+});
+
+test('test-room policy and trade edits update the public cards without duplicating deck copies', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.testMode = true;
+  const adjust = (target, fields) => applyCommand(game, 'working', { type: 'host-adjust', target, ...fields }, true);
+  const event = game.content.eventDeck[0];
+  const nextEvent = game.content.eventDeck.find(id => !(catalogCard(id).minimumRound > 1));
+  const oldEvent = game.content.events[0];
+  adjust('policy', { bag: { middle: 12 }, events: [nextEvent], benefits: { middle: { food: 3 } } });
+  assert.equal(game.bag.middle, 12);
+  assert.equal(game.content.benefits.middle.food, 3);
+  assert.equal(playerView(game, 'middle').content.events[0].id, nextEvent);
+  assert(!game.content.eventDeck.includes(nextEvent));
+  assert(game.content.eventDeck.includes(oldEvent));
+  if (event !== nextEvent) assert(game.content.eventDeck.includes(event));
+  assert.throws(() => adjust('policy', { events: [nextEvent, nextEvent] }), /超過牌組張數/);
+
+  const [deal] = game.content.dealDeck;
+  const exported = game.content.exportDeck[0];
+  adjust('trade', { deals: [deal, deal], export: exported });
+  assert.deepEqual(playerView(game, 'working').content.deals.map(card => card.id), [deal, deal]);
+  assert.equal(playerView(game, 'working').content.export.id, exported);
+  assert(!game.content.dealDeck.includes(deal));
+  assert(!game.content.exportDeck.includes(exported));
+  adjust('trade', { deals: [], export: null });
+  assert.equal(game.content.dealDeck.filter(id => id === deal).length, 2);
+  assert(game.content.exportDeck.includes(exported));
+  assert.equal(game.content.export, null);
 });

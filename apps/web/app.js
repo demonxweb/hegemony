@@ -45,8 +45,8 @@ const matHelpTopics = {
   國庫: ['', '支出與結算', '貸款與 IMF', '計分方式'],
   對外貿易: ['商務合約', '出口', '進口'],
   公共服務: ['庫存與容量', '醫療與教育', '醫療與教育', '醫療與教育', '媒體影響力'],
-  私營部門: ['', '營運條件', ...Array(5).fill('工位承諾'), '無薪資', '機械加成', '機械加成', '機械加成'],
-  公營部門: ['', '開放與營運條件', ...Array(5).fill('工位承諾'), '無薪資'],
+  私營企業: ['', '營運條件', ...Array(5).fill('工位承諾'), '無薪資', '機械加成', '機械加成', '機械加成'],
+  公營企業: ['', '開放與營運條件', ...Array(5).fill('工位承諾'), '無薪資'],
   待業工人: ['取得工人', '', '移民', '指派工人', '建造與雇用'],
   人口軌: ['', '人口變動', '使用規則'],
   繁榮軌: ['', '計分與重設', '計分與重設'],
@@ -438,7 +438,8 @@ function secondBillField(firstPolicy) {
 }
 
 function form(type, title, fields = '') {
-  return `<form data-command="${type}">${fields}<button>${title}</button></form>`;
+  const unavailable = fields.includes('data-event-unavailable');
+  return `<form data-command="${type}">${fields}${unavailable ? '' : `<button>${title}</button>`}</form>`;
 }
 
 function selectField(name, title, options, required = false, disabled = false) {
@@ -625,7 +626,8 @@ function buildCompanyChoices(offers, budget, storageResource, excluded) {
 
 function buildFields(role, companies, { optional = false, prefix = '', land = false, idle = false,
   price = item => item.cost, payer = role, mandatoryPay = false, storage = false, firstCompany } = {}) {
-  const offers = companies.map(item => ({ ...item, owner: item.owner ?? role, actualCost: item.actualCost ?? price(item) }));
+  const offers = companies.map(item => ({ ...item, owner: item.owner ?? role, actualCost: item.actualCost ?? price(item),
+    blocked: item.blocked || (land && !item.skills.some(skill => state.middleSkillSupply?.[skill] > 0) ? '供應區沒有相符的技術工' : '') }));
   let budget = buildBudget(payer);
   if (mandatoryPay) {
     const taken = Object.values(state.economy.loans).reduce((sum, count) => sum + count, 0);
@@ -641,15 +643,20 @@ function buildFields(role, companies, { optional = false, prefix = '', land = fa
   </fieldset>`;
 }
 
-function cardBuildSlots(item, { prefix, land, idle }, staff = []) {
+function cardBuildSlots(item, { prefix, land, idle, landSlot }, staff = []) {
   if (!item) return '';
   const slots = buildSlots(item);
   const workers = state.economy.workers;
-  return (item.wages ? selectField(prefix + 'wage', '薪資級距', wageOptions(item.wages)) : '')
+  const landOptions = land ? slots.flatMap((slot, index) => !slot.optional && state.middleSkillSupply?.[slot.skill] > 0
+    ? [[String(index), `工位 ${index + 1} · ${resources[slot.skill]}`]] : []) : [];
+  const selectedLandSlot = landOptions.some(([index]) => index === landSlot) ? landSlot : landOptions[0]?.[0];
+  return (land ? selectField(prefix + 'slot', '供應區新工人的工位',
+    [...landOptions].sort(([a], [b]) => Number(b === selectedLandSlot) - Number(a === selectedLandSlot)), true) : '')
+    + (item.wages ? selectField(prefix + 'wage', '薪資級距', wageOptions(item.wages)) : '')
     + slots.map((slot, index) => {
       const name = prefix + 'card-staff-' + index;
       const label = `工位 ${index + 1} · ${companySlotDetails(slot, meta.names)}${slot.optional ? '（選用）' : ''}`;
-      if (land && index === 0) return `<p>${label} · 由供應區加入新工人</p><input type="hidden" name="${name}" value="">`;
+      if (land && String(index) === selectedLandSlot) return `<p>${label} · 由供應區加入新工人</p><input type="hidden" name="${name}" value="">`;
       let candidates = workers.filter(worker => canStaffBuild(worker, item, slot, index, staff, idle));
       if (slot.skill === 'any' && (item.owner === 'capitalist' || slot.optional)) {
         const unskilledRoles = new Set(candidates.filter(worker => worker.skill === 'any').map(worker => worker.role));
@@ -703,7 +710,8 @@ function updateCardBuild(fieldset, changed) {
   const fields = fieldset.querySelector('[data-card-build-slots]');
   const staff = changed === prefix + 'company' ? [] : Array.from(fields.querySelectorAll('[name*="card-staff-"]'), field => field.value);
   const wage = changed === prefix + 'company' ? '' : form.elements.namedItem(prefix + 'wage')?.value;
-  fields.innerHTML = cardBuildSlots(item, { prefix, land, idle }, staff);
+  const landSlot = changed === prefix + 'company' ? undefined : form.elements.namedItem(prefix + 'slot')?.value;
+  fields.innerHTML = cardBuildSlots(item, { prefix, land, idle, landSlot }, staff);
   for (const select of fields.querySelectorAll('select')) {
     const index = Number(select.name.slice((prefix + 'card-staff-').length));
     const value = select.name === prefix + 'wage' ? wage : staff[index];
@@ -1187,7 +1195,7 @@ function sector(role, capacity) {
   const interactive = empty > 0 && acting('build') && state.role === role;
   const pending = interactive && pendingBuild();
   return `<section class="board-zone sector sector-${role} ${role}" ${interactive ? dropAttrs('sector', role) : ''}>
-    <h3>${boardHeadingHelp(`私營部門 · ${meta.names[role]}`,
+    <h3>${boardHeadingHelp(`私營企業 · ${meta.names[role]}`,
       role === 'capitalist'
         ? '開局設置\n放置超市、購物中心、學院與診所，起始薪資皆設為 L2。超市配置勞工的農業工與通用工各 1 名。購物中心配置中產的奢侈品工與通用工各 1 名。學院配置勞工的教育工與通用工各 1 名。診所起始空置。企業市場另從洗好的企業牌庫翻開 4 張。'
         : '開局設置\n放置便利商店與醫師診所，起始薪資皆設為 L2。便利商店配置 1 名中產農業工，醫師診所配置 1 名中產醫療工，兩間的選用勞工工位開局空置。企業市場另從洗好的企業牌庫翻開 3 張。',
@@ -1225,8 +1233,8 @@ function publicSector() {
     ...Array.from({ length: Math.max(0, 9 - opened.length) }, () => ({ face: 'closed' })),
   ];
   const companies = new Map(opened.map(item => [item.id, item]));
-  return `<section class="board-zone sector sector-state state" aria-label="公營部門">
-    <h3>${boardHeadingHelp('公營部門',
+  return `<section class="board-zone sector sector-state state" aria-label="公營企業">
+    <h3>${boardHeadingHelp('公營企業',
       '開局設置\n四人局使用對應人數版本的公營牌。第一列正面放置大學醫院、技術大學與全國公共廣播，起始薪資設為 L2。大學醫院配置 1 名勞工醫療工與 2 名勞工通用工，技術大學配置 1 名中產教育工與 2 名中產通用工。其餘兩列各放醫療、教育、媒體企業各一張，開局朝下。起始財政 1C 開放第一列共 3 家。',
       '國家經營公營企業並由國庫發薪，產出的醫療、教育及媒體影響力放入公共服務區。',
       '財政政策（第 1 項）決定開放規模。正面是已開放企業，仍需填滿必要工位才能營運。背面表示尚未開放。',
@@ -1347,11 +1355,21 @@ function tableBoard() {
           '結果確定後，抽出的方塊只有落敗方放回投票袋。勝方方塊回到供應區，雙方投入的影響力都會消耗。平票視為贊成方勝出，因此反對方抽出的方塊放回袋中。')}</h3><div class="bag-row">${Object.entries(state.bag).map(([role, count]) => `<span class="${role}">${meta.names[role]} <b>${count}</b></span>`).join('')}</div>
         ${boardEvents(content?.events)}
         <h3>${boardHeadingHelp('國家福利',
-          '開局設置\n勞工、中產、資本家的福利區都從空白開始，畫面顯示 0。國家第一次提供福利時，才把指定的金錢、資源或方塊放入對應階級的區域。',
-          '國家可透過事件或卡牌，將金錢、資源或投票方塊放到勞工、中產或資本家的福利區。主圖板顯示各階級待領福利的合計，實際品項可在自己的「領取福利」行動中查看。',
+          '開局設置\n勞工、中產、資本家的福利區開局時每個福利品項都顯示灰色的 -。國家第一次提供福利時，才把指定的金錢、資源或方塊放入對應階級的區域。',
+          '國家可透過事件或卡牌，將金錢、資源或投票方塊放到勞工、中產或資本家的福利區。主圖板按階級以圖示列出待領福利品項及數量。',
           '同一階級已有待領福利時，下一次提供通常會用新的福利替換原有內容。部分卡牌效果允許保留並合併。',
           '輪到自己時，選擇免費行動「領取福利」即可一次領完。金錢與資源交給該階級，投票方塊立即放進投票袋，福利區隨即清空。',
-          '國家每次有人領取福利得 1 VP。例如中產一次領走 $10 和 2 枚投票方塊，國家共得 1 VP。')}</h3><div class="benefit-row">${classes.map(role => `<span class="${role}">${meta.names[role]} <b>${Object.values(content?.benefits[role] ?? {}).reduce((sum, count) => sum + count, 0)}</b></span>`).join('')}</div></section>
+          '國家每次有人領取福利得 1 VP。例如中產一次領走 $10 和 2 枚投票方塊，國家共得 1 VP。')}</h3><div class="benefit-table-wrap"><table class="benefit-table" aria-label="國家福利">
+          <thead><tr><th scope="col" aria-label="階級"></th>${Object.entries(adjustBenefitLabels).map(([key, label]) => {
+            const symbol = key === 'cash' ? 'money' : key === 'votes' ? 'vote' : key;
+            return `<th scope="col" title="${label}" aria-label="${label}">${icon(symbol)}</th>`;
+          }).join('')}</tr></thead>
+          <tbody>${classes.map(role => `<tr><th scope="row" class="${role}">${meta.names[role]}</th>
+            ${Object.keys(adjustBenefitLabels).map(key => {
+              const count = content?.benefits[role]?.[key] ?? 0;
+              return count === 0 ? '<td class="muted" aria-label="0">-</td>' : `<td>${count}</td>`;
+            }).join('')}</tr>`).join('')}</tbody>
+        </table></div></section>
         <section class="board-zone board-treasury"><h3>${boardHeadingHelp('國庫',
           '開局設置\n從供應區取 $120 放入主圖板的國庫，作為國家的起始資金。國家開局有 0 筆貸款。',
           '國庫顯示國家目前可支用的金錢。其他階級繳的稅、進口關稅、公共服務銷售收入，以及部分卡牌給的金錢都會存入國庫。',
@@ -1363,12 +1381,15 @@ function tableBoard() {
         '商務合約\n開局將合約牌洗好，翻開 1 張。從第二輪起，每輪準備階段先棄掉場上未使用的合約，再按當時生效的對外貿易政策從牌庫頂翻新牌。6A 不翻、6B 翻 1 張、6C 翻 2 張。政策在輪中改變時，場上的合約繼續保留，但關稅立即按新政策計算。\n資本家選擇「商業交易」，挑一張場上的合約並指定到貨位置。合約的貨物種類、數量和基價固定，完成後該牌棄置，當輪不補牌。\n整批放進自由貿易區可免關稅，區內貨物只供出口。只要有貨進國內倉庫，就要付整張合約在目前政策下的關稅。兩處各有容量，超出的貨物會丟棄。\n例如一張合約基價 $30，對外貿易政策 6B 欄標示關稅 $8。有貨進國內倉庫就付 $38，全部進自由貿易區則付 $30。',
         '出口\n開局將出口牌洗好，從牌庫頂翻開 1 張。從第二輪起，每輪準備階段棄掉舊出口牌，再從牌庫頂翻開 1 張。完成交易後，出口牌仍留在場上，下一次出口行動可以再按同一張牌選交易。部分卡牌效果可提前更換出口牌。\n中產、資本家或國家選擇「對外出口」，勾選現行出口牌上的交易再確認。每筆必須備足牌上指定數量，確認後交出資源並取得列出的金錢。同一次行動可做多筆不同交易，每筆通常只能做一次。\n中產從商業倉庫出貨，每完成一筆另得 1 VP。資本家可用商業倉庫及自由貿易區的庫存。國家只出口食物與奢侈品。',
         '進口\n進口區常駐在主圖板。食物基價每份 $10，奢侈品基價每份 $6。畫面的大數字是每份基價加上當前政策的關稅，下面會分別列出基價與關稅。政策變更生效時，進口價會同步更新。\n6A 食物 $10＋$10＝$20，奢侈品 $6＋$6＝$12。\n6B 食物 $10＋$5＝$15，奢侈品 $6＋$3＝$9。\n6C 食物 $10＋$0＝$10，奢侈品 $6＋$0＝$6。\n勞工或中產在「購買商品與服務」選食物或奢侈品，再選「外國市場」、填數量並確認。一般購買一次選一種資源，最多選兩個來源，向每個來源購買的數量不得超過目前人口。\n每份總價＝基價＋對外貿易政策規定的關稅。基價付給供應區，關稅付給國庫。例如 6B 時進口 3 份奢侈品，每份基價 $6、關稅 $3，總共付 3 ×（$6＋$3）＝$27，其中 $9 進國庫。')}</h3><div class="trade-grid">
-        <div tabindex="0" ${trade.deals}><h4>商務合約${deals.length ? ` (${deals.map(deal => Number(deal.id.slice(5))).join('、')})` : ''}</h4>${deals.map(deal => {
+        ${Array.from({ length: 2 }, (_, index) => {
+          const deal = deals[index];
+          if (!deal) return `<div tabindex="0" ${trade.deals}><h4>商務合約</h4><p class="muted">空置</p></div>`;
           const details = dealCardInfo(deal);
-          return state.role === 'capitalist' && acting('deal')
-            ? `<button type="button" class="trade-piece" ${pieceAttrs('deal', deal.id, deal.nameZh)}>${details}</button>`
-            : `<p>${details}</p>`;
-        }).join('') || '<p>無</p>'}</div>
+          return `<div tabindex="0" ${trade.deals}><h4>商務合約(${Number(deal.id.slice(5))})</h4>
+            ${state.role === 'capitalist' && acting('deal')
+              ? `<button type="button" class="trade-piece" ${pieceAttrs('deal', deal.id, deal.nameZh)}>${details}</button>`
+              : `<p>${details}</p>`}</div>`;
+        }).join('')}
         <div tabindex="0" ${trade.exports}><h4>出口${content?.export ? `(${Number(content.export.id.slice(7))})` : ''}</h4><div class="export-list">${offers.map((offer, id) => {
           const label = exportOfferLabel(offer, icon);
           const available = match?.exports.some(choice => choice.id === id && choice.available);
@@ -1394,7 +1415,7 @@ function tableBoard() {
         '媒體影響力\n由營運中的公營媒體企業在生產階段產出。勞工或中產可向國家以每份 $10 購買，轉為自己的個人影響力。國家可在自己的回合選「競選」，將最多 3 份公共媒體影響力轉為自己的個人影響力。個人影響力可用於發起即時表決，或在表決時投入以增加票數。')}</h3><div class="well-row">
         ${['health', 'education', 'influence'].map(resource => {
           const media = resource === 'influence';
-          return well(media ? '媒體影響力' : resources[resource], publicServices[resource], resource, 'state',
+          return well(media ? '媒體' : resources[resource], publicServices[resource], resource, 'state',
             media ? 'media' : undefined, economy?.publicStorageCapacity?.[resource], { showPriceLabel: false });
         }).join('')}</div></section>
       ${sector('capitalist', 12)}${publicSector()}${sector('middle', 8)}
@@ -1607,6 +1628,17 @@ function resourcePricePanel() {
       }).join('')}</table></div></section>`;
 }
 
+function competitiveSources(target) {
+  const { companies, workers } = state.economy;
+  return companies.filter(item => item.owner === 'state' && item.operational && item.resource === target.resource
+    && item.slots.length === target.slots.length && item.slots.every((slot, index) => {
+      const worker = workers.find(worker => worker.id === slot.worker);
+      const required = target.slots[index];
+      return worker && !worker.committed && (!required.role || required.role === worker.role)
+        && (required.skill === 'any' || required.skill === worker.skill);
+    }));
+}
+
 function matchesCardPolicy(card) {
   return !card?.policyAnyOf?.length || card.policyAnyOf.some(section => state.policies[Number(section[0]) - 1] === section[1]);
 }
@@ -1660,7 +1692,7 @@ function playForm(card) {
   const recipients = (options = classes) => selectField('recipient', '選擇階級', roleOptions(options));
   const idle = workers?.filter(worker => worker.role === role && !worker.company && !worker.committed && !economy.unions.includes(worker.id)) ?? [];
   const workerChecks = checks('workers', idle.map(worker => [worker.id, workerLabel(worker, companies)]));
-  const quantity = max => numberField('quantity', '數量', max);
+  const quantity = (max, min = 0) => numberField('quantity', '數量', max, min);
   const billSelect = (name, options) => selectField(name, '政策', options.map(({ policy, target }) =>
     policyOption(policy, target)));
   switch (effect) {
@@ -1672,8 +1704,9 @@ function playForm(card) {
     case 'two-bills': return new Set(eligibleBills.map(item => item.policy)).size >= 2
       ? play(selectField('bill0', '第一案政策', eligibleBills.map(({ policy, target }) => policyOption(policy, target)), true)
         + '<label class="check"><input type="checkbox" name="immediate0">立即表決第 1 案</label>'
-        + `<div data-second-bill>${secondBillField(eligibleBills[0].policy)}</div>`
-        + '<label class="check"><input type="checkbox" name="immediate1">立即表決第 2 案</label>') : '';
+        + '<label class="check"><input type="checkbox" name="deferSecond" disabled>第一案表決結束後再選第二案</label>'
+        + `<fieldset data-second-bill-fields><div data-second-bill>${secondBillField(eligibleBills[0].policy)}</div>
+          <label class="check"><input type="checkbox" name="immediate1">立即表決第 2 案</label></fieldset>`) : '';
     case 'migration': return idle.length >= 4 ? play(workerChecks) : '';
     case 'farm': return idle.length >= 3 && own.filter(item => item.id.startsWith('company-working-cooperative-farm')).length < 2 ? play(workerChecks) : '';
     case 'accident': return play(recipients(['middle', 'capitalist', 'state']) + selectField('resource', '產業', productOptions(products)));
@@ -1696,7 +1729,11 @@ function playForm(card) {
     case 'income': case 'unemployment': return play(role === 'state' ? recipients(['working', 'middle'])
       : purchaseFields({ optional: true, ...(effect === 'unemployment' && { sources: ['state'] }) }));
     case 'public-overtime': return play(companyField(companies.filter(item => item.owner === 'state' && item.operational && !item.automated && !item.strike)) + quantity(population));
-    case 'private-overtime': return play(companyField(own.filter(item => item.operational && !item.automated && !item.strike)));
+    case 'private-overtime': {
+      const eligible = own.filter(item => item.operational && !item.automated && !item.strike
+        && (item.wages?.[item.wage - 1] ?? 0) <= buildBudget(role));
+      return eligible.length ? play(companyField(eligible)) : '';
+    }
     case 'tourism-purchase': {
       const sellers = ['middle', 'capitalist'].filter(seller => tourismLimit(seller) > 0);
       return sellers.length ? play(`<div data-card-tourism>${recipients(sellers)}${amountField(tourismLimit(sellers[0]))}</div>`) : '';
@@ -1705,7 +1742,7 @@ function playForm(card) {
       const product = effect === 'bid-rigging' ? 'luxury' : effect.slice(5);
       const space = (economy.publicStorageCapacity?.[product] ?? 6) - (state.publicServices[product] ?? 0);
       const max = Math.min(role === 'middle' || product === 'luxury' ? 6 : 9, economy.inventory[role][product], Math.max(0, space));
-      return max >= 1 ? play(quantity(max)) : '';
+      return max >= 1 ? play(quantity(max, 1)) : '';
     }
     case 'personal-buy': return play(purchaseFields({ flexible: true }));
     case 'grant-build': case 'land-build':
@@ -1732,9 +1769,12 @@ function playForm(card) {
     case 'fill-unemployed': case 'recruit':
       return play(companyField(own.filter(item => !item.operational)) + recipients(['working', 'middle'])
         + (effect === 'recruit' ? selectField('replacement', '供應不足時的替代技能', [['', '不指定'], ...skillOptions(products)]) : ''));
-    case 'competitive-wages':
-      return play(companyField(own.filter(item => !item.operational && item.wages))
-        + companyField(companies.filter(item => item.owner === 'state' && item.operational), '移出全組工人的公營企業', false, 'sourceCompany'));
+    case 'competitive-wages': {
+      const targets = own.filter(item => !item.operational && item.wages && item.slots.every(slot => !slot.worker)
+        && competitiveSources(item).length);
+      return targets.length ? play(`<div data-competitive-wages>${companyField(targets)}
+        <div data-competitive-source>${companyField(competitiveSources(targets[0]), '移出全組工人的公營企業', false, 'sourceCompany')}</div></div>`) : '';
+    }
     case 'brand-export': case 'food-export': {
       const product = effect === 'brand-export' ? 'luxury' : 'food';
       const stock = economy.inventory[role][product] + economy.tradeZone[product];
@@ -1753,7 +1793,7 @@ function playForm(card) {
     case 'provide-health': case 'provide-education': return play(recipients(['working', 'middle']));
     case 'export-health': case 'export-education': {
       const max = Math.min(8, state.publicServices[effect.slice(7)]);
-      return max >= 1 ? play(quantity(max)) : '';
+      return max >= 1 ? play(quantity(max, 1)) : '';
     }
     case 'shift-event':
       return state.content?.events.length ? play() : '<p>場上沒有事件，無法使用「轉移重點」。可棄掉此牌執行基本行動。</p>';
@@ -1764,7 +1804,6 @@ function playForm(card) {
       const targets = companies.filter(item => item.owner === 'capitalist' && !item.operational && !item.machineryBonus && !item.automated);
       const blocks = targets.map(item => `<div data-nationalize-slots="${escape(item.id)}" hidden>${item.slots.map((slot, index) => {
         const candidates = workers.filter(worker => !worker.committed
-          && (!worker.company || companies.find(company => company.id === worker.company)?.owner === 'state')
           && (!slot.role || slot.role === worker.role) && (slot.skill === 'any' || slot.skill === worker.skill));
         return selectField('card-staff-' + index,
           `工位 ${index + 1} · ${companySlotDetails(slot, meta.names)}${slot.optional ? '（選用）' : ''}`,
@@ -1774,7 +1813,7 @@ function playForm(card) {
         ${selectField('company', '轉為公營', [['', '選擇企業'], ...companyOptions(targets)])}
         ${companyCardChoices(targets)}
         ${selectField('hire', '指派工人的階級', [['', '略過指派'], ...roleOptions(['working', 'middle'])])}
-        <p class="muted">可從待業區或公營企業調動最多 3 名未承諾工人；企業須一次補滿必要工位。</p>
+        <p class="muted">可從待業區或其他企業調動最多 3 名未承諾工人；企業須一次補滿必要工位。</p>
         ${blocks}</div>`) : '';
     }
     case 'privatize': return play(companyField(own.filter(item => item.operational)));
@@ -1786,16 +1825,27 @@ function eventFields(event, prefix = '') {
   const { form: spec } = event;
   let fields = `<input type="hidden" name="${prefix}eventId" value="${escape(event.id)}">`;
   if (spec.targets) fields += selectField(prefix + 'recipient', '選擇階級', roleOptions(spec.targets));
-  if (spec.amounts) fields += selectField(prefix + 'amount', '金額', spec.amounts.map(amount => [amount, `$${amount}`]));
+  if (spec.amounts) {
+    const amounts = spec.amounts.filter(amount => amount * (spec.kind === 'stimulus' ? classes.length : 1) <= state.treasury);
+    fields += amounts.length ? selectField(prefix + 'amount', '金額', amounts.map(amount => [amount, `$${amount}`]))
+      : '<p data-event-unavailable>國庫不足以支付事件費用。</p>';
+  }
   if (spec.kind === 'provide' && spec.resources.length === 2) fields += numberField(prefix + 'amount',
     `其中 ${resources[spec.resources[0]]} 的數量`, Math.max(0, spec.targetAmounts[spec.targets[0]] - 1), 1);
   if (spec.kind === 'provide') fields += `<p class="muted">${Object.entries(spec.targetAmounts)
     .map(([role, amount]) => `${meta.names[role]} ${spec.resources[0] === 'cash' ? '$' : ''}${amount}`).join('、')}</p>`;
-  if (spec.kind === 'spend') fields += numberField(prefix + 'amount', `支出 ${resources[spec.resource]}`,
-    Math.min(spec.max, state.publicServices[spec.resource]));
+  if (spec.kind === 'spend') {
+    const max = Math.min(spec.max, state.publicServices[spec.resource]);
+    fields += max ? numberField(prefix + 'amount', `支出 ${resources[spec.resource]}`, max, 1)
+      : '<p data-event-unavailable>目前沒有可支出的資源。</p>';
+  }
   if (spec.kind === 'two') fields += checks(prefix + 'recipients', roleOptions(classes));
-  if (spec.kind === 'distribute') fields += classes.map(role => numberField(prefix + 'dist-' + role, meta.names[role],
-    spec.resource === 'votes' ? spec.max : Math.min(spec.max, state.publicServices.influence))).join('');
+  if (spec.kind === 'distribute' && spec.cost > state.treasury) fields += '<p data-event-unavailable>國庫不足以支付事件費用。</p>';
+  else if (spec.kind === 'distribute') {
+    const max = spec.resource === 'votes' ? spec.max : Math.min(spec.max, state.publicServices.influence);
+    fields += max ? classes.map(role => numberField(prefix + 'dist-' + role, meta.names[role], max)).join('')
+      + `<p>${spec.resource === 'votes' ? `合計須分配 ${spec.max} 枚方塊。` : '分配總數至少為 1。'}</p>` : '<p data-event-unavailable>目前沒有可分配的影響力。</p>';
+  }
   if (spec.kind === 'buy') {
     const space = (state.economy.publicStorageCapacity[spec.resource] ?? 6) - (state.publicServices[spec.resource] ?? 0);
     const companies = state.economy.companies.filter(company => company.owner === 'state').length;
@@ -1860,6 +1910,7 @@ function decisionPanel() {
     ? `<p><strong>揭示的 5 枚方塊：</strong>${pollReveal.drawn.map(cube => meta.names[cube]).join('、')}</p>
       <p class="muted">等待${meta.names[pollReveal.role]}決定是否立即表決。</p>`
     : `<p>等待${meta.names[content.choosingRole]}完成卡牌選擇。</p>`;
+  if (choice?.effect === 'second-bill') controls = form('card-choice', '提交第二案', billFields(choice.policies));
   if (choice?.effect === 'fake-news') controls = form('card-choice', '確認移除（至多四枚）', checks('indices',
     choice.drawn.map((cube, index) => [index, `${meta.names[cube]}方塊 ${index + 1}`])));
   if (choice?.effect === 'poll') controls = `<p>${choice.drawn.map(cube => meta.names[cube]).join('、')}</p>`
@@ -1980,7 +2031,7 @@ function actionPanel(card) {
   const content = selectedAction === 'play'
     ? cardDetail + (cardForm || `<p class="muted">${escape(card ? unavailable : '沒有可打出的手牌。')}</p>`)
     : selected ? `<div class="basic-action-fields"><h3>${selected[1]}</h3>${selected[2]}</div>` : '';
-  const market = companyMarket(acting('build'), acting('build') ? '把企業拖到中央圖板上自己階級的私營部門，再確認建造。' : '');
+  const market = companyMarket(acting('build'), acting('build') ? '把企業拖到中央圖板上自己階級的私營企業，再確認建造。' : '');
   return `<section class="panel action-content" id="main-action-options">
     <h2>${mainActionHelp}</h2>
     <select name="main-action" aria-label="選擇主要行動"><option value="">選擇一項行動</option>
@@ -2504,8 +2555,9 @@ function showCardPiles() {
 }
 
 const adjustRoles = ['state', 'working', 'middle', 'capitalist'];
-const adjustTabs = [...adjustRoles, 'policy'];
-const adjustRoleLabels = { state: '國家', working: '勞工', middle: '中產', capitalist: '資本家', policy: '公共政策' };
+const adjustTabs = [...adjustRoles, 'policy', 'trade'];
+let adjustCatalog;
+const adjustRoleLabels = { state: '國家', working: '勞工', middle: '中產', capitalist: '資本家', policy: '公共政策', trade: '對外貿易' };
 const adjustLivingLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育', influence: '個人影響力' };
 const adjustStoredLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育' };
 const adjustPublicLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育', influence: '媒體影響力' };
@@ -2526,17 +2578,15 @@ function adjustStorageFields(role) {
   const inventory = state.economy?.inventory?.[role] ?? {};
   const units = state.economy?.storageUnits?.[role] ?? {};
   const capacities = state.economy?.storageCapacity?.[role] ?? {};
-  return adjustSection('倉庫庫存',
-    Object.keys(adjustStoredLabels).map(key => adjustInput(adjustStoredLabels[key], `inventory-${key}`, inventory[key] ?? 0)).join(''))
-    + adjustSection('倉庫容量（單位）',
-      Object.keys(adjustStoredLabels).map(key => {
-        const unit = units[key] ?? 1;
-        const capacity = capacities[key] ?? 0;
-        const base = Math.max(1, Math.round(capacity / unit));
-        return adjustInput(adjustStoredLabels[key], `storageUnits-${key}`, unit,
-          { min: 1, hint: `1 單位＝${base} 份・目前 ${capacity} 份` });
-      }).join(''),
-      '容量以倉庫單位表示；每種資源的 1 單位等於該階級的單一倉庫容量。');
+  return adjustSection('倉庫庫存與容量', Object.entries(adjustStoredLabels).map(([key, label]) => {
+    const unit = units[key] ?? 1;
+    const capacity = capacities[key] ?? 0;
+    const base = Math.max(1, Math.round(capacity / unit));
+    return `<div class="adjust-storage-resource"><strong>${escape(label)}</strong>
+      ${adjustInput('庫存（份）', `inventory-${key}`, inventory[key] ?? 0)}
+      ${adjustInput('容量（倉庫單位）', `storageUnits-${key}`, unit,
+        { min: 1, hint: `1 單位＝${base} 份・目前 ${capacity} 份` })}</div>`;
+  }).join(''));
 }
 
 function adjustSelect(label, name, options, current) {
@@ -2561,11 +2611,34 @@ function adjustLivingFields() {
     Object.keys(adjustLivingLabels).map(key => adjustInput(adjustLivingLabels[key], `living-${key}`, state.players[adjustTab]?.[key] ?? 0)).join(''));
 }
 
+function currentFirst(options, current) {
+  return [...options].sort(([a], [b]) => Number(b === current) - Number(a === current));
+}
+
+function adjustCardFields(prefix, title, cards, current, count) {
+  const options = [['', '空置'], ...cards.map(card => [card.id, card.nameZh])];
+  return Array.from({ length: count }, (_, index) => selectField(`${prefix}-${index}`,
+    count === 1 ? title : `${title} ${index + 1}`, currentFirst(options, current[index]?.id ?? ''))).join('');
+}
+
 function hostAdjustBodyMarkup() {
   if (!state?.players) return '<p class="muted">目前沒有可調整的對局。</p>';
-  if (adjustTab === 'policy') return adjustSection('政治議題', meta.policies.map((name, index) =>
-    selectField('policy-' + index, escape(name), ['A', 'B', 'C'].map(section => [section, section])
-      .sort((a, b) => Number(b[0] === state.policies[index]) - Number(a[0] === state.policies[index])))).join(''));
+  if (adjustTab === 'policy') {
+    const content = state.content;
+    return adjustSection('政治議題', meta.policies.map((name, index) =>
+      selectField('policy-' + index, escape(name), currentFirst(['A', 'B', 'C'].map(section => [section, section]),
+        state.policies[index]))).join(''))
+      + adjustSection('投票袋', classes.map(role => adjustInput(meta.names[role], `bag-${role}`, state.bag[role], { max: 25 })).join(''))
+      + (content ? adjustSection('國家事件', adjustCardFields('event', '事件', adjustCatalog.events
+        .filter(card => (card.minimumRound ?? 1) <= state.match.round), content.events, 2))
+        + classes.map(role => adjustSection(`國家福利 · ${meta.names[role]}`, Object.entries(adjustBenefitLabels)
+          .map(([key, label]) => adjustInput(label, `benefit-${role}-${key}`, content.benefits[role]?.[key] ?? 0)).join(''))).join('') : '');
+  }
+  if (adjustTab === 'trade') {
+    const content = state.content;
+    return adjustSection('商務合約', adjustCardFields('deal', '商務合約', adjustCatalog.businessDeals, content.deals, 2))
+      + adjustSection('出口', adjustCardFields('export', '出口', adjustCatalog.exports, [content.export], 1));
+  }
   const economy = state.economy ?? {};
   const player = state.players[adjustTab];
   if (adjustTab === 'state') {
@@ -2573,11 +2646,12 @@ function hostAdjustBodyMarkup() {
       adjustInput('國庫', 'treasury', state.treasury)
       + adjustInput('個人影響力', 'living-influence', player?.influence ?? 0))
       + adjustSection('公共庫存',
-        Object.keys(adjustPublicLabels).map(key => adjustInput(adjustPublicLabels[key], `public-${key}`, state.publicServices?.[key] ?? 0)).join(''),
-        '國家持有的公共資源。')
-      + adjustSection('公共容量',
-        Object.keys(adjustPublicLabels).map(key => adjustInput(adjustPublicLabels[key], `publicCapacity-${key}`, economy.publicStorageCapacity?.[key] ?? 0)).join(''),
-        '公共容量原本由公營企業產能決定；這裡可覆寫為指定份數。')
+        Object.keys(adjustPublicLabels).map(key => {
+          const capacity = economy.publicStorageCapacity[key];
+          return adjustInput(adjustPublicLabels[key], `public-${key}`, state.publicServices[key] ?? 0,
+            { max: capacity, hint: `容量 ${capacity} 份` });
+        }).join(''),
+        '容量為已開放的對應公營企業牌面產量總和加 6。')
       + '<p class="muted adjust-note">國家的食物、奢侈品與媒體影響力為固定價；醫療與教育售價由福利政策決定，沒有可直接調整的國內售價。</p>';
   }
   if (adjustTab === 'working') {
@@ -2601,15 +2675,22 @@ function hostAdjustBodyMarkup() {
 
 function renderHostAdjust() {
   if (!state) return;
-  if (!adjustTabs.includes(adjustTab)) adjustTab = 'state';
+  if (!adjustTabs.includes(adjustTab) || (adjustTab === 'trade' && !state.content)) adjustTab = 'state';
   hostAdjustDialog.className = `action-confirmation host-adjust-dialog ${state.role}`;
-  hostAdjustTabs.innerHTML = adjustTabs.map(role => `<button type="button" role="tab" data-adjust-tab="${role}"
+  hostAdjustTabs.innerHTML = adjustTabs.filter(tab => tab !== 'trade' || state.content).map(role => `<button type="button" role="tab" data-adjust-tab="${role}"
     aria-selected="${role === adjustTab}" tabindex="${role === adjustTab ? 0 : -1}">${adjustRoleLabels[role]}</button>`).join('');
   hostAdjustBody.innerHTML = hostAdjustBodyMarkup();
 }
 
-function showHostAdjust() {
+async function showHostAdjust() {
   if (busy || !state?.testMode || state.role !== state.host || state.phase !== 'action' || state.transaction) return;
+  try {
+    adjustCatalog ??= (await request('/api/catalog')).decks;
+  } catch (error) {
+    warning(error.message);
+    return;
+  }
+  if (!state?.testMode || state.role !== state.host || state.phase !== 'action' || state.transaction) return;
   renderHostAdjust();
   if (!hostAdjustDialog.open) hostAdjustDialog.showModal();
 }
@@ -2619,6 +2700,17 @@ function hostAdjustCommand() {
   const command = { type: 'host-adjust', target: adjustTab };
   if (adjustTab === 'policy') {
     command.policies = meta.policies.map((_, index) => fields.get('policy-' + index));
+    command.bag = Object.fromEntries(classes.map(role => [role, Number(fields.get(`bag-${role}`))]));
+    if (state.content) {
+      command.events = [fields.get('event-0'), fields.get('event-1')].filter(Boolean);
+      command.benefits = Object.fromEntries(classes.map(role => [role, Object.fromEntries(
+        Object.keys(adjustBenefitLabels).map(key => [key, Number(fields.get(`benefit-${role}-${key}`))]))]));
+    }
+    return command;
+  }
+  if (adjustTab === 'trade') {
+    command.deals = [fields.get('deal-0'), fields.get('deal-1')].filter(Boolean);
+    command.export = fields.get('export-0') || null;
     return command;
   }
   const number = name => Number(fields.get(name));
@@ -2640,8 +2732,6 @@ function hostAdjustCommand() {
   if (Object.keys(prices).length) command.prices = prices;
   const publicStock = collect('public', Object.keys(adjustPublicLabels));
   if (Object.keys(publicStock).length) command.public = publicStock;
-  const publicCapacity = collect('publicCapacity', Object.keys(adjustPublicLabels));
-  if (Object.keys(publicCapacity).length) command.publicCapacity = publicCapacity;
   return command;
 }
 
@@ -2975,6 +3065,8 @@ function waitingRoom() {
       <option value="">請選擇</option>${meta.roles.map(role =>
       `<option value="${role}" ${role === self.role ? 'selected' : ''}>${escape(meta.names[role])}</option>`).join('')}
     </select></label>
+    ${state.waiting.middleMarket?.length ? `<section><h2>中產起始企業市場</h2>${state.waiting.middleMarket.map(item =>
+      `<details><summary>${escape(item.name)}</summary>${companyCardInfo(item)}</details>`).join('')}</section>` : ''}
     ${state.waiting.skillSelection && self.role === 'middle' ? `<label>開局技術工技能<select data-waiting-skill ${self.ready ? 'disabled' : ''}>
       <option value="">請選擇</option>${skillOptions(products).map(([skill, label, color]) =>
         `<option value="${skill}" style="color:${color}" ${self.skill === skill ? 'selected' : ''}>${escape(label)}</option>`).join('')}</select></label>` : ''}
@@ -3154,7 +3246,7 @@ async function refresh() {
 
 function actionFields(fields, prefix = '') {
   const input = {};
-  for (const key of ['amount', 'quantity', 'wage']) if (fields.has(prefix + key)) input[key] = Number(fields.get(prefix + key));
+  for (const key of ['amount', 'quantity', 'wage', 'slot']) if (fields.has(prefix + key)) input[key] = Number(fields.get(prefix + key));
   for (const key of ['side', 'resource', 'recipient', 'company', 'sourceCompany', 'operator', 'hire', 'skill', 'replacement', 'worker', 'unionWorker', 'eventId', 'dealId', 'destination', 'option', 'replaced']) {
     if (fields.get(prefix + key)) input[key] = fields.get(prefix + key);
   }
@@ -3190,7 +3282,7 @@ function readCommand(form, fields) {
     const [policy, target] = fields.get('bill').split(':');
     Object.assign(input, { policy: Number(policy), target });
   }
-  if (fields.has('bill0')) input.proposals = ['bill0', 'bill1'].map((key, index) => {
+  if (fields.has('bill0')) input.proposals = (fields.has('deferSecond') ? ['bill0'] : ['bill0', 'bill1']).map((key, index) => {
     const [policy, target] = fields.get(key).split(':');
     return { policy: Number(policy), target, immediate: fields.has(`immediate${index}`) };
   });
@@ -3397,10 +3489,11 @@ hostAdjustTabs.addEventListener('click', event => {
 hostAdjustTabs.addEventListener('keydown', event => {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
   event.preventDefault();
-  const index = adjustTabs.indexOf(adjustTab);
-  const next = event.key === 'Home' ? 0 : event.key === 'End' ? adjustTabs.length - 1
-    : (index + (event.key === 'ArrowRight' ? 1 : -1) + adjustTabs.length) % adjustTabs.length;
-  adjustTab = adjustTabs[next];
+  const tabs = adjustTabs.filter(tab => tab !== 'trade' || state.content);
+  const index = tabs.indexOf(adjustTab);
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+    : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+  adjustTab = tabs[next];
   renderHostAdjust();
   hostAdjustTabs.querySelector(`[data-adjust-tab="${adjustTab}"]`)?.focus();
 });
@@ -3449,6 +3542,13 @@ app.addEventListener('change', async event => {
   }
   if (event.target.matches('select[data-colored-options]')) syncSelectColor(event.target);
   const { name, value, form: fields } = event.target;
+  if (['immediate0', 'deferSecond'].includes(name) && fields?.elements.namedItem('deferSecond')) {
+    const defer = fields.elements.namedItem('deferSecond');
+    defer.disabled = !fields.elements.namedItem('immediate0').checked;
+    if (defer.disabled) defer.checked = false;
+    const second = fields.querySelector('[data-second-bill-fields]');
+    second.disabled = second.hidden = defer.checked;
+  }
   if (name === 'bill0' && fields?.querySelector('[data-second-bill]')) {
     const second = fields.querySelector('[data-second-bill]');
     const selected = fields.elements.namedItem('bill1').value;
@@ -3475,10 +3575,18 @@ app.addEventListener('change', async event => {
   }
   const cardMoves = event.target.closest('[data-card-moves]');
   if (cardMoves) syncCardMoves(cardMoves);
+  const competitive = event.target.closest('[data-competitive-wages]');
+  if (competitive && name === 'company') {
+    const target = state.economy.companies.find(item => item.id === value);
+    const source = competitive.querySelector('select[name="sourceCompany"]');
+    const template = document.createElement('template');
+    template.innerHTML = selectField('sourceCompany', '移出全組工人的公營企業', companyOptions(competitiveSources(target)), true);
+    source.closest('label').replaceWith(template.content);
+  }
   const nationalize = event.target.closest('[data-nationalize]');
   if (nationalize && name === 'company') syncNationalize(nationalize);
   const cardBuild = event.target.closest('[data-card-build]') ?? (['source', 'resource'].includes(name) && fields?.querySelector('[data-card-build]'));
-  if (cardBuild && (['source', 'resource'].includes(name) || name.endsWith('company') || name.includes('card-staff-'))) {
+  if (cardBuild && (['source', 'resource'].includes(name) || name.endsWith('company') || name.endsWith('slot') || name.includes('card-staff-'))) {
     updateCardBuild(cardBuild, name);
     if (name === 'build0-company') {
       const second = fields.elements.namedItem('build1-company')?.closest('[data-card-build]');

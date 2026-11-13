@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import catalog from '../../data/hegemony-base-catalog.json' with { type: 'json' };
 import base from '../../data/hegemony-v1.2-data.json' with { type: 'json' };
 import { applyCommand, createGame, GameError, names, playerView, policies, roles } from '../../packages/engine/game.mjs';
+import { companyDefinition, syncPublicStorage } from '../../packages/engine/companies.mjs';
 import { requireRule } from '../../packages/engine/errors.mjs';
 import { domesticPriceLevels } from '../../packages/engine/prices.mjs';
 import { summarizeAction } from './action-summary.mjs';
@@ -103,7 +104,10 @@ function view(room, role) {
     const { host, players, selectionRevision } = room.waiting;
     return { code: room.code, role, host, revision: room.revision, restoredRevision: room.restoredRevision ?? 0, phase: 'lobby',
       testMode: room.game.testMode === true,
-      waiting: { selectionRevision, skillSelection: Boolean(room.game.content), players: players.map(({ id, name, role, ready, skill }) => ({ id, name, role, ready, skill })) } };
+      waiting: { selectionRevision, skillSelection: Boolean(room.game.content),
+        middleMarket: room.game.content && players.find(player => player.id === role)?.role === 'middle'
+          ? room.game.economy.markets.middle.map(companyDefinition) : undefined,
+        players: players.map(({ id, name, role, ready, skill }) => ({ id, name, role, ready, skill })) } };
   }
   return {
     code: room.code, role, host: room.host, revision: room.revision, restoredRevision: room.restoredRevision ?? 0,
@@ -157,10 +161,18 @@ function applySingleAction(game, role, input) {
   if (game.transaction) applyCommand(game, role, { type: 'transaction-confirm' }, true);
 }
 
-export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRoomSave, listRoomSaves, readRoomSave, getSetting, insertSetting, listSettings, getSaveKey, clientId,
+export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRooms, addRoomSave, listRoomSaves, readRoomSave, getSetting, insertSetting, listSettings, getSaveKey, clientId,
   full = true, allowLegacyRooms = false }) {
   const accounts = createPlayerAccounts({ getSetting, insertSetting, listSettings, getSaveKey, clientId });
   const activeSeats = new Map();
+  function normalizePublicStorage(room) {
+    if (room?.game.economy?.publicCapacityOverride) {
+      delete room.game.economy.publicCapacityOverride;
+      syncPublicStorage(room.game);
+    }
+    return room;
+  }
+  const readRoom = code => normalizePublicStorage(loadRoom(code));
   return async function route(request, response, path) {
     if (request.method === 'GET') {
       if (path === '/api/meta') return json(response, 200, { roles, names, policies, policyRules: base.policies, domesticPriceLevels, checkedCommands, turnCommands,
@@ -209,7 +221,7 @@ export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRo
         addRoomSave(room, record);
         return json(response, 201, record);
       }
-      const saved = typeof input.id === 'string' && readRoomSave(code, input.id);
+      const saved = typeof input.id === 'string' && normalizePublicStorage(readRoomSave(code, input.id));
       if (!saved) throw new GameError('找不到這個房間的存檔。', 404);
       const revision = room.revision + 1;
       const next = { ...saved, revision, restoredRevision: revision, processed: room.processed };

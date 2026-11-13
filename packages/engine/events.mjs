@@ -62,7 +62,7 @@ export function giveBenefit(game, role, resource, amount, keep = false) {
 }
 
 export function provide(game, role, resource, amount, keep = false) {
-  if (resource === 'cash') pay(game, 'state', amount, true);
+  if (resource === 'cash') pay(game, 'state', amount);
   else {
     let remaining = amount;
     const own = Math.min(remaining, game.publicServices[resource] ?? 0);
@@ -73,14 +73,14 @@ export function provide(game, role, resource, amount, keep = false) {
         const stock = game.economy.inventory[seller];
         const quantity = Math.min(remaining, stock[resource]);
         const cost = quantity * marketQuote(game, seller, resource).price;
-        pay(game, 'state', cost, true);
+        pay(game, 'state', cost);
         stock[resource] -= quantity;
         credit(game, seller, cost);
         remaining -= quantity;
       }
     }
     if (remaining && ['food', 'luxury'].includes(resource)) {
-      pay(game, 'state', remaining * (resource === 'food' ? 10 : 6), true);
+      pay(game, 'state', remaining * (resource === 'food' ? 10 : 6));
       remaining = 0;
     }
     requireRule(remaining === 0, '國家與可交易來源的資源不足。');
