@@ -43,7 +43,13 @@ p { line-height: 1.6; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; min-width: 0; }
 .panel > * + * { margin-top: 12px; }
 .lobby { max-width: 770px; margin: 18px auto; }
-.lobby-room-button { display: block; width: 100%; text-align: left; }
+.lobby > .panel:not([hidden]) ~ .panel:not([hidden]) { margin-top: 12px; }
+.lobby-invitations { background: #243a55; }
+.lobby-room-group > form { margin-top: 8px; }
+.lobby-room-group + .lobby-room-group { margin-top: 12px; }
+.waiting-invitations { display: grid; gap: 8px; }
+.waiting-invitations ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.waiting-invitations li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .hero { margin-bottom: 22px; }
 .hero p { max-width: 48ch; margin-top: 9px; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

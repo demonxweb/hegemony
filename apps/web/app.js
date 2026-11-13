@@ -365,6 +365,17 @@ async function enterPlayerRoom(code, testMode = false, roomName = '') {
   update(await request(`/api/rooms/${seat.code}`, undefined, { presence: true }));
 }
 
+function lobbyInvitations() {
+  const invitations = account?.invitations ?? [];
+  if (!invitations.length) return '';
+  return `<h2>發出邀請的房間</h2><form data-resume-room>
+    <select name="code" aria-label="發出邀請的房間" required>
+      ${invitations.map(({ code, roomName, hostName, full }) => `<option value="${escape(code)}" ${full ? 'disabled' : ''}>${escape(roomName)} · ${escape(code)}${hostName ? ` · ${escape(hostName)}` : ''}${full ? ' · 已滿' : ''}</option>`).join('')}
+    </select>
+    <button type="submit" ${invitations.every(room => room.full) ? 'disabled' : ''}>加入</button>
+  </form>`;
+}
+
 function forgetPlayerAccount() {
   accountToken = null;
   account = undefined;
@@ -388,6 +399,10 @@ function showLobby() {
   if (!account) return showPlayerLogin();
   const code = new URLSearchParams(location.search).get('room')?.toUpperCase() ?? '';
   const phases = { lobby: '等待區', complete: '已完成' };
+  const roomGroups = [
+    ['自己建立的房間', account.rooms.filter(room => room.host), '還沒有自己建立的房間。'],
+    ['加入別人的房間', account.rooms.filter(room => !room.host), '還沒有加入別人的房間。'],
+  ];
   app.innerHTML = `<div class="lobby">
     <div class="hero"><h1>四個席位，一個國家</h1></div>
     <section class="panel"><h2>建立／加入房間</h2><form data-room>
@@ -396,10 +411,14 @@ function showLobby() {
       <label class="check" data-test-room ${code ? 'hidden' : ''}><input type="checkbox" name="testMode">建立測試房間</label>
       <button class="primary">${code ? '加入房間' : '建立房間'}</button>
     </form></section>
-    <section class="panel"><h2>我的房間</h2>${account.rooms.length ? account.rooms.map(room =>
-      `<button class="lobby-room-button" type="button" data-resume-room="${room.code}">${escape(room.roomName ?? room.code)}${room.roomName && room.roomName !== room.code ? ` <small>${room.code}</small>` : ''}
-      · ${room.host ? '建立' : '加入'} · ${phases[room.phase] ?? '對局中'}${room.round ? ` · 第 ${room.round} 輪` : ''}</button>`
-    ).join('') : '<p class="muted">還沒有建立或加入的房間。</p>'}</section>
+    <section class="panel lobby-invitations" data-lobby-invitations ${account.invitations?.length ? '' : 'hidden'}>${lobbyInvitations()}</section>
+    <section class="panel"><h2>我的房間</h2>${roomGroups.map(([title, rooms, empty]) => `<section class="lobby-room-group"><h3>${title}</h3>
+      <form data-resume-room>
+        <select name="code" aria-label="${title}" required ${rooms.length ? '' : 'disabled'}>
+          ${rooms.length ? rooms.map(room => `<option value="${escape(room.code)}">${escape(room.roomName ?? room.code)}${room.roomName && room.roomName !== room.code ? ` · ${escape(room.code)}` : ''} · ${phases[room.phase] ?? '對局中'}${room.round ? ` · 第 ${room.round} 輪` : ''}</option>`).join('') : `<option value="">${empty}</option>`}
+        </select>
+        <button type="submit" ${rooms.length ? '' : 'disabled'}>加入</button>
+      </form></section>`).join('')}</section>
   </div>`;
   if (code) syncLobbyRoomName(app.querySelector('[data-room]'));
 }
@@ -3261,6 +3280,7 @@ window.addEventListener('keydown', event => {
 
 function waitingRoom() {
   const { players } = state.waiting;
+  const candidates = state.waiting.invitationCandidates ?? [];
   const self = players.find(player => player.id === state.role);
   const canStart = meta.roles.every(role => players.some(player => player.role === role));
   const seats = meta.roles.map(role => {
@@ -3290,6 +3310,14 @@ function waitingRoom() {
       ${self.ready ? '<p role="status">等待其他玩家確認</p>' : ''}
       <button class="primary" ${!self.ready && (!canStart || (state.waiting.skillSelection && self.role === 'middle' && !self.skill)) ? 'disabled' : ''}>${self.ready ? '取消' : '開始'}</button>
     </form>
+    ${state.waiting.invitations ? `<section class="waiting-invitations"><h2>邀請玩家</h2>
+      <form data-waiting-invite><label>帳號名稱<select name="name" required ${candidates.length ? '' : 'disabled'}>
+        <option value="" selected disabled>${candidates.length ? '選擇玩家' : '沒有可邀請的玩家'}</option>
+        ${candidates.map(name => `<option value="${escape(name)}">${escape(name)}</option>`).join('')}
+      </select></label><button type="submit" ${candidates.length ? '' : 'disabled'}>發出邀請</button></form>
+      ${state.waiting.invitations.length ? `<ul>${state.waiting.invitations.map(invite => `<li><span>${escape(invite.name)} · ${invite.joined ? '已加入' : '待加入'}</span>
+        <form data-waiting-revoke><input type="hidden" name="id" value="${escape(invite.id)}"><button type="submit">刪除邀請</button></form></li>`).join('')}</ul>` : '<p class="muted">目前沒有邀請。</p>'}
+    </section>` : ''}
   </section></div>`;
 }
 
@@ -3633,6 +3661,18 @@ async function submitGameForm(event) {
       await enterPlayerRoom(code, fields.has('testMode'), fields.get('roomName'));
       return;
     }
+    if (form.hasAttribute('data-resume-room')) {
+      const code = fields.get('code');
+      if (code) await enterPlayerRoom(code);
+      return;
+    }
+    if (form.hasAttribute('data-waiting-invite') || form.hasAttribute('data-waiting-revoke')) {
+      const revoke = form.hasAttribute('data-waiting-revoke');
+      if (revoke && !window.confirm('確定刪除這筆邀請？已加入的玩家也會被移出房間。')) return;
+      const input = revoke ? { type: 'revoke-invite', id: fields.get('id') } : { type: 'invite', name: fields.get('name') };
+      update(await request(`/api/rooms/${seat.code}/waiting`, input));
+      return;
+    }
     if (form.hasAttribute('data-waiting-confirm')) {
       const { players, selectionRevision } = state.waiting;
       const ready = players.find(player => player.id === state.role).ready;
@@ -3672,7 +3712,12 @@ async function submitGameForm(event) {
     }
     pendingBody = undefined;
   } catch (error) {
-    if (form.hasAttribute('data-room') && error.status === 401) {
+    if (form.hasAttribute('data-resume-room')) {
+      if (error.status === 401) forgetPlayerAccount();
+      else if (error.status === 404 && account) account.rooms = account.rooms.filter(room => room.code !== fields.get('code'));
+      showLobby();
+      warning(error.message);
+    } else if (form.hasAttribute('data-room') && error.status === 401) {
       forgetPlayerAccount();
       showLobby();
       warning(error.message);
@@ -4032,23 +4077,6 @@ app.addEventListener('click', async event => {
     }
     return;
   }
-  const resume = event.target.closest('[data-resume-room]');
-  if (resume) {
-    if (busy) return;
-    message();
-    busy = true;
-    try {
-      await enterPlayerRoom(resume.dataset.resumeRoom);
-    } catch (error) {
-      if (error.status === 401) forgetPlayerAccount();
-      else if (error.status === 404 && account) account.rooms = account.rooms.filter(room => room.code !== resume.dataset.resumeRoom);
-      showLobby();
-      warning(error.message);
-    } finally {
-      busy = false;
-    }
-    return;
-  }
   if (event.target.closest('[data-open-round-result]')) {
     const row = state.match?.history.at(-1);
     if (row) showRoundResult(row);
@@ -4198,6 +4226,25 @@ try {
   if (!seat && account?.rooms.some(room => room.code === invite)) await enterPlayerRoom(invite);
   else await refresh();
   setInterval(refresh, 1200);
+  setInterval(async () => {
+    const panel = app.querySelector('[data-lobby-invitations]');
+    if (!panel || !accountToken || seat || busy) return;
+    const previous = JSON.stringify(account?.invitations ?? []);
+    try {
+      await loadPlayerRooms();
+      if (!panel.isConnected || previous === JSON.stringify(account?.invitations ?? [])) return;
+      const selected = panel.querySelector('select')?.value;
+      panel.innerHTML = lobbyInvitations();
+      panel.hidden = !account?.invitations?.length;
+      const select = panel.querySelector('select');
+      if (select && Array.from(select.options).some(option => option.value === selected && !option.disabled)) select.value = selected;
+    } catch (error) {
+      if (panel.isConnected && !busy && error.status === 401) {
+        forgetPlayerAccount();
+        showLobby();
+      }
+    }
+  }, 5000);
 } catch (error) {
   warning(error.message);
 }
