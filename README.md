@@ -32,6 +32,7 @@ Cloudflare Workers 從儲存庫根目錄執行 `npx wrangler deploy`。Wrangler 
 
 - [規則與四人連線規格](docs/rules-and-multiplayer-spec.zh-TW.txt)：角色設置、行動、五輪時序、經濟、選舉、IMF、計分、FAQ與驗收案例。
 - [開發計劃](docs/PLAN.md)：階段、交付物、完成條件與建議架構。
+- [AI 補位玩家計劃](docs/AI-PLAYERS.md)：官方 Automa 規則摘要、落差評估、實作階段與驗收案例。
 - [介面布局參考](docs/UI-LAYOUT.md)：BGA教學實際觀察、四人版配置與操作驗收要求。
 - [SVG 素材預覽](assets/prototype/index.html)包含四角色行動卡、企業卡、事件卡與十種圖示。
 - [資料來源](docs/SOURCES.md)：官方規則、官方FAQ、卡面資料庫與TTS來源。

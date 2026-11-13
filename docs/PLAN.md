@@ -73,6 +73,10 @@
 
 程式位於 `packages/engine`、`apps/server`、`apps/web` 與 `tests`。內容資料目前放在 `data`。
 
+## 後續擴充：AI 補位玩家
+
+房長在等待室補 AI 的評估與實作計劃見 [AI-PLAYERS.md](AI-PLAYERS.md)。第一版先做官方 Simple Mode 風格的合法補位 AI，再補國家 AI 與 Advanced Mode 優先序策略。
+
 ## 不列入首版
 
-AI、自動配對、排名、觀戰、擴充與自動裁判聊天功能。開發先以基本版四人可完整結算為優先。
+自動配對、排名、觀戰、擴充內容與自動裁判聊天功能。開發先以基本版四人可完整結算為優先；AI 補位依 [AI-PLAYERS.md](AI-PLAYERS.md) 另行排程。
