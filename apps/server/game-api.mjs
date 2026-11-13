@@ -201,7 +201,7 @@ function applySingleAction(game, role, input) {
 export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRooms, addRoomSave, listRoomSaves, readRoomSave, getSetting, insertSetting, listSettings, getSaveKey, clientId,
   full = true, allowLegacyRooms = false }) {
   const accounts = createPlayerAccounts({ getSetting, insertSetting, listSettings, getSaveKey, clientId });
-  const view = (room, role) => roomView(room, role, accounts);
+  const view = (room, role) => ({ ...roomView(room, role, accounts), chat: room.chat ?? [] });
   const activeSeats = new Map();
   function normalizePublicStorage(room) {
     if (room?.game.economy?.publicCapacityOverride) {
@@ -252,7 +252,7 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
       saveRoom(room);
       return json(response, 201, seat);
     }
-    const match = /^\/api\/rooms\/([A-F0-9]{8})(?:\/(join|waiting|command|check|action-preview|action-confirm|saves|restore|name))?$/.exec(path);
+    const match = /^\/api\/rooms\/([A-F0-9]{8})(?:\/(join|waiting|command|check|action-preview|action-confirm|saves|restore|name|chat))?$/.exec(path);
     if (!match) throw new GameError('找不到頁面。', 404);
     const [, code, action] = match;
     if (action === 'name' && request.method === 'GET') {
@@ -290,6 +290,7 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
       if (!saved) throw new GameError('找不到這個房間的存檔。', 404);
       const revision = room.revision + 1;
       const next = { ...saved, revision, restoredRevision: revision, processed: room.processed };
+      next.chat = room.chat;
       next.invitations = room.invitations;
       next.invitationsLocked = room.invitationsLocked || room.game.phase !== 'lobby';
       next.game.testMode = room.game.testMode === true;
@@ -329,6 +330,16 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
         return json(response, 200, seat);
       }
       const role = authenticate(room, request, accounts);
+      if (action === 'chat') {
+        const text = typeof input.text === 'string' ? input.text.trim() : '';
+        requireRule(text.length > 0 && text.length <= 500, '訊息須為 1 至 500 字。');
+        const member = room.waiting?.players.find(player => player.id === role) ?? room.seats[role];
+        const previous = room.chat ?? [];
+        room.chat = [...previous.slice(-99), { id: (previous.at(-1)?.id ?? 0) + 1,
+          role: room.waiting ? member.role : role, name: member.name, text }];
+        saveRoom(room);
+        return json(response, 201, { chat: room.chat });
+      }
       if (action === 'waiting' || room.waiting) {
         if (action !== 'waiting' || !room.waiting) throw new GameError('目前無法使用此操作。', 409);
         const viewer = updateWaitingRoom(room, role, input, accounts);

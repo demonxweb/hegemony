@@ -60,9 +60,14 @@ test('waiting room starts only after four distinct roles and four current confir
     await request(path + '/join', { body: {}, token: extra.token, status: 409 });
     assert.equal((await request(path + '/join', { body: {}, token: accounts[0].token })).token, host.token);
     const hostView = await request(path, { token: host.token, presence: true });
+    await request(path + '/chat', { body: { text: '未登入' }, status: 401 });
+    await request(path + '/chat', { body: { text: '   ' }, token: host.token, status: 400 });
+    const lobbyChat = await request(path + '/chat', { body: { text: ' 大家好 ' }, token: host.token, status: 201 });
+    assert.deepEqual(lobbyChat.chat, [{ id: 1, role: null, name: accounts[0].name, text: '大家好' }]);
     assert.equal(hostView.presence[hostView.role], true);
     assert.equal(Object.values(hostView.presence).filter(Boolean).length, 1);
     const guestView = await request(path, { token: tokens[1], presence: true });
+    assert.deepEqual(guestView.chat, lobbyChat.chat);
     assert.equal(guestView.waiting.invitationCandidates, undefined);
     assert.equal(guestView.presence[hostView.role], true);
     assert.equal(guestView.presence[guestView.role], true);
@@ -91,6 +96,8 @@ test('waiting room starts only after four distinct roles and four current confir
     const others = await Promise.all([1, 2, 3].map(index => change(index, ready)));
     assert(others.every(view => view.phase === 'lobby'));
     assert.equal((await change(0, ready)).phase, 'action');
+    const gameChat = await request(path + '/chat', { body: { text: '開始了' }, token: host.token, status: 201 });
+    assert.deepEqual(gameChat.chat, [...lobbyChat.chat, { id: 2, role: 'working', name: accounts[0].name, text: '開始了' }]);
     await request(path + '/waiting', { body: revoke, token: host.token, status: 409 });
     assert.deepEqual((await request('/api/player/rooms', { token: extra.token })).invitations, []);
     for (const [index, token] of tokens.entries()) {

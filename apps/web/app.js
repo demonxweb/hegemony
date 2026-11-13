@@ -3408,7 +3408,63 @@ function wasRestored(next) {
   return state?.code === next.code && next.restoredRevision > (state.restoredRevision ?? 0);
 }
 
+const roomChat = document.querySelector('#room-chat');
+const chatDetails = roomChat.querySelector('details');
+const chatHistory = roomChat.querySelector('[data-chat-history]');
+const chatLatest = roomChat.querySelector('[data-chat-latest]');
+const chatForm = roomChat.querySelector('form');
+new ResizeObserver(() => {
+  if (!roomChat.hidden && !chatDetails.open) {
+    app.style.setProperty('--room-chat-height', `${roomChat.offsetHeight}px`);
+  }
+}).observe(roomChat);
+let chatRoomCode;
+let lastChatId;
+
+function updateRoomChat(code, messages = []) {
+  const changedRoom = chatRoomCode !== code;
+  if (changedRoom) {
+    chatRoomCode = code;
+    chatForm.reset();
+    chatDetails.open = false;
+  }
+  roomChat.hidden = !code;
+  const latest = messages.at(-1);
+  if (!changedRoom && (latest?.id ?? 0) <= lastChatId) return;
+  lastChatId = latest?.id ?? 0;
+  const line = message => `<span class="chat-sender">${headerClassLabel(message.role)}${escape(message.name)}:</span><span class="chat-text">${escape(message.text)}</span>`;
+  const atBottom = chatHistory.scrollHeight - chatHistory.scrollTop <= chatHistory.clientHeight + 4;
+  chatLatest.innerHTML = latest ? line(latest) : '目前沒有訊息';
+  chatHistory.innerHTML = messages.map(message => `<li>${line(message)}</li>`).join('');
+  if (atBottom || changedRoom) chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+
+chatDetails.addEventListener('toggle', () => {
+  if (chatDetails.open) chatHistory.scrollTop = chatHistory.scrollHeight;
+});
+
+chatForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const currentSeat = seat;
+  const input = chatForm.elements.text;
+  const text = input.value.trim();
+  const button = chatForm.querySelector('button');
+  if (!currentSeat || !text || button.disabled) return;
+  button.disabled = true;
+  try {
+    const { chat } = await request(`/api/rooms/${currentSeat.code}/chat`, { text });
+    if (seat !== currentSeat) return;
+    if (input.value.trim() === text) input.value = '';
+    updateRoomChat(currentSeat.code, chat);
+  } catch (error) {
+    if (seat === currentSeat) warning(error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
 function update(next) {
+  updateRoomChat(next.code, next.chat);
   if (!state || next.code !== state.code || next.revision > state.revision) {
     const restored = wasRestored(next);
     if (restored) {
@@ -3452,6 +3508,7 @@ function leaveRoom(code) {
   sessionStorage.removeItem(storageKey);
   seat = null;
   state = undefined;
+  updateRoomChat(undefined);
   document.querySelector('#card-result-dialog').close();
   connection.textContent = '';
   headerRoomCode.hidden = true;
@@ -3475,6 +3532,7 @@ async function refresh() {
     const next = await request(`/api/rooms/${currentSeat.code}`, undefined, { presence: true, signal: AbortSignal.timeout(5000) });
     if (seat !== currentSeat || (state?.code === next.code && next.revision < state.revision)) return;
     if (connection.textContent) connection.textContent = '';
+    updateRoomChat(next.code, next.chat);
     if (!pieceControls.active() && (!busy || wasRestored(next))) update(next);
   } catch (error) {
     if (seat !== currentSeat) return;

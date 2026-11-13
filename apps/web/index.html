@@ -27,6 +27,15 @@
     </div>
   </header>
   <main id="app" aria-label="遊戲畫面"><p>正在載入房間設定…</p></main>
+  <section id="room-chat" class="room-chat" aria-label="房間聊天" hidden>
+    <div class="panel">
+      <details>
+        <summary aria-label="展開或收合聊天記錄"><span data-chat-latest></span></summary>
+        <ol data-chat-history aria-label="聊天記錄"></ol>
+      </details>
+      <form><input name="text" maxlength="500" required aria-label="聊天訊息" placeholder="輸入訊息"><button type="submit">送出</button></form>
+    </div>
+  </section>
   <dialog id="rename-room-dialog" class="action-confirmation" aria-labelledby="rename-room-title">
     <h2 id="rename-room-title">修改房間名稱</h2>
     <form>

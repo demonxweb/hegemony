@@ -34,6 +34,17 @@ body { margin: 0; background: radial-gradient(ellipse at 48% 0, #253343, #0f1721
 .header-account span { overflow-wrap: anywhere; }
 .header-account button { flex-shrink: 0; }
 main { max-width: 1900px; margin: auto; padding: 22px clamp(12px, 3vw, 40px) 48px; }
+main:has(+ .room-chat:not([hidden])) { padding-bottom: calc(var(--room-chat-height, 114px) + 12px); }
+.room-chat { position: fixed; z-index: 18; inset: auto 0 0; max-width: 1900px; margin-inline: auto; padding: 0 clamp(12px, 3vw, 40px) 8px; }
+.room-chat summary { cursor: pointer; }
+.room-chat [data-chat-latest] { display: inline-grid; width: calc(100% - 2em); margin-inline-start: 10px; vertical-align: bottom; }
+.room-chat [data-chat-latest], .room-chat li { grid-template-columns: minmax(10em, 20%) minmax(0, 1fr); column-gap: .4em; }
+.room-chat .chat-sender { text-align: right; }
+.room-chat [data-chat-latest] > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-chat details[open] [data-chat-latest] { display: none; }
+.room-chat ol { height: min(32vh, 280px); overflow-y: auto; list-style: none; padding: 0; margin: 8px 0 0; }
+.room-chat li { display: grid; padding-block: 3px; overflow-wrap: anywhere; }
+.room-chat form { grid-template-columns: minmax(0, 1fr) auto; }
 h1, h2, h3, p { margin: 0; }
 h1 { font-size: clamp(1.55rem, 4vw, 2.35rem); }
 h2 { font-size: 1.02rem; }
