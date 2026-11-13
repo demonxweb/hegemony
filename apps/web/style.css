@@ -37,8 +37,9 @@ main { max-width: 1900px; margin: auto; padding: 22px clamp(12px, 3vw, 40px) 48p
 main:has(+ .room-chat:not([hidden])) { padding-bottom: calc(var(--room-chat-height, 114px) + 12px); }
 .room-chat { position: fixed; z-index: 18; inset: auto 0 0; max-width: 1900px; margin-inline: auto; padding: 0 clamp(12px, 3vw, 40px) 8px; }
 .room-chat summary { cursor: pointer; }
-.room-chat [data-chat-latest] { display: inline-grid; width: calc(100% - 2em); margin-inline-start: 10px; vertical-align: bottom; }
-.room-chat [data-chat-latest], .room-chat li { grid-template-columns: min(var(--chat-sender-width, 0px), 50%) minmax(0, 1fr); column-gap: .4em; }
+.room-chat [data-chat-latest] { display: grid; width: calc(100% - 2em); margin-inline-start: 10px; vertical-align: bottom; grid-template-columns: fit-content(50%) minmax(0, 1fr); column-gap: .4em; }
+.room-chat li { grid-template-columns: min(var(--chat-sender-width, 0px), 50%) minmax(0, 1fr); column-gap: .4em; }
+.room-chat [data-chat-latest] .chat-empty { grid-column: 1 / -1; }
 .chat-sender-measure { position: absolute; visibility: hidden; display: grid; width: max-content; white-space: nowrap; }
 .chat-sender-measure > span { grid-area: 1 / 1; }
 .room-chat .chat-sender { text-align: right; }
