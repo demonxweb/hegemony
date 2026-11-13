@@ -2,7 +2,7 @@ import { catalogCard } from './content.mjs';
 import { build, canBuildIndustry, credit, funds, operationalCount, pay, publicCapacity, ownedCompanies } from './companies.mjs';
 import { population } from './rounds.mjs';
 import { marketQuote } from './prices.mjs';
-import { requireRule } from './errors.mjs';
+import { GameError, requireRule } from './errors.mjs';
 
 export const classes = ['working', 'middle', 'capitalist'];
 const people = ['working', 'middle'];
@@ -290,4 +290,55 @@ export function eventView(game, id) {
   const offers = spec.kind === 'industry' ? spec.targets.flatMap(role => game.economy.markets[role]
     .filter(id => canBuildIndustry(game, role, id))) : undefined;
   return { ...catalogCard(id), form: { ...spec, targetAmounts: amounts, offers } };
+}
+
+
+export function eventProcessingBlock(game, eventId, canPropose) {
+  const spec = eventSpec(eventId);
+  if (spec.kind === 'civil' && !canPropose) return '目前沒有可提出的法案。';
+  let candidates = [{}];
+  switch (spec.kind) {
+    case 'provide':
+      candidates = spec.targets.flatMap(recipient => spec.resources.length === 1 ? [{ recipient }]
+        : Array.from({ length: Math.max(0, expectedAmount(game, recipient, spec) - 1) },
+          (_, index) => ({ recipient, amount: index + 1 })));
+      break;
+    case 'budget': case 'stimulus':
+      candidates = spec.amounts.map(amount => ({ amount }));
+      break;
+    case 'spend': candidates = [{ amount: 1 }]; break;
+    case 'two': candidates = [{ recipients: classes.slice(0, 2) }]; break;
+    case 'buy':
+      candidates = sellers.map(role => ({ distribution: { [role]: 1 } }));
+      break;
+    case 'distribute':
+      if (spec.resource === 'votes') {
+        let remaining = spec.max;
+        const distribution = Object.fromEntries(classes.map(role => {
+          const count = Math.min(remaining, Math.max(0, 25 - game.bag[role]));
+          remaining -= count;
+          return [role, count];
+        }));
+        candidates = [{ distribution }];
+      } else candidates = [{ distribution: { working: 1 } }];
+      break;
+    case 'industry':
+      candidates = spec.targets.flatMap(recipient => game.economy.markets[recipient].map(company => ({ recipient, company })));
+      break;
+    default:
+      if (spec.targets) candidates = spec.targets.map(recipient => ({ recipient }));
+  }
+  const reasons = new Set();
+  for (const command of candidates) {
+    const projected = structuredClone(game);
+    projected.content.events = [eventId];
+    try {
+      resolveEvent(projected, { ...command, eventId });
+      return '';
+    } catch (error) {
+      if (!(error instanceof GameError)) throw error;
+      reasons.add(error.message);
+    }
+  }
+  return [...reasons].join(' ') || '目前沒有符合事件條件的選項。';
 }

@@ -48,7 +48,7 @@ async function loadRooms() {
   empty.hidden = rooms.length > 0;
   for (const room of rooms) {
     const row = list.insertRow();
-    for (const value of [room.code, phases[room.phase] ?? room.phase, room.round ?? '-', `${Object.keys(room.seats).length} / 4`]) {
+    for (const value of [room.code, room.roomName ?? room.code, phases[room.phase] ?? room.phase, room.round ?? '-', `${Object.keys(room.seats).length} / 4`]) {
       row.insertCell().textContent = value;
     }
     const close = document.createElement('button');

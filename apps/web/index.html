@@ -12,6 +12,7 @@
     <a class="brand" href="/" aria-label="Hegemony 首頁"><img src="/assets/icons/vote.svg" alt=""><span>HEGEMONY<small>議事廳 <strong id="header-room-code" hidden></strong></small></span></a>
     <div id="header-room-actions" class="room-actions" hidden>
       <button id="return-lobby" type="button" hidden>回到大廳</button>
+      <button id="rename-room" type="button" hidden>修改房間名</button>
       <button id="copy-invite" type="button">複製邀請連結</button>
       <button id="adjust-game" type="button" hidden>調整</button>
       <button id="save-room" type="button" hidden>儲存</button>
@@ -26,6 +27,13 @@
     </div>
   </header>
   <main id="app" aria-label="遊戲畫面"><p>正在載入房間設定…</p></main>
+  <dialog id="rename-room-dialog" class="action-confirmation" aria-labelledby="rename-room-title">
+    <h2 id="rename-room-title">修改房間名稱</h2>
+    <form>
+      <label>房間名稱<input name="roomName" maxlength="60" autofocus></label>
+      <div class="buttons"><button type="button" data-cancel-rename>取消</button><button class="primary">儲存名稱</button></div>
+    </form>
+  </dialog>
   <dialog id="room-saves" class="action-confirmation" aria-labelledby="room-saves-title">
     <h2 id="room-saves-title">讀取房間存檔</h2>
     <p>讀取後，房間會回到所選的存檔進度。</p>
@@ -46,11 +54,18 @@
       <button value="confirm" class="primary">確認執行</button>
     </form>
   </dialog>
+  <dialog id="card-result-dialog" class="action-confirmation" aria-labelledby="card-result-title">
+    <h2 id="card-result-title">卡牌效果結算</h2>
+    <div data-card-result></div>
+    <form method="dialog" class="buttons"><button class="primary" autofocus>關閉</button></form>
+  </dialog>
   <dialog id="election-dialog" class="action-confirmation" aria-labelledby="election-dialog-title">
-    <h2 id="election-dialog-title"></h2>
+    <header class="mat-help-header">
+      <h2 id="election-dialog-title"></h2>
+      <button type="button" data-close-election aria-label="關閉投票彈窗">×</button>
+    </header>
     <div data-election-details></div>
     <div data-election-controls></div>
-    <button type="button" data-close-election>稍後投票</button>
   </dialog>
   <dialog id="vote-result-dialog" class="action-confirmation" aria-labelledby="vote-result-title">
     <h2 id="vote-result-title">表決結果</h2>

@@ -1,11 +1,11 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import base from '../../data/hegemony-v1.2-data.json' with { type: 'json' };
-import { activeCompany, addWorker, adjustWages, assign, build, canStaffInvestment, companyAction, companyDefinition, createEconomy, credit, demonstrationStatus, economyView, fillRequiredHires, funds, hirePublicCompany, makeFarm, operational,
+import { activeCompany, addWorker, adjustWages, assign, build, canStaffMiddleCompany, companyAction, companyDefinition, createEconomy, credit, demonstrationStatus, economyView, fillRequiredHires, funds, hirePublicCompany, makeFarm, operational,
   operationalCount, outsideEmployers, ownedCompanies, pay, produceCompany, refreshMarket, replacePublicCompany, sellCompany,
   productionOrder, productionPlans, publicCapacity, publicHiringChoices, publicSectorChoices, resizePublicSector, setWagePolicy, syncPublicStorage, unionMember, updateUnions, workerSupply, workplace } from './companies.mjs';
 import { cardDefinition, cardView, createDecks, fillHand } from './cards.mjs';
 import { catalogCard, catalogDecks, createRoundContent, eventDraw, revealStateContent, revealTradeContent } from './content.mjs';
-import { adjustLegitimacy, choosePenalty, completeIndustry, eventPenalties, eventView, legitimacyToken, provide, resolveEvent, takeBenefits, transferPersonalBenefit } from './events.mjs';
+import { adjustLegitimacy, choosePenalty, completeIndustry, eventPenalties, eventProcessingBlock, eventView, legitimacyToken, provide, resolveEvent, takeBenefits, transferPersonalBenefit } from './events.mjs';
 import { businessDeal, buyGoods, sellToState, specialExport } from './trade.mjs';
 import { GameError, requireRule } from './errors.mjs';
 import { adjustPrices, domesticPriceLevels, marketQuote } from './prices.mjs';
@@ -216,12 +216,12 @@ function startPolicyChoices(game, changed, resume) {
 function policyChoiceView(game) {
   const step = game.policyChoice?.steps[0];
   if (!step) return null;
-  if (step.kind === 'public') return { ...step, ...publicSectorChoices(game) };
-  if (step.kind === 'hire') return { ...step, options: step.companies.flatMap(id => {
+  if (step.kind === 'public') return { ...step, resume: game.policyChoice.resume, ...publicSectorChoices(game) };
+  if (step.kind === 'hire') return { ...step, resume: game.policyChoice.resume, options: step.companies.flatMap(id => {
     const company = game.economy.companies[id];
     return publicHiringChoices(game.economy, company).map(choice => [id, choice.role, activeCompany(game.economy, id).name, choice.slots]);
   }) };
-  return step;
+  return { ...step, resume: game.policyChoice.resume };
 }
 
 function finishPolicyChoice(game, role, command) {
@@ -432,15 +432,16 @@ function workMoves(game, role, moves, { unemployed = false, employeeOnly = false
 
 const investmentAdjustment = role => role === 'middle' ? 8 : 10;
 
-function investmentDeckQuotes(game, role, ids = game.economy.companyDecks?.[role] ?? []) {
+function investmentQuotes(game, role, ids, fromDeck) {
   const limit = role === 'capitalist' ? base.limits.capitalist_companies : base.limits.middle_companies;
   const atLimit = ownedCompanies(game.economy, role).length >= limit;
   const money = funds(game, role);
   return ids.map(id => {
     const item = companyDefinition(id);
-    const actualCost = item.cost + investmentAdjustment(role);
+    const adjustment = investmentAdjustment(role);
+    const actualCost = Math.max(0, item.cost + (fromDeck ? adjustment : -adjustment));
     const blocked = actualCost > money ? '資金不足' : atLimit ? '已達企業上限'
-      : canStaffInvestment(game.economy, role, id) ? '' : '無法填滿必要工位';
+      : (role !== 'middle' || canStaffMiddleCompany(game.economy, id)) ? '' : '無法填滿必要工位';
     return { ...item, actualCost, blocked };
   });
 }
@@ -448,6 +449,13 @@ function investmentDeckQuotes(game, role, ids = game.economy.companyDecks?.[role
 function openCardChoice(game, role, effect, details) {
   game.content.cardChoice = { role, effect, ...details };
   game.phase = 'card-choice';
+}
+
+function shiftFocusBlocks(game, options) {
+  const active = game.content.events;
+  const canPropose = availablePolicies(game, 'state').length > 0;
+  return Object.fromEntries([...new Set(active.length ? [...active, ...options] : [])]
+    .map(id => [id, eventProcessingBlock(game, id, canPropose)]));
 }
 
 function finishCardChoice(game, role, command) {
@@ -485,7 +493,7 @@ function finishCardChoice(game, role, command) {
       break;
     case 'investment-build':
       if (command.option === 'cancel-investment') {
-        requireRule(investmentDeckQuotes(game, role, choice.options).every(item => item.blocked), '仍有可建造的企業。');
+        requireRule(investmentQuotes(game, role, choice.options, true).every(item => item.blocked), '仍有可建造的企業。');
         const discard = game.decks[role].discard;
         const usedCard = discard.at(-1);
         requireRule(usedCard && cardDefinition(role, usedCard).effect === choice.effect, '找不到可退回的投資機會卡。');
@@ -499,13 +507,13 @@ function finishCardChoice(game, role, command) {
       break;
     case 'shift-event': case 'priority-event':
       if (choice.effect === 'shift-event' && command.option === 'cancel-shift-focus') {
-        requireRule(!content.events.length, '場上仍有可替換的事件。');
+        requireRule(Object.values(shiftFocusBlocks(game, choice.options)).every(Boolean), '仍有可以處理的事件。');
         const discard = game.decks[role].discard;
         const usedCard = discard.at(-1);
         requireRule(usedCard && cardDefinition(role, usedCard).effect === choice.effect, '找不到可退回的轉移重點卡。');
         game.players[role].hand.push(discard.pop());
         game.mainUsed = false;
-        log(game, '國家因場上沒有事件，收回「轉移重點」。');
+        log(game, '國家因沒有可處理的事件，收回「轉移重點」。');
         break;
       }
       if (command.option) {
@@ -545,7 +553,9 @@ function extendedCard(game, role, command, definition) {
         if (drawn.at(-1) !== role) replaced++;
       }
       for (const cube of drawn) if (cube === role) game.bag[role]++;
+      const beforeAdding = game.bag[role];
       addCubes(game, role, replaced);
+      game.interestGroupsResult = { drawn, added: game.bag[role] - beforeAdding };
       return;
     }
     case 'poll': {
@@ -726,7 +736,7 @@ function extendedCard(game, role, command, definition) {
       if (command.fromDeck === true) {
         const options = [...(economy.companyDecks?.[role] ?? [])];
         requireRule(options.length, '企業牌庫已空。');
-        requireRule(investmentDeckQuotes(game, role, options).some(item => !item.blocked), '牌庫沒有付得起且能建造的企業。');
+        requireRule(investmentQuotes(game, role, options, true).some(item => !item.blocked), '牌庫沒有付得起且能建造的企業。');
         openCardChoice(game, role, effect, { options });
       } else build(game, role, command, { discount: investmentAdjustment(role) });
       return;
@@ -1621,16 +1631,30 @@ export function playerView(game, role) {
   if (privateChoice?.effect === 'second-bill') {
     privateChoice.policies = availablePolicies(game, role).filter(item => item.policy !== choice.policy);
   }
-  if (privateChoice?.effect === 'investment-build') privateChoice.cards = investmentDeckQuotes(game, role, choice.options);
-  const canInvestFromDeck = currentRole(game) === role && !mainUsed
-    && hand.some(card => cardDefinition(role, card).effect === 'investment-build')
-    && investmentDeckQuotes(game, role).some(item => !item.blocked);
+  if (privateChoice?.effect === 'investment-build') privateChoice.cards = investmentQuotes(game, role, choice.options, true);
+  const canInvest = currentRole(game) === role && !mainUsed
+    && hand.some(card => cardDefinition(role, card).effect === 'investment-build');
+  const deckIds = game.economy.companyDecks?.[role] ?? [];
+  const marketIds = game.economy.markets[role] ?? [];
+  const middleBuildOptions = currentRole(game) === 'middle' && role === 'middle' && !mainUsed
+    ? Object.fromEntries(marketIds.map(id => [id, {
+      canStaff: canStaffMiddleCompany(game.economy, id),
+      supplySlots: companyDefinition(id).skills.flatMap((_, slot) =>
+        canStaffMiddleCompany(game.economy, id, { supplySlot: slot }) ? [slot] : []),
+    }])) : undefined;
+  const investmentMarket = canInvest ? investmentQuotes(game, role, marketIds, false) : undefined;
+  const canInvestFromDeck = Boolean(canInvest && investmentQuotes(game, role, deckIds, true).some(item => !item.blocked));
+  const investmentDeckReason = canInvest && !canInvestFromDeck
+    ? deckIds.length ? '資金、工位或企業上限不符合建造條件' : '牌庫已空' : undefined;
   if (privateChoice?.effect === 'export-insight') privateChoice.cards = choice.options.map(id => ({
     ...catalogCard(id), offers: exportOffers({ ...game, content: { ...game.content, export: id } }, role),
   }));
+  if (privateChoice?.effect === 'shift-event') {
+    privateChoice.eventBlocks = shiftFocusBlocks(game, choice.options);
+  }
   if (['shift-event', 'priority-event'].includes(privateChoice?.effect)) privateChoice.cards = choice.options.map(id => eventView(game, id));
   return {
-    phase, turn, currentRole: currentRole(game), canInvestFromDeck, mainUsed, freeUsed: Boolean(game.freeUsed), players,
+    phase, turn, currentRole: currentRole(game), canInvestFromDeck, investmentDeckReason, investmentMarket, middleBuildOptions, mainUsed, freeUsed: Boolean(game.freeUsed), players,
     hand: hand.map(card => cardView(role, card)), publicServices, legitimacy, treasury,
     testMode: game.testMode === true,
     cardPiles: game.testMode === true && game.decks?.[role] ? {
@@ -1643,8 +1667,6 @@ export function playerView(game, role) {
     demonstration: demonstrationStatus(game.economy),
     policyChoice: policyChoiceView(game),
     workerArrival: game.workerArrival,
-    middleSkillSupply: currentRole(game) === 'middle' && role === 'middle'
-      ? Object.fromEntries(workerSkills.map(skill => [skill, workerSupply(game.economy, 'middle', skill)])) : undefined,
     specializationSupply: currentRole(game) === role && ['working', 'middle'].includes(role)
       ? Object.fromEntries(['any', ...workerSkills].map(skill => [skill, workerSupply(game.economy, 'working', skill)])) : undefined,
     workerFallback: ['working', 'middle'].includes(role) && workerSupply(game.economy, role, 'any') <= 0

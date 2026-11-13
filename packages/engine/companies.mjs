@@ -464,7 +464,7 @@ export function canBuildIndustry(game, role, id) {
   const definition = card(id);
   const limit = role === 'capitalist' ? base.limits.capitalist_companies : base.limits.middle_companies;
   return definition.cost >= 15 && funds(game, 'state') >= definition.cost && ownedCompanies(economy, role).length < limit
-    && (role !== 'middle' || Boolean(availableHires(economy, company(id).slots.filter(slot => !slot.optional), 'middle')));
+    && (role !== 'middle' || canStaffMiddleCompany(economy, id, { unemployedOnly: true }));
 }
 
 function planBuildStaff(economy, item, role, staff, unemployedOperators) {
@@ -498,15 +498,21 @@ function planBuildStaff(economy, item, role, staff, unemployedOperators) {
   return { operators, hires };
 }
 
-export function canStaffInvestment(economy, role, id) {
-  if (role !== 'middle') return true;
+export function canStaffMiddleCompany(economy, id, { supplySlot, unemployedOnly = false } = {}) {
+  if (supplySlot !== undefined) {
+    economy = structuredClone(economy);
+    const skill = card(id).skills[supplySlot];
+    if (!skill || workerSupply(economy, 'middle', skill) <= 0) return false;
+  }
+  const supplied = supplySlot === undefined ? null : addWorker(economy, 'middle', card(id).skills[supplySlot]);
+  const role = 'middle';
   const item = company(id);
   const required = item.slots.filter(slot => !slot.optional);
   const workers = Object.values(economy.workers).filter(worker => worker.role === role
-    && !worker.committed && !unionMember(economy, worker.id));
+    && !worker.committed && !unionMember(economy, worker.id) && (!unemployedOnly || !workplace(economy, worker.id)));
   function match(moves) {
     const slot = required[moves.length];
-    if (slot) return workers.some(worker => fits(worker, slot) && !moves.some(move => move.worker === worker.id)
+    if (slot) return workers.some(worker => (moves.length === supplySlot ? worker.id === supplied : worker.id !== supplied) && fits(worker, slot) && !moves.some(move => move.worker === worker.id)
       && match([...moves, { worker: worker.id, company: id, slot: moves.length }]));
     const projected = structuredClone(economy);
     projected.companies[id] = structuredClone(item);

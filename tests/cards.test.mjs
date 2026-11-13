@@ -1,3 +1,4 @@
+import { summarizeAction } from '../apps/server/action-summary.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import base from '../data/hegemony-v1.2-data.json' with { type: 'json' };
@@ -533,4 +534,82 @@ test('unaffordable voluntary cash event leaves the event and loans unchanged', (
   assert.throws(() => resolveEvent(game, { eventId, amount: eventSpec(eventId).amounts[0] }), /自願支出不能借貸/);
   assert.equal(game.economy.loans.state, 0);
   assert.deepEqual(game.content.events, [eventId]);
+});
+
+test('Foreign Market Insight result reports the adopted card and actual export proceeds', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.turn = 1;
+  game.economy.inventory.middle.food = 12;
+  game.content.exportDeck = ['export-01'];
+  game.players.middle.hand = [{ id: 'insight', key: 'action-middle-foreign-market-insight' }];
+  applyCommand(game, 'middle', { type: 'play', cardId: 'insight' }, true);
+  const before = structuredClone(game);
+  const command = { type: 'card-choice', option: 'export-01', offers: [0, 0] };
+  applyCommand(game, 'middle', command, true);
+  const { changes } = summarizeAction(before, game, 'middle', command);
+  assert(changes.includes('採用出口(1)'));
+  assert(changes.includes('出口食物 4 份 · 2 筆 · 收入 $40'));
+  assert(changes.some(line => line.includes('勝利分數') && line.includes('+2')));
+});
+
+test('Middle build cards distinguish existing staff from Land of Opportunity supply', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.turn = 1;
+  const role = 'middle';
+  const id = 'company-middle-fast-food-restaurant';
+  const [, second] = companyDefinition(id).skills;
+  game.economy.markets.middle = [id];
+  game.economy.companyDecks.middle = [id];
+  for (const worker of Object.values(game.economy.workers)) if (worker.role === role) worker.committed = true;
+  game.players.middle.cash = 100;
+  game.players.middle.hand = [{ id: 'investment', key: 'action-middle-investment-opportunities' }];
+  const view = () => playerView(game, role);
+  assert.deepEqual(view().middleBuildOptions[id], { canStaff: false, supplySlots: [] });
+  assert.equal(view().investmentMarket[0].blocked, '無法填滿必要工位');
+  assert.equal(view().canInvestFromDeck, false);
+  addWorker(game.economy, role, second);
+  assert.deepEqual(view().middleBuildOptions[id], { canStaff: false, supplySlots: [0] });
+});
+
+test('Shift Focus returns to hand when all available events are blocked', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.turn = 3;
+  game.treasury = 0;
+  game.publicServices.health = 0;
+  game.publicServices.education = 0;
+  game.content.events = ['event-neighbors-at-war'];
+  game.content.eventDeck = ['event-fear-of-deflation', 'event-developing-countries-in-need'];
+  const card = { id: 'shift', key: 'action-state-shift-focus' };
+  game.players.state.hand = [card];
+  const events = [...game.content.events];
+  const deck = [...game.content.eventDeck];
+  applyCommand(game, 'state', { type: 'play', cardId: card.id }, true);
+  const blocks = playerView(game, 'state').content.cardChoice.eventBlocks;
+  assert.equal(Object.keys(blocks).length, 3);
+  assert(Object.values(blocks).every(Boolean));
+  applyCommand(game, 'state', { type: 'card-choice', option: 'cancel-shift-focus' }, true);
+  assert.equal(game.phase, 'action');
+  assert.equal(game.mainUsed, false);
+  assert.deepEqual(game.players.state.hand, [card]);
+  assert.deepEqual(game.content.events, events);
+  assert.deepEqual(game.content.eventDeck, deck);
+});
+
+test('Interest Groups reveals the actual draw only in the committed result', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.players.working.hand = [{ id: 'interest', key: 'action-working-interest-groups' }];
+  game.bag = { working: 0, middle: 3, capitalist: 0 };
+  const before = structuredClone(game);
+  const command = { type: 'play', cardId: 'interest' };
+  applyCommand(game, 'working', command, true);
+  const preview = summarizeAction(before, game, 'working', command).changes;
+  assert(!preview.some(line => line.includes('中產方塊')));
+  const result = summarizeAction(before, game, 'working', command, { committed: true }).changes;
+  assert(result.includes('1. 中產方塊 · 移回供應區'));
+  assert(result.includes('補入 3 枚勞工方塊'));
+  assert.equal(game.bag.working, 3);
 });

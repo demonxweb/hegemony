@@ -30,8 +30,9 @@ test('waiting room starts only after four distinct roles and four current confir
     for (const name of ['Host', ...roles.slice(1)]) {
       accounts.push(await request('/api/player/register', { body: { name, password: 'p' } }));
     }
-    const host = await request('/api/rooms', { body: { testMode: true }, token: accounts[0].token, status: 201 });
+    const host = await request('/api/rooms', { body: { testMode: true, roomName: '測試議事廳' }, token: accounts[0].token, status: 201 });
     const path = '/api/rooms/' + host.code;
+    assert.equal((await request(path + '/name', { token: accounts[1].token })).roomName, '測試議事廳');
     const tokens = [host.token];
     for (const account of accounts.slice(1)) tokens.push((await request(path + '/join', { body: {}, token: account.token })).token);
     assert.equal((await request(path + '/join', { body: {}, token: accounts[0].token })).token, host.token);
@@ -42,6 +43,10 @@ test('waiting room starts only after four distinct roles and four current confir
     assert.equal(guestView.presence[hostView.role], true);
     assert.equal(guestView.presence[guestView.role], true);
     assert.equal(guestView.revision, hostView.revision);
+    const rename = { roomName: '四人測試桌', revision: hostView.revision };
+    await request(path + '/name', { body: rename, token: tokens[1], status: 403 });
+    assert.equal((await request(path + '/name', { body: rename, token: host.token })).roomName, '四人測試桌');
+    assert.equal((await request(path, { token: tokens[1] })).roomName, '四人測試桌');
     const change = (index, body, status) => request(path + '/waiting', { token: tokens[index], body, status });
     for (let index = 0; index < roles.length; index++) await change(index, { type: 'select', role: roles[index] });
     const conflict = await change(1, { type: 'select', role: 'working' });
@@ -90,6 +95,7 @@ test('waiting room starts only after four distinct roles and four current confir
     server = await startServer(store, false, false);
     const login = await request('/api/player/login', { body: { name: 'Host', password: 'p' } });
     const { rooms } = await request('/api/player/rooms', { token: login.token });
+    assert.equal(rooms[0].roomName, '四人測試桌');
     assert.deepEqual(rooms.map(({ code, host }) => ({ code, host })), [{ code: host.code, host: true }]);
     assert.equal((await request(path + '/join', { body: {}, token: login.token })).token, host.token);
     const guestRooms = await request('/api/player/rooms', { token: accounts[1].token });
@@ -282,6 +288,12 @@ test('four connected seats complete five rounds using the full catalog', { timeo
           assert.equal((await snapshot(opponent)).content.cardChoice, undefined);
           await command(opponent, { type: 'card-choice' }, 400);
           current = await command(role, { type: 'card-choice', indices: [0], immediate: false });
+          if (role === 'working') {
+            const { drawn, removed, returned } = current.cardResult.fakeNews;
+            assert.deepEqual(removed, drawn.slice(0, 1));
+            assert.deepEqual(returned, drawn.slice(1));
+          } else assert(Array.isArray(current.cardResult.changes));
+          assert.equal((await snapshot(opponent)).cardResult, undefined);
         }
         assert(current.mainUsed);
         if (action.type === 'build') {
@@ -448,7 +460,7 @@ test('Room saves survive a restart and only the host can save, restore or delete
     assert.equal((await request('/quick')).status, 404);
     assert.equal((await post('/api/quick-room', {})).status, 404);
     assert.equal((await post('/api/quick-reload', {})).status, 404);
-    const created = await post('/api/rooms', { role: 'working', name: 'Host' });
+    const created = await post('/api/rooms', { role: 'working', name: 'Host', testMode: true });
     assert.equal(created.status, 201);
     const { code, token } = await created.json();
     const path = `/api/rooms/${code}`;
@@ -485,10 +497,17 @@ test('Room saves survive a restart and only the host can save, restore or delete
     assert.equal(savedResponse.status, 201);
     const record = await savedResponse.json();
     assert.deepEqual(Object.keys(record), ['id', 'createdAt']);
-    const other = await (await post('/api/rooms', { role: 'working', name: 'Other host' })).json();
+    const other = await (await post('/api/rooms', { role: 'working', name: 'Other host', testMode: true })).json();
     const otherPath = `/api/rooms/${other.code}`;
     assert.equal((await post(otherPath + '/restore', { revision: 1, id: record.id }, other.token)).status, 404);
     assert.equal((await request(otherPath, { method: 'DELETE', headers: { Authorization: `Bearer ${other.token}` } })).status, 200);
+    const regular = await (await post('/api/rooms', { role: 'working', name: 'Regular host' })).json();
+    const regularPath = `/api/rooms/${regular.code}`;
+    const regularAuth = { headers: { Authorization: `Bearer ${regular.token}` } };
+    assert.equal((await request(`${regularPath}/saves`, regularAuth)).status, 403);
+    assert.equal((await post(`${regularPath}/saves`, { revision: 1 }, regular.token)).status, 403);
+    assert.equal((await post(`${regularPath}/restore`, { revision: 1, id: record.id }, regular.token)).status, 403);
+    assert.equal((await request(regularPath, { ...regularAuth, method: 'DELETE' })).status, 200);
     const savedPath = join(store, `${code}.json`);
     const saved = storedRoom(store, code);
     await writeFile(savedPath, JSON.stringify({ ...saved, godKey: 'legacy-key', history: [], rewindRevision: 1 }));
