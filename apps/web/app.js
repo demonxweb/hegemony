@@ -3468,8 +3468,10 @@ function updateRoomChat(code, messages = [], source = state) {
   const sender = message => `<span class="chat-sender">${headerClassLabel(senderRole(message))}${escape(message.name)}:</span>`;
   const line = message => `${sender(message)}<span class="chat-text">${escape(message.text)}</span>`;
   const atBottom = chatHistory.scrollHeight - chatHistory.scrollTop <= chatHistory.clientHeight + 4;
+  chatLatest.className = latest ? senderRole(latest) ?? '' : '';
   chatLatest.innerHTML = latest ? line(latest) : '<span class="chat-empty">目前沒有訊息</span>';
-  chatHistory.innerHTML = messages.map(message => `<li>${line(message)}</li>`).join('');
+  chatHistory.innerHTML = messages.map(message =>
+    `<li class="${escape(senderRole(message) ?? '')}">${line(message)}</li>`).join('');
   chatSenderMeasure.innerHTML = messages.map(sender).join('');
   if (atBottom || changedRoom) chatHistory.scrollTop = chatHistory.scrollHeight;
 }

@@ -47,6 +47,8 @@ main:has(+ .room-chat:not([hidden])) { padding-bottom: calc(var(--room-chat-heig
 .chat-sender-measure { position: absolute; visibility: hidden; display: grid; width: max-content; white-space: nowrap; }
 .chat-sender-measure > span { grid-area: 1 / 1; }
 .room-chat .chat-sender { text-align: right; }
+.room-chat li, .room-chat [data-chat-latest] { color: var(--role); }
+.room-chat .chat-empty { color: var(--muted); }
 .room-chat [data-chat-latest] > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .room-chat details[open] [data-chat-latest] { display: none; }
 .room-chat ol { height: min(32vh, 280px); overflow-y: auto; list-style: none; padding: 0; margin: 8px 0 0; }
