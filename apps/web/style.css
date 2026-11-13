@@ -35,7 +35,7 @@ body { margin: 0; background: radial-gradient(ellipse at 48% 0, #253343, #0f1721
 .header-account button { flex-shrink: 0; }
 main { max-width: 1900px; margin: auto; padding: 22px clamp(12px, 3vw, 40px) 48px; }
 main:has(+ .room-chat:not([hidden])) { padding-bottom: calc(var(--room-chat-height, 114px) + 12px); }
-.room-chat { position: fixed; z-index: 18; inset: auto 0 0; max-width: 1900px; margin-inline: auto; padding: 0 clamp(12px, 3vw, 40px) 8px; --chat-time-width: 4em; }
+.room-chat { position: fixed; z-index: 18; inset: auto 0 0; max-width: 1900px; margin-inline: auto; padding: 0 clamp(12px, 3vw, 40px) 8px; --chat-time-width: 5.5em; }
 .room-chat summary { cursor: pointer; list-style: none; }
 .room-chat summary::-webkit-details-marker { display: none; }
 .chat-toggle { padding: 0 .35em; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: .9em; line-height: 1; transition: color .15s, transform .15s; }
