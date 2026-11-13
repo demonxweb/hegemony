@@ -3413,6 +3413,10 @@ const chatDetails = roomChat.querySelector('details');
 const chatHistory = roomChat.querySelector('[data-chat-history]');
 const chatLatest = roomChat.querySelector('[data-chat-latest]');
 const chatForm = roomChat.querySelector('form');
+const chatSenderMeasure = roomChat.querySelector('.chat-sender-measure');
+new ResizeObserver(([entry]) => {
+  roomChat.style.setProperty('--chat-sender-width', `${Math.ceil(entry.contentRect.width)}px`);
+}).observe(chatSenderMeasure);
 new ResizeObserver(() => {
   if (!roomChat.hidden && !chatDetails.open) {
     app.style.setProperty('--room-chat-height', `${roomChat.offsetHeight}px`);
@@ -3432,10 +3436,12 @@ function updateRoomChat(code, messages = []) {
   const latest = messages.at(-1);
   if (!changedRoom && (latest?.id ?? 0) <= lastChatId) return;
   lastChatId = latest?.id ?? 0;
-  const line = message => `<span class="chat-sender">${headerClassLabel(message.role)}${escape(message.name)}:</span><span class="chat-text">${escape(message.text)}</span>`;
+  const sender = message => `<span class="chat-sender">${headerClassLabel(message.role)}${escape(message.name)}:</span>`;
+  const line = message => `${sender(message)}<span class="chat-text">${escape(message.text)}</span>`;
   const atBottom = chatHistory.scrollHeight - chatHistory.scrollTop <= chatHistory.clientHeight + 4;
   chatLatest.innerHTML = latest ? line(latest) : '目前沒有訊息';
   chatHistory.innerHTML = messages.map(message => `<li>${line(message)}</li>`).join('');
+  chatSenderMeasure.innerHTML = messages.map(sender).join('');
   if (atBottom || changedRoom) chatHistory.scrollTop = chatHistory.scrollHeight;
 }
 
