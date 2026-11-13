@@ -3491,6 +3491,10 @@ chatDetails.addEventListener('toggle', () => {
   if (chatDetails.open) chatHistory.scrollTop = chatHistory.scrollHeight;
 });
 
+document.addEventListener('click', event => {
+  if (chatDetails.open && !roomChat.contains(event.target)) chatDetails.open = false;
+});
+
 chatForm.addEventListener('submit', async event => {
   event.preventDefault();
   const currentSeat = seat;
