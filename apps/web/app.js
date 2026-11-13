@@ -3454,7 +3454,7 @@ function chatTime(at) {
   const date = new Date(at);
   if (!Number.isFinite(at) || Number.isNaN(date.getTime())) return '--:-- --:--';
   const pad = value => String(value).padStart(2, '0');
-  return `${pad(date.getMonth() + 1)}:${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function updateRoomChat(code, messages = [], source = state) {
