@@ -3450,6 +3450,13 @@ function chatRoleBySender(source) {
   return roles;
 }
 
+function chatTime(at) {
+  const date = new Date(at);
+  if (!Number.isFinite(at) || Number.isNaN(date.getTime())) return '--:-- --:--';
+  const pad = value => String(value).padStart(2, '0');
+  return `${pad(date.getMonth() + 1)}:${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function updateRoomChat(code, messages = [], source = state) {
   const changedRoom = chatRoomCode !== code;
   if (changedRoom) {
@@ -3466,7 +3473,7 @@ function updateRoomChat(code, messages = [], source = state) {
   lastChatId = latest?.id ?? 0;
   lastChatSenders = senders;
   const sender = message => `<span class="chat-sender">${headerClassLabel(senderRole(message))}${escape(message.name)}:</span>`;
-  const line = message => `${sender(message)}<span class="chat-text">${escape(message.text)}</span>`;
+  const line = message => `<span class="chat-time">${chatTime(message.at)}</span>${sender(message)}<span class="chat-text">${escape(message.text)}</span>`;
   const atBottom = chatHistory.scrollHeight - chatHistory.scrollTop <= chatHistory.clientHeight + 4;
   chatLatest.className = latest ? senderRole(latest) ?? '' : '';
   chatLatest.innerHTML = latest ? line(latest) : '<span class="chat-empty">目前沒有訊息</span>';

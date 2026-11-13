@@ -28,7 +28,7 @@ const chatLimit = 50;
 
 export function appendChat(chat, message) {
   const previous = chat ?? [];
-  return [...previous.slice(-(chatLimit - 1)), { id: (previous.at(-1)?.id ?? 0) + 1, ...message }];
+  return [...previous.slice(-(chatLimit - 1)), { id: (previous.at(-1)?.id ?? 0) + 1, at: Date.now(), ...message }];
 }
 
 export function json(response, status, value) {
