@@ -3425,6 +3425,7 @@ const chatDetails = roomChat.querySelector('details');
 const chatHistory = roomChat.querySelector('[data-chat-history]');
 const chatLatest = roomChat.querySelector('[data-chat-latest]');
 const chatForm = roomChat.querySelector('form');
+const chatToggle = roomChat.querySelector('[data-chat-toggle]');
 const chatSenderMeasure = roomChat.querySelector('.chat-sender-measure');
 new ResizeObserver(([entry]) => {
   roomChat.style.setProperty('--chat-sender-width', `${Math.ceil(entry.contentRect.width)}px`);
@@ -3457,7 +3458,11 @@ function updateRoomChat(code, messages = []) {
   if (atBottom || changedRoom) chatHistory.scrollTop = chatHistory.scrollHeight;
 }
 
+chatToggle.addEventListener('click', () => { chatDetails.open = !chatDetails.open; });
+
 chatDetails.addEventListener('toggle', () => {
+  chatToggle.setAttribute('aria-expanded', String(chatDetails.open));
+  chatToggle.setAttribute('aria-label', chatDetails.open ? '收合聊天記錄' : '展開聊天記錄');
   if (chatDetails.open) chatHistory.scrollTop = chatHistory.scrollHeight;
 });
 

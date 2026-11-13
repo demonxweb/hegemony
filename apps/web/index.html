@@ -34,7 +34,7 @@
         <summary aria-label="展開或收合聊天記錄"><span data-chat-latest></span></summary>
         <ol data-chat-history aria-label="聊天記錄"></ol>
       </details>
-      <form><input name="text" maxlength="500" required aria-label="聊天訊息" placeholder="輸入訊息"><button type="submit">送出</button></form>
+      <form><button type="button" class="chat-toggle" data-chat-toggle aria-expanded="false" aria-label="展開聊天記錄">▾</button><input name="text" maxlength="500" required aria-label="聊天訊息" placeholder="輸入訊息"><button type="submit">送出</button></form>
     </div>
   </section>
   <dialog id="rename-room-dialog" class="action-confirmation" aria-labelledby="rename-room-title">
