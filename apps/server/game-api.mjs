@@ -24,6 +24,12 @@ function fingerprint(token) {
 }
 
 const presenceTimeout = 30_000;
+const chatLimit = 50;
+
+export function appendChat(chat, message) {
+  const previous = chat ?? [];
+  return [...previous.slice(-(chatLimit - 1)), { id: (previous.at(-1)?.id ?? 0) + 1, ...message }];
+}
 
 export function json(response, status, value) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -201,7 +207,7 @@ function applySingleAction(game, role, input) {
 export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRooms, addRoomSave, listRoomSaves, readRoomSave, getSetting, insertSetting, listSettings, getSaveKey, clientId,
   full = true, allowLegacyRooms = false }) {
   const accounts = createPlayerAccounts({ getSetting, insertSetting, listSettings, getSaveKey, clientId });
-  const view = (room, role) => ({ ...roomView(room, role, accounts), chat: room.chat ?? [] });
+  const view = (room, role) => ({ ...roomView(room, role, accounts), chat: (room.chat ?? []).slice(-chatLimit) });
   const activeSeats = new Map();
   function normalizePublicStorage(room) {
     if (room?.game.economy?.publicCapacityOverride) {
@@ -335,8 +341,7 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
         requireRule(text.length > 0 && text.length <= 500, '訊息須為 1 至 500 字。');
         const member = room.waiting?.players.find(player => player.id === role) ?? room.seats[role];
         const previous = room.chat ?? [];
-        room.chat = [...previous.slice(-99), { id: (previous.at(-1)?.id ?? 0) + 1,
-          role: room.waiting ? member.role : role, name: member.name, text }];
+        room.chat = appendChat(previous, { role: room.waiting ? member.role : role, name: member.name, text });
         saveRoom(room);
         return json(response, 201, { chat: room.chat });
       }
