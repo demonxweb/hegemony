@@ -98,7 +98,6 @@ export function createEconomy(content) {
     markets: { capitalist: ['fish', 'radio', 'academy'], middle: ['organic', 'games', 'lab'] },
     inventory: { capitalist: { food: 1, luxury: 2, health: 0, education: 2 }, middle: { food: 1, luxury: 0, health: 1, education: 0 } },
     storageUnits: { middle: {}, capitalist: {} },
-    publicCapacityOverride: {},
     tradeZone: { food: 0, luxury: 0 },
     loans: { state: 0, capitalist: 0, middle: 0, working: 0 },
     production: null,
@@ -363,8 +362,6 @@ export function setWagePolicy(game, forcedLevel) {
 }
 
 export function publicCapacity(economy, resource) {
-  const override = economy.publicCapacityOverride?.[resource];
-  if (Number.isInteger(override) && override >= 0) return override;
   return Object.values(economy.companies).map(item => activeCompany(economy, item.id))
     .filter(item => item.owner === 'state' && item.resource === resource).reduce((sum, item) => sum + item.output, 6);
 }
@@ -442,8 +439,8 @@ export function resizePublicSector(game, selections, { testing = false } = {}) {
     if (item && item.slots.some(slot => economy.workers[slot.worker]?.role === 'working')) checkDemonstration(economy, item);
   }
   syncPublicStorage(game);
-  if (added.length) game.log.push(`公營部門開設 ${added.join('、')}。`);
-  if (closed.length) game.log.push(`公營部門關閉 ${closed.join('、')}。`);
+  if (added.length) game.log.push(`公營企業開設 ${added.join('、')}。`);
+  if (closed.length) game.log.push(`公營企業關閉 ${closed.join('、')}。`);
   return closed;
 }
 
@@ -467,7 +464,7 @@ export function canBuildIndustry(game, role, id) {
   const definition = card(id);
   const limit = role === 'capitalist' ? base.limits.capitalist_companies : base.limits.middle_companies;
   return definition.cost >= 15 && funds(game, 'state') >= definition.cost && ownedCompanies(economy, role).length < limit
-    && (role !== 'middle' || Boolean(availableHires(economy, company(id).slots.filter(slot => !slot.optional), 'middle')));
+    && (role !== 'middle' || canStaffMiddleCompany(economy, id, { unemployedOnly: true }));
 }
 
 function planBuildStaff(economy, item, role, staff, unemployedOperators) {
@@ -501,15 +498,21 @@ function planBuildStaff(economy, item, role, staff, unemployedOperators) {
   return { operators, hires };
 }
 
-export function canStaffInvestment(economy, role, id) {
-  if (role !== 'middle') return true;
+export function canStaffMiddleCompany(economy, id, { supplySlot, unemployedOnly = false } = {}) {
+  if (supplySlot !== undefined) {
+    economy = structuredClone(economy);
+    const skill = card(id).skills[supplySlot];
+    if (!skill || workerSupply(economy, 'middle', skill) <= 0) return false;
+  }
+  const supplied = supplySlot === undefined ? null : addWorker(economy, 'middle', card(id).skills[supplySlot]);
+  const role = 'middle';
   const item = company(id);
   const required = item.slots.filter(slot => !slot.optional);
   const workers = Object.values(economy.workers).filter(worker => worker.role === role
-    && !worker.committed && !unionMember(economy, worker.id));
+    && !worker.committed && !unionMember(economy, worker.id) && (!unemployedOnly || !workplace(economy, worker.id)));
   function match(moves) {
     const slot = required[moves.length];
-    if (slot) return workers.some(worker => fits(worker, slot) && !moves.some(move => move.worker === worker.id)
+    if (slot) return workers.some(worker => (moves.length === supplySlot ? worker.id === supplied : worker.id !== supplied) && fits(worker, slot) && !moves.some(move => move.worker === worker.id)
       && match([...moves, { worker: worker.id, company: id, slot: moves.length }]));
     const projected = structuredClone(economy);
     projected.companies[id] = structuredClone(item);

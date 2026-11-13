@@ -16,7 +16,7 @@ const company = (game, id) => {
   return copy ? `${name}（第 ${copy} 張）` : name;
 };
 
-export function summarizeAction(before, after, role, command) {
+export function summarizeAction(before, after, role, command, { committed = false } = {}) {
   const lines = [];
   const change = (label, from = 0, to = 0, money = false) => {
     if (from === to) return;
@@ -137,14 +137,67 @@ export function summarizeAction(before, after, role, command) {
       .map(([seat, count]) => `${names[seat] ?? '外國市場'} ${count} 份`);
     lines.unshift(`購買${goods[command.resource]} · ${sources.join('、')} · 支付 $${after.purchaseReceipt.cost}`);
   }
-  if (after.phase !== 'action') {
+  const choice = before.content?.cardChoice;
+  if (command.type === 'card-choice') {
+    if (choice?.effect === 'fake-news') {
+      const removed = new Set(command.indices);
+      const list = cubes => cubes.map(seat => names[seat]).join('、') || '無';
+      lines.unshift(`抽出 ${choice.drawn.length} 枚 · ${list(choice.drawn)}`,
+        `移回供應區 ${removed.size} 枚 · ${list(choice.drawn.filter((_, index) => removed.has(index)))}`,
+        `放回投票袋 ${choice.drawn.length - removed.size} 枚 · ${list(choice.drawn.filter((_, index) => !removed.has(index)))}`);
+    } else if (choice?.effect === 'poll') {
+      lines.unshift(`揭示方塊 · ${choice.drawn.map(seat => names[seat]).join('、')}`,
+        command.immediate ? '免費立即表決，使用這批方塊。' : '方塊已放回投票袋，法案留到本輪選舉階段。');
+    } else if (choice?.effect === 'second-bill') {
+      lines.unshift(`第二案 · ${policies[command.policy]} ${command.target} · ${command.immediate ? '立即表決' : '輪末表決'}`);
+    } else if (choice?.effect === 'investment-build') {
+      lines.unshift(command.option === 'cancel-investment' ? '已收回投資機會，恢復本回合主要行動。'
+        : `從企業牌庫建造「${company(after, command.company)}」· 實付 $${(before.players[role].cash + before.players[role].capital + before.players[role].revenue)
+          - (after.players[role].cash + after.players[role].capital + after.players[role].revenue)}`);
+    } else if (['shift-event', 'priority-event'].includes(choice?.effect)) {
+      const eventName = id => catalogCard(id)?.nameZh;
+      if (command.option === 'cancel-shift-focus') lines.unshift('已收回轉移重點，恢復本回合主要行動。');
+      else {
+        lines.unshift(`翻出的事件 · ${choice.options.map(eventName).join('、') || '無'}`);
+        if (command.replaced && command.option) lines.push(`換下「${eventName(command.replaced)}」`);
+        if (command.option) lines.push(`放入「${eventName(command.option)}」`);
+        lines.push(`選擇處理「${eventName(command.eventId)}」`);
+      }
+    }
+  }
+  if (command.type === 'civil-bill') lines.unshift(`社會動盪 · ${names[role]}選擇${policies[command.policy]} ${command.target}`);
+  if (command.type === 'event-hire') lines.unshift(`扶植新興產業 · ${names[role]}確認建造與雇用`);
+  if (command.type === 'policy-choice') lines.unshift('已確認本項政策調整。');
+  if (command.type === 'card-choice' && before.content?.cardChoice?.effect === 'export-insight') {
+    const card = catalogCard(after.content.export);
+    lines.unshift(`採用出口(${Number(card.id.slice(7))})`);
+    const trades = new Map();
+    for (const id of command.offers ?? []) trades.set(id, (trades.get(id) ?? 0) + 1);
+    for (const [id, count] of trades) {
+      const { resource, quantity, money } = card.offers[id];
+      lines.push(`出口${goods[resource]} ${quantity * count} 份 · ${count} 筆 · 收入 $${money * count}`);
+    }
+    if (!trades.size) lines.push('本次未進行出口交易');
+  }
+  if (after.phase !== 'action' && !['card-choice', 'event-hire', 'civil-bill', 'civil-confirm', 'policy-choice'].includes(command.type)) {
     lines.push(({ election: '確認後開始表決，投票結果依實際表決決定',
       'policy-choice': '確認後進入政策調整，等待指定席位作出選擇',
       'card-choice': '確認後揭示牌庫或抽取結果，並進入卡牌選擇',
       'event-choice': '確認後等待指定席位選擇事件法案',
       'event-hire': '確認後等待企業持有人安排雇用' })[after.phase] ?? '確認後進入下一個處理步驟');
   }
-  if (effect?.effect === 'interest-groups') lines.push('確認後抽取並替換投票方塊，實際替換結果屆時揭示');
+  if (effect?.effect === 'interest-groups') {
+    if (!committed) lines.push('確認後抽取並替換投票方塊，實際替換結果屆時揭示');
+    else {
+      const { drawn, added } = after.interestGroupsResult;
+      lines.push(`共抽出 ${drawn.length} 枚方塊`);
+      drawn.forEach((seat, index) => lines.push(`${index + 1}. ${names[seat]}方塊 · ${seat === role ? '放回投票袋' : '移回供應區'}`));
+      lines.push(`補入 ${added} 枚${names[role]}方塊`);
+      for (const seat of roles.filter(seat => seat !== 'state')) {
+        change(`${names[seat]} · 袋內投票方塊`, before.bag[seat], after.bag[seat]);
+      }
+    }
+  }
   if (main) lines.push('本回合的主要行動將用完');
   if (!before.freeUsed && after.freeUsed) lines.push('本回合的免費行動將用完');
   return { kind: main ? 'main' : 'free', changes: lines };

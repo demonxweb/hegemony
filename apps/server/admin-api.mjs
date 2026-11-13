@@ -70,8 +70,8 @@ export function createAdminApi({ getSetting, insertSetting, listSettings, update
   };
 }
 
-export function roomSummary({ code, revision, seats, game, waiting }) {
-  return { code, revision, phase: game.phase, round: game.match?.round,
+export function roomSummary({ code, name, revision, seats, game, waiting }) {
+  return { code, roomName: name ?? code, revision, phase: game.phase, round: game.match?.round,
     seats: Object.fromEntries(waiting ? waiting.players.map(({ id, name }) => [id, name])
       : Object.entries(seats).map(([role, seat]) => [role, seat.name])) };
 }

@@ -2,8 +2,10 @@ import { createHash, randomBytes } from 'node:crypto';
 import catalog from '../../data/hegemony-base-catalog.json' with { type: 'json' };
 import base from '../../data/hegemony-v1.2-data.json' with { type: 'json' };
 import { applyCommand, createGame, GameError, names, playerView, policies, roles } from '../../packages/engine/game.mjs';
+import { companyDefinition, syncPublicStorage } from '../../packages/engine/companies.mjs';
 import { requireRule } from '../../packages/engine/errors.mjs';
 import { domesticPriceLevels } from '../../packages/engine/prices.mjs';
+import { cardDefinition } from '../../packages/engine/cards.mjs';
 import { summarizeAction } from './action-summary.mjs';
 import { createPlayerAccounts } from './player-accounts.mjs';
 
@@ -98,24 +100,62 @@ function authenticate(room, request, accounts) {
   return role;
 }
 
-function view(room, role) {
+function roomName(input, fallback) {
+  if (input === undefined) return fallback;
+  requireRule(typeof input === 'string' && input.trim().length <= 60, '房間名稱最多 60 字。');
+  return input.trim() || fallback;
+}
+
+function roomView(room, role, accounts) {
   if (room.waiting) {
     const { host, players, selectionRevision } = room.waiting;
-    return { code: room.code, role, host, revision: room.revision, restoredRevision: room.restoredRevision ?? 0, phase: 'lobby',
+    const canInvite = role === host && !room.invitationsLocked;
+    const invitations = canInvite ? (room.invitations ?? []).filter(invite => !invite.revoked) : undefined;
+    return { code: room.code, roomName: room.name ?? room.code, role, host, revision: room.revision, restoredRevision: room.restoredRevision ?? 0, phase: 'lobby',
       testMode: room.game.testMode === true,
-      waiting: { selectionRevision, skillSelection: Boolean(room.game.content), players: players.map(({ id, name, role, ready, skill }) => ({ id, name, role, ready, skill })) } };
+      waiting: { selectionRevision, skillSelection: Boolean(room.game.content),
+        invitations: invitations?.map(invite => ({ ...invite, joined: Boolean(roomMember(room, invite.id)) })),
+        invitationCandidates: invitations && accounts.invitationCandidates(new Set([
+          players.find(player => player.id === host)?.accountId, ...invitations.map(invite => invite.id),
+        ])),
+        middleMarket: room.game.content && players.find(player => player.id === role)?.role === 'middle'
+          ? room.game.economy.markets.middle.map(companyDefinition) : undefined,
+        players: players.map(({ id, name, role, ready, skill }) => ({ id, name, role, ready, skill })) } };
   }
   return {
-    code: room.code, role, host: room.host, revision: room.revision, restoredRevision: room.restoredRevision ?? 0,
+    code: room.code, roomName: room.name ?? room.code, role, host: room.host, revision: room.revision, restoredRevision: room.restoredRevision ?? 0,
     seats: Object.fromEntries(roles.map(seat => [seat, room.seats[seat]?.name ?? null])),
     ...playerView(room.game, role),
   };
 }
 
-function updateWaitingRoom(room, id, input) {
+function updateWaitingRoom(room, id, input, accounts) {
   const waiting = room.waiting;
   const player = waiting.players.find(item => item.id === id);
-  if (input.type === 'select') {
+  if (input.type === 'invite' || input.type === 'revoke-invite') {
+    if (id !== waiting.host) throw new GameError('只有房主可以管理邀請。', 403);
+    if (room.invitationsLocked) throw new GameError('遊戲已開始，無法更改邀請。', 409);
+    const invitations = room.invitations ??= [];
+    if (input.type === 'invite') {
+      const invitee = accounts.lookup(input.name);
+      if (!invitee) throw new GameError('找不到這個帳號。', 404);
+      requireRule(invitee.id !== player.accountId, '不能邀請自己。');
+      const existing = invitations.find(invite => invite.id === invitee.id);
+      if (existing && !existing.revoked) throw new GameError('已邀請這個帳號。', 409);
+      if (existing) Object.assign(existing, invitee, { revoked: false });
+      else invitations.push(invitee);
+    } else {
+      const invite = invitations.find(item => item.id === input.id && !item.revoked);
+      if (!invite) throw new GameError('找不到這筆邀請。', 404);
+      invite.revoked = true;
+      const index = waiting.players.findIndex(item => item.accountId === invite.id);
+      if (index >= 0) {
+        waiting.players.splice(index, 1);
+        waiting.selectionRevision++;
+        for (const item of waiting.players) item.ready = false;
+      }
+    }
+  } else if (input.type === 'select') {
     requireRule(input.role === null || roles.includes(input.role), '請選擇有效的階級。');
     if (player.role === input.role) return id;
     player.role = input.role;
@@ -142,6 +182,7 @@ function updateWaitingRoom(room, id, input) {
       room.host = waiting.players.find(item => item.id === waiting.host).role;
       if (room.game.content) room.game.content.startSkill = waiting.players.find(item => item.role === 'middle').skill;
       delete room.waiting;
+      room.invitationsLocked = true;
       applyCommand(room.game, room.host, { type: 'start' }, true);
       return player.role;
     }
@@ -157,10 +198,19 @@ function applySingleAction(game, role, input) {
   if (game.transaction) applyCommand(game, role, { type: 'transaction-confirm' }, true);
 }
 
-export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRoomSave, listRoomSaves, readRoomSave, getSetting, insertSetting, listSettings, getSaveKey, clientId,
+export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRooms, addRoomSave, listRoomSaves, readRoomSave, getSetting, insertSetting, listSettings, getSaveKey, clientId,
   full = true, allowLegacyRooms = false }) {
   const accounts = createPlayerAccounts({ getSetting, insertSetting, listSettings, getSaveKey, clientId });
+  const view = (room, role) => ({ ...roomView(room, role, accounts), chat: room.chat ?? [] });
   const activeSeats = new Map();
+  function normalizePublicStorage(room) {
+    if (room?.game.economy?.publicCapacityOverride) {
+      delete room.game.economy.publicCapacityOverride;
+      syncPublicStorage(room.game);
+    }
+    return room;
+  }
+  const readRoom = code => normalizePublicStorage(loadRoom(code));
   return async function route(request, response, path) {
     if (request.method === 'GET') {
       if (path === '/api/meta') return json(response, 200, { roles, names, policies, policyRules: base.policies, domesticPriceLevels, checkedCommands, turnCommands,
@@ -174,13 +224,20 @@ export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRo
     }
     if (request.method === 'GET' && path === '/api/player/rooms') {
       const player = accounts.authenticate(request);
-      const rooms = listRooms().flatMap(room => {
+      const allRooms = listRooms();
+      const rooms = allRooms.flatMap(room => {
         const member = roomMember(room, player.id);
         if (!member) return [];
         const host = room.waiting ? room.waiting.host === member.id : room.seats[room.host] === member;
-        return [{ code: room.code, phase: room.game.phase, round: room.game.match?.round, host }];
+        return [{ code: room.code, roomName: room.name ?? room.code, phase: room.game.phase, round: room.game.match?.round, host }];
       });
-      return json(response, 200, { name: player.name, rooms });
+      const invitations = allRooms.filter(room => room.waiting && !room.invitationsLocked &&
+        room.invitations?.some(invite => invite.id === player.id && !invite.revoked)).map(room => ({
+        code: room.code, roomName: room.name ?? room.code,
+        hostName: room.waiting.players.find(member => member.id === room.waiting.host)?.name,
+        full: room.waiting.players.length >= roles.length && !roomMember(room, player.id),
+      }));
+      return json(response, 200, { name: player.name, rooms, invitations });
     }
     if (request.method === 'POST' && path === '/api/rooms') {
       const input = await readJson(request);
@@ -188,20 +245,40 @@ export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRo
       const player = legacy ? null : accounts.authenticate(request);
       const room = newRoom(legacy ? input.role : undefined, readRoom, full);
       room.game.testMode = input.testMode === true;
+      room.name = roomName(input.roomName, room.code);
       const seat = legacy
         ? (input.role === undefined ? joinWaitingRoom(room, input) : claimSeat(room, input))
         : joinWaitingRoom(room, player, player.id, accounts.seatToken(player.id, room.code));
       saveRoom(room);
       return json(response, 201, seat);
     }
-    const match = /^\/api\/rooms\/([A-F0-9]{8})(?:\/(join|waiting|command|check|action-preview|action-confirm|saves|restore))?$/.exec(path);
+    const match = /^\/api\/rooms\/([A-F0-9]{8})(?:\/(join|waiting|command|check|action-preview|action-confirm|saves|restore|name|chat))?$/.exec(path);
     if (!match) throw new GameError('找不到頁面。', 404);
     const [, code, action] = match;
+    if (action === 'name' && request.method === 'GET') {
+      accounts.authenticate(request);
+      const room = readRoom(code);
+      if (!room) throw new GameError('找不到房間。', 404);
+      return json(response, 200, { roomName: room.name ?? room.code });
+    }
+    if (action === 'name' && request.method === 'POST') {
+      const input = await readJson(request);
+      const room = readRoom(code);
+      if (!room) throw new GameError('找不到房間。', 404);
+      const role = authenticate(room, request, accounts);
+      if (role !== (room.waiting?.host ?? room.host)) throw new GameError('只有房長可以修改房間名稱。', 403);
+      if (input.revision !== room.revision) throw new GameError('房間進度已更新，請重新操作。', 409);
+      room.name = roomName(input.roomName, room.code);
+      room.revision++;
+      saveRoom(room);
+      return json(response, 200, view(room, role));
+    }
     if ((action === 'saves' && request.method === 'GET') || (['saves', 'restore'].includes(action) && request.method === 'POST')) {
       const input = request.method === 'POST' ? await readJson(request) : null;
       const room = readRoom(code);
       if (!room) throw new GameError('找不到房間。', 404);
       if (authenticate(room, request, accounts) !== (room.waiting?.host ?? room.host)) throw new GameError('只有房長可以儲存或讀取遊戲。', 403);
+      if (room.game.testMode !== true) throw new GameError('只有測試房間可以儲存或讀取遊戲。', 403);
       if (!input) return json(response, 200, { saves: listRoomSaves(code) });
       if (input.revision !== room.revision) throw new GameError('房間進度已更新，請重新操作。', 409);
       if (action === 'saves') {
@@ -209,12 +286,20 @@ export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRo
         addRoomSave(room, record);
         return json(response, 201, record);
       }
-      const saved = typeof input.id === 'string' && readRoomSave(code, input.id);
+      const saved = typeof input.id === 'string' && normalizePublicStorage(readRoomSave(code, input.id));
       if (!saved) throw new GameError('找不到這個房間的存檔。', 404);
       const revision = room.revision + 1;
       const next = { ...saved, revision, restoredRevision: revision, processed: room.processed };
+      next.chat = room.chat;
+      next.invitations = room.invitations;
+      next.invitationsLocked = room.invitationsLocked || room.game.phase !== 'lobby';
       next.game.testMode = room.game.testMode === true;
-      if (next.waiting) next.waiting.selectionRevision = revision;
+      next.name = room.name ?? room.code;
+      if (next.waiting) {
+        next.waiting.selectionRevision = revision;
+        next.waiting.players = next.waiting.players.filter(player => !next.invitations?.some(invite => invite.revoked && invite.id === player.accountId));
+        for (const player of next.waiting.players) player.ready = false;
+      }
       saveRoom(next);
       return json(response, 200, view(next, next.waiting?.host ?? next.host));
     }
@@ -239,14 +324,25 @@ export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRo
         const player = accounts.authenticate(request);
         const token = accounts.seatToken(player.id, room.code);
         if (roomMember(room, player.id)) return json(response, 200, { code, token });
+        if (room.invitations?.some(invite => invite.id === player.id && invite.revoked)) throw new GameError('房主已撤銷你的邀請。', 403);
         const seat = joinWaitingRoom(room, player, player.id, token);
         saveRoom(room);
         return json(response, 200, seat);
       }
       const role = authenticate(room, request, accounts);
+      if (action === 'chat') {
+        const text = typeof input.text === 'string' ? input.text.trim() : '';
+        requireRule(text.length > 0 && text.length <= 500, '訊息須為 1 至 500 字。');
+        const member = room.waiting?.players.find(player => player.id === role) ?? room.seats[role];
+        const previous = room.chat ?? [];
+        room.chat = [...previous.slice(-99), { id: (previous.at(-1)?.id ?? 0) + 1,
+          role: room.waiting ? member.role : role, name: member.name, text }];
+        saveRoom(room);
+        return json(response, 201, { chat: room.chat });
+      }
       if (action === 'waiting' || room.waiting) {
         if (action !== 'waiting' || !room.waiting) throw new GameError('目前無法使用此操作。', 409);
-        const viewer = updateWaitingRoom(room, role, input);
+        const viewer = updateWaitingRoom(room, role, input, accounts);
         room.revision++;
         saveRoom(room);
         return json(response, 200, view(room, viewer));
@@ -270,7 +366,10 @@ export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRo
       }
       if (typeof id !== 'string' || !/^[a-z0-9-]{12,64}$/i.test(id)) throw new GameError('命令識別碼無效。');
       const key = `${role}:${id}`;
-      if (Object.hasOwn(room.processed, key)) return json(response, 200, view(room, role));
+      if (Object.hasOwn(room.processed, key)) {
+        const previous = room.processed[key];
+        return json(response, 200, { ...view(room, role), ...(previous?.cardResult && { cardResult: previous.cardResult }) });
+      }
       const sameBallot = input.type === 'bid' && room.game.election && input.electionId === room.game.election.id;
       const sameResult = input.type === 'confirm-vote' && room.game.voteConfirmation && input.electionId === room.game.lastVote.id;
       if (revision !== room.revision && (!(revision >= (room.restoredRevision ?? room.rewindRevision ?? 0)) || (!sameBallot && !sameResult))) {
@@ -280,10 +379,32 @@ export function createGameApi({ readRoom, saveRoom, deleteRoom, listRooms, addRo
       const next = { ...room, game: structuredClone(room.game), processed: { ...room.processed } };
       if (action === 'action-confirm') applySingleAction(next.game, role, input);
       else applyCommand(next.game, role, input, roles.every(seat => next.seats[seat]));
-      next.processed[key] = true;
+      const cardStep = ['card-choice', 'event-hire', 'civil-bill', 'civil-confirm'].includes(input.type)
+        || (input.type === 'policy-choice' && ['action', 'immediate'].includes(room.game.policyChoice?.resume));
+      const playedCard = input.type === 'play' && room.game.players[role].hand.find(card => card.id === input.cardId);
+      const interestGroups = playedCard && cardDefinition(role, playedCard).effect === 'interest-groups';
+      const choice = room.game.content?.cardChoice;
+      const fakeNews = input.type === 'card-choice' && choice?.effect === 'fake-news';
+      const cardResult = fakeNews ? {
+        fakeNews: {
+          drawn: choice.drawn,
+          removed: choice.drawn.filter((_, index) => input.indices.includes(index)),
+          returned: choice.drawn.filter((_, index) => !input.indices.includes(index)),
+        },
+      } : interestGroups ? {
+        interestGroups: {
+          ...next.game.interestGroupsResult,
+          role,
+          before: room.game.bag,
+          after: next.game.bag,
+        },
+      } : cardStep ? {
+        changes: summarizeAction(room.game, next.game, role, input, { committed: true }).changes,
+      } : null;
+      next.processed[key] = cardResult ? { cardResult } : true;
       next.revision++;
       saveRoom(next);
-      return json(response, 200, view(next, role));
+      return json(response, 200, { ...view(next, role), ...(cardResult && { cardResult }) });
     }
     if (request.method === 'GET' && !action) {
       const room = readRoom(code);

@@ -650,12 +650,13 @@ function settlementOverview(game, role) {
     const start = Math.max(1, productionOrder.indexOf(step.role));
     for (const seat of productionOrder.slice(start)) payTaxStep(projected, seat, taxes);
   } else if (estimate) taxes = payTaxes(projected, projected.match.needs.labor);
-  const taxDue = ({
+  const taxByRole = {
     working: taxes?.workingIncome,
     middle: (taxes?.middleIncome ?? 0) + (taxes?.middleEmployment ?? 0),
     capitalist: (taxes?.employment ?? 0) + (taxes?.corporate ?? 0),
     state: 0,
-  })[role] ?? 0;
+  };
+  const taxDue = taxByRole[role] ?? 0;
   const wages = wageOverview(projected.economy.production, role, beforeProduction && !producing ? cash : undefined);
   const meals = projected.match.needs.meals;
   const foodSales = meals.reduce((sum, meal) => sum + (meal.sales?.[role] ?? 0), 0);
@@ -666,6 +667,10 @@ function settlementOverview(game, role) {
     stage: beforeProduction ? 'forecast' : estimate ? 'food' : 'settled', usage, food,
     production: projected.economy.production?.filter(row => row.owner === role),
     wages, income: { wages: wages.incoming, foodSales, tariffs, taxes: taxIncome,
+      taxByRole: role === 'state' ? taxByRole : undefined,
+      wageDetails: ['working', 'middle'].includes(role) ? (projected.economy.production ?? [])
+        .filter(row => row.recipient === role && row.wage > 0)
+        .map(({ company, resource, wage }) => ({ company, resource, wage })) : undefined,
       total: wages.incoming + foodSales + tariffs + taxIncome, salesIncomplete },
     tax: { due: taxDue, income: taxIncome,
       gap: estimate && (!awaitingTax || productionOrder.indexOf(role) >= productionOrder.indexOf(step.role))

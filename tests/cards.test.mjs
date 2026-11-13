@@ -1,11 +1,12 @@
+import { summarizeAction } from '../apps/server/action-summary.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import base from '../data/hegemony-v1.2-data.json' with { type: 'json' };
 import { cardDefinition } from '../packages/engine/cards.mjs';
 import { addWorker, company, companyDefinition, fillRequiredHires } from '../packages/engine/companies.mjs';
 import { catalogDecks } from '../packages/engine/content.mjs';
-import { eventSpec, provide } from '../packages/engine/events.mjs';
-import { applyCommand, createGame, playerView } from '../packages/engine/game.mjs';
+import { eventSpec, provide, resolveEvent } from '../packages/engine/events.mjs';
+import { applyCommand, createGame, playerView, settleElection } from '../packages/engine/game.mjs';
 import { businessDeal, buyGoods } from '../packages/engine/trade.mjs';
 
 test('Pressing Matters offers free immediate voting or a scheduled bill', () => {
@@ -253,11 +254,15 @@ test('the selected card runs its own effect and moves to the discard pile', () =
   assert.equal(game.players.working.hand.some(card => card.id === housing.id), false);
 });
 
-test('State card payments force a loan instead of failing', () => {
+test('State cannot borrow for voluntary benefits and can provide them with sufficient cash', () => {
   const game = createGame();
   game.treasury = 0;
+  assert.throws(() => provide(game, 'working', 'cash', 15), /自願支出不能借貸/);
+  assert.equal(game.economy.loans.state, 0);
+  assert.equal(game.content.benefits.working.cash, undefined);
+  game.treasury = 15;
   provide(game, 'working', 'cash', 15);
-  assert.equal(game.economy.loans.state, 1);
+  assert.equal(game.treasury, 0);
   assert.equal(game.content.benefits.working.cash, 15);
 });
 
@@ -276,7 +281,11 @@ test('Nationalization forces a loan and staffs the acquired company from the boa
   const target = company('fish');
   target.slots.forEach(slot => { slot.worker = null; });
   game.economy.companies.fish = target;
-  const staff = target.slots.map(slot => addWorker(game.economy, 'working', slot.skill));
+  const privateSource = company('clinic');
+  game.economy.companies.clinic = privateSource;
+  privateSource.slots.forEach(slot => { slot.worker = addWorker(game.economy, 'working', slot.skill); });
+  const staff = [addWorker(game.economy, 'working', 'food'), privateSource.slots[1].worker,
+    addWorker(game.economy, 'working', 'any')];
   assert(staff.every(Boolean));
   applyCommand(game, 'state', {
     type: 'play', cardId: card.id, replaced: replaced.id, company: target.id, hire: 'working', staff,
@@ -285,6 +294,7 @@ test('Nationalization forces a loan and staffs the acquired company from the boa
   assert.equal(game.economy.companies[target.id].owner, 'state');
   assert.deepEqual(game.economy.companies[target.id].slots.map(slot => slot.worker), staff);
   assert(staff.every(id => game.economy.workers[id].committed));
+  assert(privateSource.slots.every(slot => !slot.worker));
 });
 
 test('Land of Opportunity does not leave a new worker behind when the build fails', () => {
@@ -436,4 +446,170 @@ test('Small Business Grant borrows for the State only when loan cards are availa
   assert.equal(game.economy.loans.middle, 0);
   assert.equal(game.treasury, base.loans.principal - companyDefinition('organic').cost);
   assert.equal(game.economy.companies.organic.slots[0].worker, worker);
+});
+
+test('two-bill cards can defer the second selection until after the first vote', () => {
+  for (const [role, card] of [['working', 'need-for-change'], ['capitalist', 'push-political-agenda']]) {
+    const game = createGame();
+    applyCommand(game, 'working', { type: 'start' }, true);
+    game.turn = role === 'working' ? 0 : 2;
+    game.players[role].influence = 2;
+    game.players[role].hand = [{ id: card, key: `action-${role}-${card}` }];
+    const first = { policy: 6, target: 'C', immediate: true };
+    applyCommand(game, role, { type: 'play', cardId: card, proposals: [first] }, true);
+    assert.equal(game.phase, 'election');
+    assert.equal(game.players[role].influence, 1);
+    assert.equal(game.bills.length, 1);
+    settleElection(game);
+    for (const seat of ['working', 'middle', 'capitalist', 'state']) {
+      applyCommand(game, seat, { type: 'confirm-vote', electionId: game.lastVote.id }, true);
+    }
+    assert.equal(game.phase, 'card-choice');
+    const choice = playerView(game, role).content.cardChoice;
+    assert.equal(choice.effect, 'second-bill');
+    assert(choice.policies.every(policy => policy.policy !== first.policy));
+    assert.equal(playerView(game, 'state').content.cardChoice, undefined);
+    const invalid = structuredClone(game);
+    assert.throws(() => applyCommand(invalid, role, { type: 'card-choice', policy: 6, target: 'B', immediate: false }, true), /不同議題/);
+    applyCommand(game, role, { type: 'card-choice', ...choice.policies[0], immediate: true }, true);
+    assert.equal(game.phase, 'election');
+    assert.equal(game.players[role].influence, 0);
+    assert.equal(game.mainUsed, true);
+  }
+});
+
+test('Land of Opportunity takes the skill of the chosen second required slot', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.turn = 1;
+  const id = 'company-middle-fast-food-restaurant';
+  const definition = companyDefinition(id);
+  assert.notEqual(definition.skills[0], definition.skills[1]);
+  game.economy.markets.middle = [id];
+  const worker = addWorker(game.economy, 'middle', definition.skills[0]);
+  assert(worker);
+  game.players.middle.hand = [{ id: 'land', key: 'action-middle-land-of-opportunity' }];
+  applyCommand(game, 'middle', { type: 'play', cardId: 'land', company: id, slot: 1, staff: [worker, null] }, true);
+  const [first, second] = game.economy.companies[id].slots;
+  assert.equal(first.worker, worker);
+  assert.equal(game.economy.workers[second.worker].skill, definition.skills[1]);
+});
+
+test('Competitive Wages clears the strike when the source company loses its crew', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.turn = 2;
+  const source = company('local-hospital');
+  const staff = source.slots.map(slot => addWorker(game.economy, 'working', slot.skill));
+  source.slots.forEach((slot, index) => { slot.worker = staff[index]; });
+  source.strike = true;
+  game.economy.companies[source.id] = source;
+  const target = company('clinic');
+  game.economy.companies.clinic = target;
+  game.players.capitalist.hand = [{ id: 'wages', key: 'action-capitalist-competitive-wages' }];
+  applyCommand(game, 'capitalist', { type: 'play', cardId: 'wages', company: 'clinic', sourceCompany: source.id }, true);
+  assert.equal(source.strike, undefined);
+  assert(source.slots.every(slot => !slot.worker));
+  assert.deepEqual(target.slots.map(slot => slot.worker), staff);
+  assert.equal(target.wage, 3);
+});
+
+test('Foreign Recruitment may staff a capitalist company with one class of matching Middle workers', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.turn = 2;
+  const target = company('clinic');
+  game.economy.companies.clinic = target;
+  game.players.capitalist.hand = [{ id: 'recruit', key: 'action-capitalist-foreign-recruitment' }];
+  applyCommand(game, 'capitalist', { type: 'play', cardId: 'recruit', company: 'clinic', recipient: 'middle' }, true);
+  assert(target.slots.every(slot => game.economy.workers[slot.worker].role === 'middle'));
+});
+
+test('unaffordable voluntary cash event leaves the event and loans unchanged', () => {
+  const game = createGame();
+  const eventId = 'event-need-for-stimulus-package';
+  assert.equal(eventSpec(eventId).kind, 'stimulus');
+  game.content.events = [eventId];
+  game.treasury = 0;
+  assert.throws(() => resolveEvent(game, { eventId, amount: eventSpec(eventId).amounts[0] }), /自願支出不能借貸/);
+  assert.equal(game.economy.loans.state, 0);
+  assert.deepEqual(game.content.events, [eventId]);
+});
+
+test('Foreign Market Insight result reports the adopted card and actual export proceeds', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.turn = 1;
+  game.economy.inventory.middle.food = 12;
+  game.content.exportDeck = ['export-01'];
+  game.players.middle.hand = [{ id: 'insight', key: 'action-middle-foreign-market-insight' }];
+  applyCommand(game, 'middle', { type: 'play', cardId: 'insight' }, true);
+  const before = structuredClone(game);
+  const command = { type: 'card-choice', option: 'export-01', offers: [0, 0] };
+  applyCommand(game, 'middle', command, true);
+  const { changes } = summarizeAction(before, game, 'middle', command);
+  assert(changes.includes('採用出口(1)'));
+  assert(changes.includes('出口食物 4 份 · 2 筆 · 收入 $40'));
+  assert(changes.some(line => line.includes('勝利分數') && line.includes('+2')));
+});
+
+test('Middle build cards distinguish existing staff from Land of Opportunity supply', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.turn = 1;
+  const role = 'middle';
+  const id = 'company-middle-fast-food-restaurant';
+  const [, second] = companyDefinition(id).skills;
+  game.economy.markets.middle = [id];
+  game.economy.companyDecks.middle = [id];
+  for (const worker of Object.values(game.economy.workers)) if (worker.role === role) worker.committed = true;
+  game.players.middle.cash = 100;
+  game.players.middle.hand = [{ id: 'investment', key: 'action-middle-investment-opportunities' }];
+  const view = () => playerView(game, role);
+  assert.deepEqual(view().middleBuildOptions[id], { canStaff: false, supplySlots: [] });
+  assert.equal(view().investmentMarket[0].blocked, '無法填滿必要工位');
+  assert.equal(view().canInvestFromDeck, false);
+  addWorker(game.economy, role, second);
+  assert.deepEqual(view().middleBuildOptions[id], { canStaff: false, supplySlots: [0] });
+});
+
+test('Shift Focus returns to hand when all available events are blocked', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.turn = 3;
+  game.treasury = 0;
+  game.publicServices.health = 0;
+  game.publicServices.education = 0;
+  game.content.events = ['event-neighbors-at-war'];
+  game.content.eventDeck = ['event-fear-of-deflation', 'event-developing-countries-in-need'];
+  const card = { id: 'shift', key: 'action-state-shift-focus' };
+  game.players.state.hand = [card];
+  const events = [...game.content.events];
+  const deck = [...game.content.eventDeck];
+  applyCommand(game, 'state', { type: 'play', cardId: card.id }, true);
+  const blocks = playerView(game, 'state').content.cardChoice.eventBlocks;
+  assert.equal(Object.keys(blocks).length, 3);
+  assert(Object.values(blocks).every(Boolean));
+  applyCommand(game, 'state', { type: 'card-choice', option: 'cancel-shift-focus' }, true);
+  assert.equal(game.phase, 'action');
+  assert.equal(game.mainUsed, false);
+  assert.deepEqual(game.players.state.hand, [card]);
+  assert.deepEqual(game.content.events, events);
+  assert.deepEqual(game.content.eventDeck, deck);
+});
+
+test('Interest Groups reveals the actual draw only in the committed result', () => {
+  const game = createGame();
+  applyCommand(game, 'working', { type: 'start' }, true);
+  game.players.working.hand = [{ id: 'interest', key: 'action-working-interest-groups' }];
+  game.bag = { working: 0, middle: 3, capitalist: 0 };
+  const before = structuredClone(game);
+  const command = { type: 'play', cardId: 'interest' };
+  applyCommand(game, 'working', command, true);
+  const preview = summarizeAction(before, game, 'working', command).changes;
+  assert(!preview.some(line => line.includes('中產方塊')));
+  const result = summarizeAction(before, game, 'working', command, { committed: true }).changes;
+  assert(result.includes('1. 中產方塊 · 移回供應區'));
+  assert(result.includes('補入 3 枚勞工方塊'));
+  assert.equal(game.bag.working, 3);
 });

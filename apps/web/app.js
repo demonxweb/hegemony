@@ -7,6 +7,8 @@ const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
 const warningDialog = document.querySelector('#warning-dialog');
 const connection = document.querySelector('#connection');
+const renameRoomButton = document.querySelector('#rename-room');
+const renameRoomDialog = document.querySelector('#rename-room-dialog');
 const headerRoomCode = document.querySelector('#header-room-code');
 const headerRoomActions = document.querySelector('#header-room-actions');
 const headerAccount = document.querySelector('#header-account');
@@ -45,8 +47,8 @@ const matHelpTopics = {
   國庫: ['', '支出與結算', '貸款與 IMF', '計分方式'],
   對外貿易: ['商務合約', '出口', '進口'],
   公共服務: ['庫存與容量', '醫療與教育', '醫療與教育', '醫療與教育', '媒體影響力'],
-  私營部門: ['', '營運條件', ...Array(5).fill('工位承諾'), '無薪資', '機械加成', '機械加成', '機械加成'],
-  公營部門: ['', '開放與營運條件', ...Array(5).fill('工位承諾'), '無薪資'],
+  私營企業: ['', '營運條件', ...Array(5).fill('工位承諾'), '無薪資', '機械加成', '機械加成', '機械加成'],
+  公營企業: ['', '開放與營運條件', ...Array(5).fill('工位承諾'), '無薪資'],
   待業工人: ['取得工人', '', '移民', '指派工人', '建造與雇用'],
   人口軌: ['', '人口變動', '使用規則'],
   繁榮軌: ['', '計分與重設', '計分與重設'],
@@ -278,7 +280,6 @@ let busy = false;
 let pendingId;
 let pendingBody;
 let selectedCard;
-let selectedBoardTab = 'settlement';
 let draft;
 let cardBuildStaff = [];
 let purchaseDraft;
@@ -338,10 +339,12 @@ function headerClassLabel(role) {
   return label ? `<span class="header-class ${escape(role)}">${escape(label)}</span>-` : "";
 }
 
+const roomHostStar = '<span class="room-host-star" role="img" aria-label="房長" title="房長">★</span> ';
+
 function updateHeaderAccountName() {
   const role = state?.waiting ? state.waiting.players.find(player => player.id === state.role)?.role : state?.role;
-  const hostLabel = state && state.role === state.host ? ' (房長)' : '';
-  headerAccountName.innerHTML = account ? headerClassLabel(role) + escape(account.name) + hostLabel : '';
+  const hostLabel = state && state.role === state.host ? roomHostStar : '';
+  headerAccountName.innerHTML = account ? hostLabel + headerClassLabel(role) + escape(account.name) : '';
 }
 
 async function loadPlayerRooms() {
@@ -354,12 +357,23 @@ async function loadPlayerRooms() {
   }
 }
 
-async function enterPlayerRoom(code, testMode = false) {
+async function enterPlayerRoom(code, testMode = false, roomName = '') {
   const path = code ? `/api/rooms/${code}/join` : '/api/rooms';
-  seat = await request(path, code ? {} : { testMode }, { token: accountToken });
+  seat = await request(path, code ? {} : { testMode, roomName }, { token: accountToken });
   rememberSeat();
   history.replaceState(null, '', `/?room=${seat.code}`);
   update(await request(`/api/rooms/${seat.code}`, undefined, { presence: true }));
+}
+
+function lobbyInvitations() {
+  const invitations = account?.invitations ?? [];
+  if (!invitations.length) return '';
+  return `<h2>發出邀請的房間</h2><form data-resume-room>
+    <select name="code" aria-label="發出邀請的房間" required>
+      ${invitations.map(({ code, roomName, hostName, full }) => `<option value="${escape(code)}" ${full ? 'disabled' : ''}>${escape(roomName)} · ${escape(code)}${hostName ? ` · ${escape(hostName)}` : ''}${full ? ' · 已滿' : ''}</option>`).join('')}
+    </select>
+    <button type="submit" ${invitations.every(room => room.full) ? 'disabled' : ''}>加入</button>
+  </form>`;
 }
 
 function forgetPlayerAccount() {
@@ -373,6 +387,7 @@ function forgetPlayerAccount() {
 function showLobby() {
   updateHeaderAccountName();
   headerRoomActions.hidden = true;
+  if (renameRoomDialog.open) renameRoomDialog.close();
   if (roomSavesDialog.open) roomSavesDialog.close();
   electionPrompt = '';
   if (electionDialog.open) electionDialog.close();
@@ -384,24 +399,34 @@ function showLobby() {
   if (!account) return showPlayerLogin();
   const code = new URLSearchParams(location.search).get('room')?.toUpperCase() ?? '';
   const phases = { lobby: '等待區', complete: '已完成' };
+  const roomGroups = [
+    ['自己建立的房間', account.rooms.filter(room => room.host), '還沒有自己建立的房間。'],
+    ['加入別人的房間', account.rooms.filter(room => !room.host), '還沒有加入別人的房間。'],
+  ];
   app.innerHTML = `<div class="lobby">
     <div class="hero"><h1>四個席位，一個國家</h1></div>
     <section class="panel"><h2>建立／加入房間</h2><form data-room>
       <label>房間代碼<input name="code" value="${escape(code)}" spellcheck="false"></label>
+      <label>房間名稱<input name="roomName" maxlength="60" ${code ? 'readonly' : ''}></label>
       <label class="check" data-test-room ${code ? 'hidden' : ''}><input type="checkbox" name="testMode">建立測試房間</label>
       <button class="primary">${code ? '加入房間' : '建立房間'}</button>
     </form></section>
-    <section class="panel"><h2>我的房間</h2>${account.rooms.length ? account.rooms.map(room =>
-      `<p><button type="button" data-resume-room="${room.code}">${room.code}</button>
-      · ${room.host ? '建立' : '加入'} · ${phases[room.phase] ?? '對局中'}${room.round ? ` · 第 ${room.round} 輪` : ''}</p>`
-    ).join('') : '<p class="muted">還沒有建立或加入的房間。</p>'}</section>
+    <section class="panel lobby-invitations" data-lobby-invitations ${account.invitations?.length ? '' : 'hidden'}>${lobbyInvitations()}</section>
+    <section class="panel"><h2>我的房間</h2>${roomGroups.map(([title, rooms, empty]) => `<section class="lobby-room-group"><h3>${title}</h3>
+      <form data-resume-room>
+        <select name="code" aria-label="${title}" required ${rooms.length ? '' : 'disabled'}>
+          ${rooms.length ? rooms.map(room => `<option value="${escape(room.code)}">${escape(room.roomName ?? room.code)}${room.roomName && room.roomName !== room.code ? ` · ${escape(room.code)}` : ''} · ${phases[room.phase] ?? '對局中'}${room.round ? ` · 第 ${room.round} 輪` : ''}</option>`).join('') : `<option value="">${empty}</option>`}
+        </select>
+        <button type="submit" ${rooms.length ? '' : 'disabled'}>加入</button>
+      </form></section>`).join('')}</section>
   </div>`;
+  if (code) syncLobbyRoomName(app.querySelector('[data-room]'));
 }
 
 function seatMoney(role, player) {
-  if (role === 'state') return `<span>國庫 $${state.treasury}</span>`;
-  if (role === 'capitalist') return `<span>營收 $${player.revenue}</span><span>資本 $${player.capital}</span>`;
-  return `<span>現金 $${player.cash}</span>`;
+  if (role === 'state') return `<span>${icon('money')} 國庫 $${state.treasury}</span>`;
+  if (role === 'capitalist') return `<span>${icon('money')} 營收 $${player.revenue}</span><span>${icon('money')} 資本 $${player.capital}</span>`;
+  return `<span>${icon('money')} 現金 $${player.cash}</span>`;
 }
 
 function startingStock(role) {
@@ -415,10 +440,24 @@ function startingStock(role) {
 function seatCards() {
   return meta.roles.map(role => {
     const player = state.players[role];
-    return `<div class="seat ${role}"><strong>${meta.names[role]}${role === state.role ? ' · 你' : ''}</strong>
-      <p>${escape(state.seats[role] ?? '等待入座')}${role === state.host ? ' · 房主' : ''}</p>
-      <div class="stats">${seatMoney(role, player)}<span>${icon('influence')} 個人影響力 ${player.influence}</span>
-        ${state.phase === 'lobby' ? '' : `<span>VP ${player.vp}</span><span>手牌 ${player.handCount}</span>`}</div>
+    const bills = (state.bills ?? []).filter(bill => bill.role === role);
+    return `<div class="seat ${role}"><div class="seat-summary-heading">
+      <strong>${meta.names[role]}</strong>
+      <span>${role === state.host ? roomHostStar : ''}${escape(state.seats[role] ?? '等待入座')}</span>
+      </div>
+      <div class="stats seat-summary-stats">
+        ${seatMoney(role, player)}
+        <hr class="seat-summary-divider">
+        ${state.phase === 'lobby' ? '' : `<span><span class="seat-stat-icon" aria-hidden="true">🏆</span> VP ${player.vp}</span><span><span class="seat-stat-icon" aria-hidden="true">▤</span> 手牌 ${player.handCount}</span>`}
+        <span>${icon('influence')} 影響力 ${player.influence}</span>
+        ${state.phase !== 'lobby' && role !== 'state' ? `<span title="投票袋中的方塊">${icon('vote')} 投票 ${state.bag[role] ?? 0}</span>` : ''}
+        ${state.phase === 'lobby' ? '' : `<hr class="seat-summary-divider">
+          <div class="seat-summary-bills">
+            <ul>${bills.length ? bills.map(({ policy, target }) =>
+              `<li>${coloredGameLabel(`．${meta.policies[policy]} ${policy + 1}${target}`, policyColor(policy))}</li>`).join('')
+              : '<li><span class="muted">．目前無提案</span></li>'}</ul>
+          </div>`}
+      </div>
       ${state.phase === 'lobby' ? startingStock(role) : ''}</div>`;
   }).join('');
 }
@@ -438,7 +477,8 @@ function secondBillField(firstPolicy) {
 }
 
 function form(type, title, fields = '') {
-  return `<form data-command="${type}">${fields}<button>${title}</button></form>`;
+  const unavailable = fields.includes('data-event-unavailable');
+  return `<form data-command="${type}">${fields}${unavailable ? '' : `<button>${title}</button>`}</form>`;
 }
 
 function selectField(name, title, options, required = false, disabled = false) {
@@ -604,8 +644,33 @@ function companyCardInfo(item) {
 
 function companyCardChoices(items) {
   if (!items.length) return '';
-  return `<details><summary>查看企業卡內容</summary>${items.map(item =>
-    `<details><summary>${escape(companyActionLabel(item))}</summary>${companyCardInfo(item)}</details>`).join('')}</details>`;
+  return `<details data-company-choices><summary>查看企業卡內容</summary>
+    <div class="market-rack">${items.map(item => marketCompanyCard(item, false, true)).join('')}</div></details>`;
+}
+
+function companyChoiceControl(card) {
+  const details = card.closest('[data-company-choices]');
+  const group = details.previousElementSibling;
+  const id = card.dataset.companyChoice;
+  const select = group?.querySelector('select');
+  if (select) {
+    const option = Array.from(select.options).find(option => option.value === id);
+    return { control: select, available: Boolean(option && !option.disabled && !select.matches(':disabled')), selected: select.value === id };
+  }
+  for (let label = group; label?.matches('label.check'); label = label.previousElementSibling) {
+    const checkbox = label.querySelector('input[name="companies"]');
+    if (!checkbox) break;
+    if (checkbox.value === id) return { control: checkbox, available: !checkbox.disabled, selected: checkbox.checked };
+  }
+  return { available: false, selected: false };
+}
+
+function syncCompanyCards(root) {
+  for (const card of root.querySelectorAll('[data-company-choice]')) {
+    const { available, selected } = companyChoiceControl(card);
+    card.setAttribute('aria-disabled', String(!available));
+    card.setAttribute('aria-pressed', String(selected));
+  }
 }
 
 function buildBudget(role) {
@@ -624,32 +689,43 @@ function buildCompanyChoices(offers, budget, storageResource, excluded) {
 }
 
 function buildFields(role, companies, { optional = false, prefix = '', land = false, idle = false,
-  price = item => item.cost, payer = role, mandatoryPay = false, storage = false, firstCompany } = {}) {
-  const offers = companies.map(item => ({ ...item, owner: item.owner ?? role, actualCost: item.actualCost ?? price(item) }));
+  price = item => item.cost, payer = role, mandatoryPay = false, storage = false, hidden = false } = {}) {
+  const offers = companies.map(item => {
+    const owner = item.owner ?? role;
+    const staffing = owner === 'middle' && !idle ? state.middleBuildOptions?.[item.id] : undefined;
+    const supplySlots = staffing?.supplySlots;
+    const canStaff = land ? Boolean(supplySlots?.length) : staffing?.canStaff !== false;
+    return { ...item, owner, actualCost: item.actualCost ?? price(item), supplySlots,
+      blocked: item.blocked || (!canStaff ? '無法填滿必要工位' : '') };
+  });
   let budget = buildBudget(payer);
   if (mandatoryPay) {
     const taken = Object.values(state.economy.loans).reduce((sum, count) => sum + count, 0);
     budget += Math.max(0, meta.loanSupply - taken) * meta.loanPrincipal;
   }
-  const choices = buildCompanyChoices(offers, budget - (firstCompany?.cost ?? 0), storage ? products[0] : null, firstCompany?.id);
-  const first = offers.find((_, index) => !choices[index][3]);
-  return `<fieldset class="card-build" data-card-build="${escape(JSON.stringify({ offers, prefix, land, idle, budget, storage, expansion: prefix === 'build1-' }))}">
-    ${selectField(prefix + 'company', '企業', [...(optional ? [['', '略過']] : !first ? [['', '目前無法建造']] : []), ...choices], !optional)}
+  const choices = buildCompanyChoices(offers, budget, storage ? products[0] : null);
+  const placeholder = optional ? '略過' : choices.some(([, , , disabled]) => !disabled) ? '選擇企業' : '目前無法建造';
+  return `<fieldset class="card-build" ${hidden ? 'hidden disabled' : ''} data-card-build="${escape(JSON.stringify({ offers, prefix, land, idle, budget, storage, expansion: prefix === 'build1-' }))}">
+    ${selectField(prefix + 'company', '企業', [['', placeholder], ...choices], !optional)}
     ${companyCardChoices(offers)}
-    <div data-card-build-slots>${optional ? '' : cardBuildSlots(first, { prefix, land, idle })}</div>
-    <button type="button" data-cancel-card-build hidden>取消建造配置</button>
+    <div data-card-build-slots></div>
   </fieldset>`;
 }
 
-function cardBuildSlots(item, { prefix, land, idle }, staff = []) {
+function cardBuildSlots(item, { prefix, land, idle, landSlot }, staff = []) {
   if (!item) return '';
   const slots = buildSlots(item);
   const workers = state.economy.workers;
-  return (item.wages ? selectField(prefix + 'wage', '薪資級距', wageOptions(item.wages)) : '')
+  const landOptions = land ? slots.flatMap((slot, index) => !slot.optional && item.supplySlots?.includes(index)
+    ? [[String(index), `工位 ${index + 1} · ${resources[slot.skill]}`]] : []) : [];
+  const selectedLandSlot = landOptions.some(([index]) => index === landSlot) ? landSlot : landOptions[0]?.[0];
+  return (land ? selectField(prefix + 'slot', '供應區新工人的工位',
+    [...landOptions].sort(([a], [b]) => Number(b === selectedLandSlot) - Number(a === selectedLandSlot)), true) : '')
+    + (item.wages ? selectField(prefix + 'wage', '薪資級距', wageOptions(item.wages)) : '')
     + slots.map((slot, index) => {
       const name = prefix + 'card-staff-' + index;
       const label = `工位 ${index + 1} · ${companySlotDetails(slot, meta.names)}${slot.optional ? '（選用）' : ''}`;
-      if (land && index === 0) return `<p>${label} · 由供應區加入新工人</p><input type="hidden" name="${name}" value="">`;
+      if (land && String(index) === selectedLandSlot) return `<p>${label} · 由供應區加入新工人</p><input type="hidden" name="${name}" value="">`;
       let candidates = workers.filter(worker => canStaffBuild(worker, item, slot, index, staff, idle));
       if (slot.skill === 'any' && (item.owner === 'capitalist' || slot.optional)) {
         const unskilledRoles = new Set(candidates.filter(worker => worker.skill === 'any').map(worker => worker.role));
@@ -672,7 +748,6 @@ function previewCardBuild(form) {
   const staff = [];
   for (const fieldset of form.querySelectorAll('[data-card-build]')) {
     const selected = Array.from(fieldset.querySelectorAll('select[name*="card-staff-"]:not(:disabled)'), field => field.value).filter(Boolean);
-    fieldset.querySelector('[data-cancel-card-build]').hidden = !selected.length;
     staff.push(...selected);
   }
   if (staff.length === cardBuildStaff.length && staff.every((id, index) => id === cardBuildStaff[index])) return;
@@ -703,7 +778,8 @@ function updateCardBuild(fieldset, changed) {
   const fields = fieldset.querySelector('[data-card-build-slots]');
   const staff = changed === prefix + 'company' ? [] : Array.from(fields.querySelectorAll('[name*="card-staff-"]'), field => field.value);
   const wage = changed === prefix + 'company' ? '' : form.elements.namedItem(prefix + 'wage')?.value;
-  fields.innerHTML = cardBuildSlots(item, { prefix, land, idle }, staff);
+  const landSlot = changed === prefix + 'company' ? undefined : form.elements.namedItem(prefix + 'slot')?.value;
+  fields.innerHTML = cardBuildSlots(item, { prefix, land, idle, landSlot }, staff);
   for (const select of fields.querySelectorAll('select')) {
     const index = Number(select.name.slice((prefix + 'card-staff-').length));
     const value = select.name === prefix + 'wage' ? wage : staff[index];
@@ -726,7 +802,8 @@ function moveFields(role, count = 3, { unemployed = false, employeeOnly = false,
   const rows = Array.from({ length: Math.min(count, movable.length) }, (_, index) => `<div class="two">
     ${selectField(`worker${index}`, `工人 ${index + 1}`, [['', '略過'], ...movable.map(workerOption)])}
     ${selectField(`slot${index}`, '目的工位', [['', '選擇工位'], ...slots])}</div>`).join('');
-  return `<div data-card-moves>${rows}</div>`;
+  return `<p class="muted">可在主圖板拖曳工人至符合條件的工位，或使用下方選單。</p>
+    <div data-card-moves data-worker-role="${role}" data-new-skill="${newWorker?.skill ?? ''}">${rows}</div>`;
 }
 
 function specializationFields(skill, replacement) {
@@ -829,21 +906,55 @@ function dealCardInfo(deal) {
   const tariff = deal.tariffByForeignTrade[section];
   const goods = Object.entries(deal.goods).map(([resource, count]) =>
     `${icon(resource)} ${resources[resource]} ${count} 份`).join('、');
-  return `<small>${goods}</small><small>基價 ${deal.cost}</small>
-    <small>關稅 6${section.toLowerCase()} ${tariff}</small>
-    <small>進商業倉庫 ${deal.cost + tariff}</small><small>進自由貿易區 ${deal.cost}</small>`;
+  return `<small>${goods}</small><small>基價 $${deal.cost}</small>
+    <small>關稅 6${section.toLowerCase()} $${tariff}</small>
+    <small>進商業倉庫 $${deal.cost + tariff}</small><small>進自由貿易區 $${deal.cost}</small>`;
+}
+
+function dealCard(deal, { tip = '', movable = false, selectable = false } = {}) {
+  const title = deal ? `商務合約(${Number(deal.id.slice(5))})` : '商務合約';
+  const details = deal ? dealCardInfo(deal) : '空置';
+  if (selectable) return `<button type="button" class="deal-card" data-deal-choice="${escape(deal.id)}" aria-pressed="false">
+    <strong>${title}</strong>${details}</button>`;
+  return `<div class="deal-card" tabindex="0" ${tip}><h4>${title}</h4>
+    ${movable && deal
+      ? `<button type="button" class="trade-piece" ${pieceAttrs('deal', deal.id, deal.nameZh)}>${details}</button>`
+      : `<p>${details}</p>`}</div>`;
 }
 
 function dealFields() {
   const deals = state.content?.deals ?? [];
-  const goods = (deals.find(deal => draft?.type === 'deal' && deal.id === draft.fields.dealId) ?? deals[0])?.goods;
   return selectField('dealId', '商業交易', deals.map(deal => [
     deal.id, `${deal.nameZh} · $${deal.cost} · ${Object.entries(deal.goods).map(([kind, amount]) => `${resources[kind]} ${amount}`).join('、')}`,
-  ])) + selectField('destination', '到貨位置', [['free-zone', '全部進自由貿易區'], ['warehouse', '全部進國內倉庫'], ['split', '分配到兩處']])
-    + '<p class="muted">選擇分配時，填寫進國內倉庫的數量，其餘進自由貿易區。只要有貨進國內倉庫，就需支付關稅。</p>'
-    + numberField('allocation-food', '食物進國內倉庫', goods?.food ?? 0)
-    + numberField('allocation-luxury', '奢侈品進國內倉庫', goods?.luxury ?? 0)
-    + deals.map(deal => `<details><summary>商務合約(${Number(deal.id.split('-').at(-1))})</summary><p class="deal-card-details">${dealCardInfo(deal)}</p></details>`).join('');
+  ]))
+    + `<details><summary>查看商務合約內容</summary><div class="deal-preview">${deals.map(deal => dealCard(deal, { selectable: true })).join('')}</div></details>`
+    + selectField('destination', '到貨位置', [['free-zone', '全部進自由貿易區'], ['warehouse', '全部進國內倉庫'], ['split', '分配到兩處']])
+    + '<div data-deal-allocation hidden></div>';
+}
+
+function syncDealAllocation(form) {
+  const allocation = form.querySelector('[data-deal-allocation]');
+  const { dealId, destination } = form.elements;
+  const deal = state.content?.deals.find(item => item.id === dealId.value);
+  const split = destination.value === 'split' && Boolean(deal);
+  const previous = allocation.dataset.dealId === dealId.value
+    ? Object.fromEntries(Array.from(allocation.querySelectorAll('input'), input => [input.name, input.valueAsNumber])) : {};
+  allocation.dataset.dealId = dealId.value;
+  allocation.hidden = !split;
+  allocation.innerHTML = split
+    ? '<p class="muted">填寫進國內倉庫的數量，其餘進自由貿易區。只要有貨進國內倉庫，就需支付關稅。</p>'
+      + Object.entries(deal.goods).map(([resource, quantity]) => {
+        const name = 'allocation-' + resource;
+        return numberField(name, `${resources[resource]}進國內倉庫`, quantity, 0, previous[name] ?? 0);
+      }).join('')
+    : '';
+}
+
+function syncDealCards(root) {
+  for (const card of root.querySelectorAll('[data-deal-choice]')) {
+    const select = card.form.elements.namedItem('dealId');
+    card.setAttribute('aria-pressed', String(select.value === card.dataset.dealChoice));
+  }
 }
 
 function strikeOptions() {
@@ -852,6 +963,46 @@ function strikeOptions() {
 }
 
 const assignmentMoves = () => draft?.type === 'assign' ? draft.moves : [];
+const cardMoveForm = () => acting('play') && app.querySelector('form[data-command="play"] [data-card-moves]');
+const boardAssignment = () => acting('assign') || Boolean(cardMoveForm());
+
+function cardMoveRows() {
+  const form = cardMoveForm();
+  return form ? Array.from(form.children, row => {
+    const [worker, slot] = row.querySelectorAll('select');
+    return { worker, slot };
+  }) : [];
+}
+
+function boardWorkerMoves() {
+  return cardMoveForm() ? cardMoveRows().flatMap(({ worker, slot }) => {
+    if (!worker.value || !slot.value) return [];
+    const [company, index] = slot.value.split(':');
+    return [{ worker: worker.value, company, slot: Number(index) }];
+  }) : assignmentMoves();
+}
+
+function refreshAssignmentBoard() {
+  const board = app.querySelector('.main-board');
+  if (!board) return;
+  hideTip();
+  board.outerHTML = tableBoard();
+}
+
+function cardWorker(id) {
+  if (id === 'specialization-new-worker') {
+    const skill = cardMoveForm()?.dataset?.newSkill;
+    return skill ? { id, skill, role: 'working' } : undefined;
+  }
+  return state.economy.workers.find(worker => worker.id === id);
+}
+
+function cardMoveRow(id) {
+  const rows = cardMoveRows();
+  return rows.find(row => row.worker.value === id)
+    ?? rows.find(row => !row.worker.value && !row.slot.value
+      && Array.from(row.worker.options).some(option => option.value === id && !option.disabled));
+}
 const assignmentUnionWorkers = (moves = assignmentMoves()) => moves.length < 3
   ? availableUnionWorkers(state.economy, moves) : [];
 const slotVacant = (slot, moves) => !slot.worker || moves.some(move => move.worker === slot.worker);
@@ -1091,9 +1242,10 @@ function well(label, value, resource, owner, kind, capacity, { showPriceLabel = 
 }
 
 function workerToken(worker, interactive = true, atDestination = false) {
-  const label = `${meta.names[worker.role]} · ${workerLabel(worker, state.economy.companies, atDestination ? '待確認' : undefined)}${worker.committed ? '（承諾）' : ''}`;
+  const label = worker.id === 'specialization-new-worker' ? `勞工 · ${industries[worker.skill]}（新工人）` : `${meta.names[worker.role]} · ${workerLabel(worker, state.economy.companies, atDestination ? '待確認' : undefined)}${worker.committed ? '（承諾）' : ''}`;
   const item = interactive && pendingBuild();
   const movable = interactive && (acting('assign') && worker.role === state.role && !worker.committed
+    || cardMoveRow(worker.id)
     || item && buildSlots(item).some((slot, index) => !draft.staff[index] && canStaffBuild(worker, item, slot, index)));
   const tag = movable ? 'button' : 'span';
   const union = state.economy.unions.includes(worker.id);
@@ -1111,7 +1263,7 @@ function companyTip(item) {
   const product = resources[item.resource];
   const slotLines = buildSlots(item).map((slot, index) => `工位${index + 1}: ${companySlotDetails(slot, meta.names)}`);
   return tipAttrs(item.name, [
-    `${meta.names[item.owner]} · ${industries[item.resource]}${item.cost == null ? '' : ` · 建造成本 $${item.cost}`}`,
+    `${meta.names[item.owner]} · ${industries[item.resource]}${item.cost == null ? '' : ` · 建造成本 $${item.cost}${item.actualCost != null && item.actualCost !== item.cost ? ` · 實付 $${item.actualCost}` : ''}`}`,
     `基本產量: ${product} ${item.output}`,
     item.automated && '自動化企業，無須工人。',
     ...slotLines,
@@ -1128,12 +1280,12 @@ function companyTip(item) {
 
 function companyTile(item) {
   const workers = state.economy.workers;
-  const moves = assignmentMoves();
+  const moves = boardWorkerMoves();
   const buildStaff = pendingBuild() ? draft.staff : cardBuildStaff;
   const slots = item.slots.map((slot, index) => {
     const worker = workers.find(candidate => candidate.id === slot.worker);
     const staged = moves.find(move => move.company === item.id && move.slot === index);
-    const incoming = staged && workers.find(candidate => candidate.id === staged.worker);
+    const incoming = staged && cardWorker(staged.worker);
     const vacated = Boolean(worker && (slotVacant(slot, moves) || buildStaff.includes(worker.id)));
     return { slot, worker, incoming, vacated };
   });
@@ -1147,15 +1299,15 @@ function companyTile(item) {
       M9 5v2m3.5-2.5V7M16 5.5V8M5.5 8.1 10 7.5a2 2 0 0 1 .9 3.9l-2.1.7 2.2 2.4"
       fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>` : '';
-  return `<article class="company industry-card industry-${item.resource} ${item.owner}${stopped ? ' company-stopped' : ''}" data-company="${escape(item.id)}" tabindex="0" ${companyTip(item)} ${acting('assign') ? `${dropAttrs('company-worker', item.id)} data-drop-quiet` : ''}>
+  return `<article class="company industry-card industry-${item.resource} ${item.owner}${stopped ? ' company-stopped' : ''}" data-company="${escape(item.id)}" tabindex="0" ${companyTip(item)} ${boardAssignment() ? `${dropAttrs('company-worker', item.id)} data-drop-quiet` : ''}>
     <strong>${escape(item.name)}${strike}${companyGear(item, !stopped && Boolean(item.machine || item.automated))}</strong>${pendingClosure ? '<span class="pending-piece">待確認停工</span>' : ''}
     <span class="company-output">${icon(item.resource)} ${industries[item.resource]} ${companyOutput(item, hasEmployee, stopped)} <span>${item.wages ? `L${item.wage} · $${item.wages[item.wage - 1]}` : '無薪資'}</span></span>
     <div class="company-slots">${slots.map(({ slot, worker, incoming, vacated }, index) => {
       const occupied = Boolean(incoming || slot.worker && !vacated);
       const label = `${item.name} · ${resources[slot.skill]}工位 ${index + 1} · ${slotRoleLabel(slot.role)}（${slot.optional ? '選用' : '必要'}）${occupied ? '・已佔用' : ''}`;
       const target = `<button type="button" class="slot-drop${slot.optional ? ' slot-optional' : ''}" aria-label="${escape(label)}"
-        ${acting('assign') && !occupied ? dropAttrs('slot', `${item.id}:${index}`) : 'disabled'}>${slot.skill === 'any' ? '通' : icon(slot.skill)}${slotRoleIcons(slot.role)}</button>`;
-      return `<div class="company-slot ${incoming ? 'staged' : ''}" ${acting('assign') ? dropAttrs('slot', `${item.id}:${index}`) : ''}>
+        ${boardAssignment() && !occupied ? dropAttrs('slot', `${item.id}:${index}`) : 'disabled'}>${slot.skill === 'any' ? '通' : icon(slot.skill)}${slotRoleIcons(slot.role)}</button>`;
+      return `<div class="company-slot ${incoming ? 'staged' : ''}" ${boardAssignment() ? dropAttrs('slot', `${item.id}:${index}`) : ''}>
         ${target}${incoming ? workerToken(incoming, true, true) + '<span class="pending-piece">待確認</span>'
           : vacated ? '<span class="pending-piece">待移出</span>'
             : worker ? workerToken(worker) + (pendingClosure ? '<span class="pending-piece pending-unemployment">待確認回到待業區</span>' : '') : ''}</div>`;
@@ -1187,7 +1339,7 @@ function sector(role, capacity) {
   const interactive = empty > 0 && acting('build') && state.role === role;
   const pending = interactive && pendingBuild();
   return `<section class="board-zone sector sector-${role} ${role}" ${interactive ? dropAttrs('sector', role) : ''}>
-    <h3>${boardHeadingHelp(`私營部門 · ${meta.names[role]}`,
+    <h3>${boardHeadingHelp(`私營企業 · ${meta.names[role]}`,
       role === 'capitalist'
         ? '開局設置\n放置超市、購物中心、學院與診所，起始薪資皆設為 L2。超市配置勞工的農業工與通用工各 1 名。購物中心配置中產的奢侈品工與通用工各 1 名。學院配置勞工的教育工與通用工各 1 名。診所起始空置。企業市場另從洗好的企業牌庫翻開 4 張。'
         : '開局設置\n放置便利商店與醫師診所，起始薪資皆設為 L2。便利商店配置 1 名中產農業工，醫師診所配置 1 名中產醫療工，兩間的選用勞工工位開局空置。企業市場另從洗好的企業牌庫翻開 3 張。',
@@ -1225,8 +1377,8 @@ function publicSector() {
     ...Array.from({ length: Math.max(0, 9 - opened.length) }, () => ({ face: 'closed' })),
   ];
   const companies = new Map(opened.map(item => [item.id, item]));
-  return `<section class="board-zone sector sector-state state" aria-label="公營部門">
-    <h3>${boardHeadingHelp('公營部門',
+  return `<section class="board-zone sector sector-state state" aria-label="公營企業">
+    <h3>${boardHeadingHelp('公營企業',
       '開局設置\n四人局使用對應人數版本的公營牌。第一列正面放置大學醫院、技術大學與全國公共廣播，起始薪資設為 L2。大學醫院配置 1 名勞工醫療工與 2 名勞工通用工，技術大學配置 1 名中產教育工與 2 名中產通用工。其餘兩列各放醫療、教育、媒體企業各一張，開局朝下。起始財政 1C 開放第一列共 3 家。',
       '國家經營公營企業並由國庫發薪，產出的醫療、教育及媒體影響力放入公共服務區。',
       '財政政策（第 1 項）決定開放規模。正面是已開放企業，仍需填滿必要工位才能營運。背面表示尚未開放。',
@@ -1249,13 +1401,15 @@ function companyMarket(movable, instruction = '') {
   if (!companies) return '';
   return `<section class="market-board ${role}"><h3>企業市場 · ${companies.length} 張</h3>
     ${instruction ? `<p class="muted">${instruction}</p>` : ''}<div class="market-rack">
-    ${companies.map(item => {
-      const tag = movable ? 'button' : 'div';
-      return `<${tag} class="market-card industry-card industry-${item.resource}" ${movable ? `type="button" ${pieceAttrs('company', item.id, item.name)}` : 'tabindex="0"'} ${companyTip(item)}>
-        <strong>${escape(item.name)}${companyGear(item)}</strong><span>${icon(item.resource)} ${industries[item.resource]} ${item.output} · $${item.cost}</span>
-        <span class="company-slots">${buildSlots(item).map(slot => `<span class="slot-drop${slot.optional ? ' slot-optional' : ''}" title="${slotRoleLabel(slot.role)}（${slot.optional ? '選用' : '必要'}）">
-          ${slot.skill === 'any' ? '通' : icon(slot.skill)}${slotRoleIcons(slot.role)}</span>`).join('')}</span></${tag}>`;
-    }).join('') || '<p class="muted">市場已空</p>'}</div></section>`;
+    ${companies.map(item => marketCompanyCard(item, movable)).join('') || '<p class="muted">市場已空</p>'}</div></section>`;
+}
+
+function marketCompanyCard(item, movable = false, selectable = false) {
+  const tag = movable || selectable ? 'button' : 'div';
+  return `<${tag} class="market-card industry-card industry-${item.resource} ${item.owner}" ${movable ? `type="button" ${pieceAttrs('company', item.id, item.name)}` : selectable ? `type="button" data-company-choice="${escape(item.id)}" aria-pressed="false"` : 'tabindex="0"'} ${companyTip(item)}>
+    <strong>${escape(item.name)}${companyGear(item)}</strong><span>${icon(item.resource)} ${industries[item.resource]} ${item.output} · $${item.actualCost ?? item.cost}</span>
+    <span class="company-slots">${buildSlots(item).map(slot => `<span class="slot-drop${slot.optional ? ' slot-optional' : ''}" title="${slotRoleLabel(slot.role)}（${slot.optional ? '選用' : '必要'}）">
+      ${slot.skill === 'any' ? '通' : icon(slot.skill)}${slotRoleIcons(slot.role)}</span>`).join('')}</span></${tag}>`;
 }
 
 function boardEvents(events = []) {
@@ -1293,9 +1447,10 @@ function tradeTips(deals, offers) {
 function tableBoard() {
   const { economy, content, publicServices, match } = state;
   const plannedStaff = pendingBuild() ? draft.staff : cardBuildStaff;
-  const moves = assignmentMoves();
-  const idle = economy?.workers.filter(worker => !worker.company && !economy.unions.includes(worker.id)
-    && !plannedStaff.includes(worker.id) && !moves.some(move => move.worker === worker.id)) ?? [];
+  const moves = boardWorkerMoves();
+  const newWorker = cardWorker('specialization-new-worker');
+  const idle = [...(economy?.workers ?? []), ...(newWorker ? [newWorker] : [])].filter(worker => !worker.company && !economy.unions.includes(worker.id)
+    && !plannedStaff.includes(worker.id) && !moves.some(move => move.worker === worker.id));
   const farms = economy?.companies.filter(item => item.owner === 'working') ?? [];
   const emptyFarms = Math.max(0, 2 - farms.length);
   const range = length => Array.from({ length }, (_, index) => index + 1);
@@ -1347,15 +1502,25 @@ function tableBoard() {
           '結果確定後，抽出的方塊只有落敗方放回投票袋。勝方方塊回到供應區，雙方投入的影響力都會消耗。平票視為贊成方勝出，因此反對方抽出的方塊放回袋中。')}</h3><div class="bag-row">${Object.entries(state.bag).map(([role, count]) => `<span class="${role}">${meta.names[role]} <b>${count}</b></span>`).join('')}</div>
         ${boardEvents(content?.events)}
         <h3>${boardHeadingHelp('國家福利',
-          '開局設置\n勞工、中產、資本家的福利區都從空白開始，畫面顯示 0。國家第一次提供福利時，才把指定的金錢、資源或方塊放入對應階級的區域。',
-          '國家可透過事件或卡牌，將金錢、資源或投票方塊放到勞工、中產或資本家的福利區。主圖板顯示各階級待領福利的合計，實際品項可在自己的「領取福利」行動中查看。',
+          '開局設置\n勞工、中產、資本家的福利區開局時每個福利品項都顯示灰色的 -。國家第一次提供福利時，才把指定的金錢、資源或方塊放入對應階級的區域。',
+          '國家可透過事件或卡牌，將金錢、資源或投票方塊放到勞工、中產或資本家的福利區。主圖板按階級以圖示列出待領福利品項及數量。',
           '同一階級已有待領福利時，下一次提供通常會用新的福利替換原有內容。部分卡牌效果允許保留並合併。',
           '輪到自己時，選擇免費行動「領取福利」即可一次領完。金錢與資源交給該階級，投票方塊立即放進投票袋，福利區隨即清空。',
-          '國家每次有人領取福利得 1 VP。例如中產一次領走 $10 和 2 枚投票方塊，國家共得 1 VP。')}</h3><div class="benefit-row">${classes.map(role => `<span class="${role}">${meta.names[role]} <b>${Object.values(content?.benefits[role] ?? {}).reduce((sum, count) => sum + count, 0)}</b></span>`).join('')}</div></section>
+          '國家每次有人領取福利得 1 VP。例如中產一次領走 $10 和 2 枚投票方塊，國家共得 1 VP。')}</h3><div class="benefit-table-wrap"><table class="benefit-table" aria-label="國家福利">
+          <thead><tr><th scope="col" aria-label="階級"></th>${Object.entries(adjustBenefitLabels).map(([key, label]) => {
+            const symbol = key === 'cash' ? 'money' : key === 'votes' ? 'vote' : key;
+            return `<th scope="col" title="${label}" aria-label="${label}">${icon(symbol)}</th>`;
+          }).join('')}</tr></thead>
+          <tbody>${classes.map(role => `<tr><th scope="row" class="${role}">${meta.names[role]}</th>
+            ${Object.keys(adjustBenefitLabels).map(key => {
+              const count = content?.benefits[role]?.[key] ?? 0;
+              return count === 0 ? '<td class="muted" aria-label="0">-</td>' : `<td>${count}</td>`;
+            }).join('')}</tr>`).join('')}</tbody>
+        </table></div></section>
         <section class="board-zone board-treasury"><h3>${boardHeadingHelp('國庫',
           '開局設置\n從供應區取 $120 放入主圖板的國庫，作為國家的起始資金。國家開局有 0 筆貸款。',
           '國庫顯示國家目前可支用的金錢。其他階級繳的稅、進口關稅、公共服務銷售收入，以及部分卡牌給的金錢都會存入國庫。',
-          '公營企業薪資、事件支出與借款利息由國庫支付。輪末生產階段先發薪，接著檢查 IMF，最後收稅。規劃支出時，可在「結算試算」查看預計收入及支出。',
+          '公營企業薪資、事件支出與借款利息由國庫支付。輪末生產階段先發薪，接著檢查 IMF，最後收稅。規劃支出時，可在「試算」查看預計收入及支出。',
           '國庫付不起強制支出時，每筆貸款提供 $50。後續準備階段每筆支付 $5 利息。貸款筆數達到財政政策的門檻時，可能觸發 IMF 介入。',
           '終局結算貸款後，國庫每滿 $30 得 1 VP。例如剩 $95，可得 3 VP。')}</h3><p class="treasury-amount"><strong>$${state.treasury}</strong></p></section></div>
       <section class="board-zone board-trade"><h3>${boardHeadingHelp('對外貿易',
@@ -1363,12 +1528,9 @@ function tableBoard() {
         '商務合約\n開局將合約牌洗好，翻開 1 張。從第二輪起，每輪準備階段先棄掉場上未使用的合約，再按當時生效的對外貿易政策從牌庫頂翻新牌。6A 不翻、6B 翻 1 張、6C 翻 2 張。政策在輪中改變時，場上的合約繼續保留，但關稅立即按新政策計算。\n資本家選擇「商業交易」，挑一張場上的合約並指定到貨位置。合約的貨物種類、數量和基價固定，完成後該牌棄置，當輪不補牌。\n整批放進自由貿易區可免關稅，區內貨物只供出口。只要有貨進國內倉庫，就要付整張合約在目前政策下的關稅。兩處各有容量，超出的貨物會丟棄。\n例如一張合約基價 $30，對外貿易政策 6B 欄標示關稅 $8。有貨進國內倉庫就付 $38，全部進自由貿易區則付 $30。',
         '出口\n開局將出口牌洗好，從牌庫頂翻開 1 張。從第二輪起，每輪準備階段棄掉舊出口牌，再從牌庫頂翻開 1 張。完成交易後，出口牌仍留在場上，下一次出口行動可以再按同一張牌選交易。部分卡牌效果可提前更換出口牌。\n中產、資本家或國家選擇「對外出口」，勾選現行出口牌上的交易再確認。每筆必須備足牌上指定數量，確認後交出資源並取得列出的金錢。同一次行動可做多筆不同交易，每筆通常只能做一次。\n中產從商業倉庫出貨，每完成一筆另得 1 VP。資本家可用商業倉庫及自由貿易區的庫存。國家只出口食物與奢侈品。',
         '進口\n進口區常駐在主圖板。食物基價每份 $10，奢侈品基價每份 $6。畫面的大數字是每份基價加上當前政策的關稅，下面會分別列出基價與關稅。政策變更生效時，進口價會同步更新。\n6A 食物 $10＋$10＝$20，奢侈品 $6＋$6＝$12。\n6B 食物 $10＋$5＝$15，奢侈品 $6＋$3＝$9。\n6C 食物 $10＋$0＝$10，奢侈品 $6＋$0＝$6。\n勞工或中產在「購買商品與服務」選食物或奢侈品，再選「外國市場」、填數量並確認。一般購買一次選一種資源，最多選兩個來源，向每個來源購買的數量不得超過目前人口。\n每份總價＝基價＋對外貿易政策規定的關稅。基價付給供應區，關稅付給國庫。例如 6B 時進口 3 份奢侈品，每份基價 $6、關稅 $3，總共付 3 ×（$6＋$3）＝$27，其中 $9 進國庫。')}</h3><div class="trade-grid">
-        <div tabindex="0" ${trade.deals}><h4>商務合約${deals.length ? ` (${deals.map(deal => Number(deal.id.slice(5))).join('、')})` : ''}</h4>${deals.map(deal => {
-          const details = dealCardInfo(deal);
-          return state.role === 'capitalist' && acting('deal')
-            ? `<button type="button" class="trade-piece" ${pieceAttrs('deal', deal.id, deal.nameZh)}>${details}</button>`
-            : `<p>${details}</p>`;
-        }).join('') || '<p>無</p>'}</div>
+        ${Array.from({ length: 2 }, (_, index) => dealCard(deals[index], {
+          tip: trade.deals, movable: state.role === 'capitalist' && acting('deal'),
+        })).join('')}
         <div tabindex="0" ${trade.exports}><h4>出口${content?.export ? `(${Number(content.export.id.slice(7))})` : ''}</h4><div class="export-list">${offers.map((offer, id) => {
           const label = exportOfferLabel(offer, icon);
           const available = match?.exports.some(choice => choice.id === id && choice.available);
@@ -1394,7 +1556,7 @@ function tableBoard() {
         '媒體影響力\n由營運中的公營媒體企業在生產階段產出。勞工或中產可向國家以每份 $10 購買，轉為自己的個人影響力。國家可在自己的回合選「競選」，將最多 3 份公共媒體影響力轉為自己的個人影響力。個人影響力可用於發起即時表決，或在表決時投入以增加票數。')}</h3><div class="well-row">
         ${['health', 'education', 'influence'].map(resource => {
           const media = resource === 'influence';
-          return well(media ? '媒體影響力' : resources[resource], publicServices[resource], resource, 'state',
+          return well(media ? '媒體' : resources[resource], publicServices[resource], resource, 'state',
             media ? 'media' : undefined, economy?.publicStorageCapacity?.[resource], { showPriceLabel: false });
         }).join('')}</div></section>
       ${sector('capitalist', 12)}${publicSector()}${sector('middle', 8)}
@@ -1407,7 +1569,7 @@ function tableBoard() {
         '指派工人\n準備階段新增的工人先進待業區。同輪進入行動階段後，輪到自己時可選主要行動「指派工人」，一般一次最多指派 3 名尚未承諾的己方工人。將工人拖到相符工位，再確認行動。技能工位須符合指定技能，通用工位可容納符合階級條件的工人。要啟動停工企業，須在同一次行動補齊必要工位。',
         '建造與雇用\n資本家和國家可依建造或卡牌效果雇用待業工人，工人仍屬勞工或中產。中產建造企業時，必須補齊自己的必要工位，有選用勞工工位時也可按條件雇用勞工。新派到企業的工人會進入承諾狀態，通常要等本輪生產結算後才可再調動。')} <span>${idle.length}</span>${state.demonstration?.active ? ' · 示威中' : ''}</h3>
         ${['working', 'middle'].map(role => {
-          const target = acting('assign') && state.role === role && moves.length > 0;
+          const target = (acting('assign') && state.role === role || cardMoveForm()?.dataset?.workerRole === role) && moves.length > 0;
           return `<div class="worker-pool-row ${role}"><strong>${meta.names[role]}</strong>
             <div class="worker-pool" ${target ? dropAttrs('unemployed', role) : ''}>
               ${idle.filter(worker => worker.role === role).map(worker => workerToken(worker)).join('')}
@@ -1546,24 +1708,35 @@ function productionTotals(production, forecast = false) {
     return [coloredGameLabel(resources[resource], `var(--industry-${resource})`), produced, stored, produced - stored];
   });
   const columns = ['資源', '產量', received, '未取得'];
-  return settlementTable(forecast ? '各資源預計產量（份）' : '各資源生產結算（份）', columns, totals);
+  return settlementTable(forecast ? '預計產量' : '各資源生產結算（份）', columns, totals);
 }
 
-function companyProductionDetails(production, forecast = false, ownerOrder = ['capitalist', 'middle', 'state']) {
+function companyProductionDetails(production, forecast = false, ownerOrder = ['capitalist', 'middle', 'state'], { expanded = false } = {}) {
   if (!production?.length) return '';
   const columns = ['資源', '企業', '產量', forecast ? '預計取得' : '實際取得', '未取得', '薪資'];
   return ownerOrder.map(owner => {
     const companies = production.filter(row => row.owner === owner)
       .sort((a, b) => products.indexOf(a.resource) - products.indexOf(b.resource));
     if (!companies.length) return '';
-    const rows = companies.map(row => [
+    const renderCompanyRow = row => [
         coloredGameLabel(resources[row.resource], `var(--industry-${row.resource})`),
         coloredGameLabel(row.company, `var(--industry-${row.resource})`), row.produced, row.stored,
         row.produced - row.stored, row.wage
-          ? `${coloredGameLabel(meta.names[row.recipient], `var(--${row.recipient})`)} ${coloredGameLabel(`$${row.wage}`, 'var(--gold)')}`
+          ? `${expanded ? '' : coloredGameLabel(meta.names[row.recipient], `var(--${row.recipient})`) + ' '}${coloredGameLabel(`$${row.wage}`, 'var(--gold)')}`
           : '-',
-    ]);
+    ];
+    const rows = companies.map(renderCompanyRow);
     const wages = companies.reduce((sum, row) => sum + (row.wage ?? 0), 0);
+    if (expanded) {
+      const groups = [
+        ...['working', 'middle'].map(role => ({
+          label: coloredGameLabel(meta.names[role], `var(--${role})`),
+          rows: companies.filter(row => row.recipient === role && row.wage > 0).map(renderCompanyRow),
+        })),
+        { label: '無薪資支出', rows: companies.filter(row => !(row.wage > 0)).map(renderCompanyRow) },
+      ].filter(group => group.rows.length);
+      return settlementTable('薪資明細', columns, rows, ['薪資合計', '', '', '', '', `$${wages}`], '', groups);
+    }
     return `<details><summary>${coloredGameLabel(meta.names[owner], `var(--${owner})`)}生產薪資明細</summary>
       ${settlementTable(null, columns, rows, ['薪資合計', '', '', '', '', `$${wages}`])}
     </details>`;
@@ -1585,7 +1758,7 @@ function phaseProgress() {
 function resourcePricePanel() {
   if (!state.match?.prices) return '';
   const roles = ['working', 'middle', 'capitalist', 'state', 'foreign'];
-  return `<section class="panel"><h2>各項資源價格</h2>
+  return `<section class="panel">
     <p class="muted">每份以金錢計價。中產可免費把自己的倉庫庫存轉到生活資源區。</p>
     <div class="price-table-scroll"><table class="price-table" aria-label="各項資源目前單價及庫存">
       <thead><tr><th scope="col">階級</th><th scope="col">項目</th>
@@ -1605,6 +1778,17 @@ function resourcePricePanel() {
           ? `<th scope="rowgroup" rowspan="${rows.length}">${role === 'foreign' ? '外國市場' : meta.names[role]}</th>` : ''}
           <th scope="row">${label}</th>${values.map(column => `<td>${column[index]}</td>`).join('')}</tr>`).join('')}</tbody>`;
       }).join('')}</table></div></section>`;
+}
+
+function competitiveSources(target) {
+  const { companies, workers } = state.economy;
+  return companies.filter(item => item.owner === 'state' && item.operational && item.resource === target.resource
+    && item.slots.length === target.slots.length && item.slots.every((slot, index) => {
+      const worker = workers.find(worker => worker.id === slot.worker);
+      const required = target.slots[index];
+      return worker && !worker.committed && (!required.role || required.role === worker.role)
+        && (required.skill === 'any' || required.skill === worker.skill);
+    }));
 }
 
 function matchesCardPolicy(card) {
@@ -1660,7 +1844,7 @@ function playForm(card) {
   const recipients = (options = classes) => selectField('recipient', '選擇階級', roleOptions(options));
   const idle = workers?.filter(worker => worker.role === role && !worker.company && !worker.committed && !economy.unions.includes(worker.id)) ?? [];
   const workerChecks = checks('workers', idle.map(worker => [worker.id, workerLabel(worker, companies)]));
-  const quantity = max => numberField('quantity', '數量', max);
+  const quantity = (max, min = 0) => numberField('quantity', '數量', max, min);
   const billSelect = (name, options) => selectField(name, '政策', options.map(({ policy, target }) =>
     policyOption(policy, target)));
   switch (effect) {
@@ -1672,8 +1856,9 @@ function playForm(card) {
     case 'two-bills': return new Set(eligibleBills.map(item => item.policy)).size >= 2
       ? play(selectField('bill0', '第一案政策', eligibleBills.map(({ policy, target }) => policyOption(policy, target)), true)
         + '<label class="check"><input type="checkbox" name="immediate0">立即表決第 1 案</label>'
-        + `<div data-second-bill>${secondBillField(eligibleBills[0].policy)}</div>`
-        + '<label class="check"><input type="checkbox" name="immediate1">立即表決第 2 案</label>') : '';
+        + '<label class="check"><input type="checkbox" name="deferSecond" disabled>第一案表決結束後再選第二案</label>'
+        + `<fieldset data-second-bill-fields><div data-second-bill>${secondBillField(eligibleBills[0].policy)}</div>
+          <label class="check"><input type="checkbox" name="immediate1">立即表決第 2 案</label></fieldset>`) : '';
     case 'migration': return idle.length >= 4 ? play(workerChecks) : '';
     case 'farm': return idle.length >= 3 && own.filter(item => item.id.startsWith('company-working-cooperative-farm')).length < 2 ? play(workerChecks) : '';
     case 'accident': return play(recipients(['middle', 'capitalist', 'state']) + selectField('resource', '產業', productOptions(products)));
@@ -1696,7 +1881,11 @@ function playForm(card) {
     case 'income': case 'unemployment': return play(role === 'state' ? recipients(['working', 'middle'])
       : purchaseFields({ optional: true, ...(effect === 'unemployment' && { sources: ['state'] }) }));
     case 'public-overtime': return play(companyField(companies.filter(item => item.owner === 'state' && item.operational && !item.automated && !item.strike)) + quantity(population));
-    case 'private-overtime': return play(companyField(own.filter(item => item.operational && !item.automated && !item.strike)));
+    case 'private-overtime': {
+      const eligible = own.filter(item => item.operational && !item.automated && !item.strike
+        && (item.wages?.[item.wage - 1] ?? 0) <= buildBudget(role));
+      return eligible.length ? play(companyField(eligible)) : '';
+    }
     case 'tourism-purchase': {
       const sellers = ['middle', 'capitalist'].filter(seller => tourismLimit(seller) > 0);
       return sellers.length ? play(`<div data-card-tourism>${recipients(sellers)}${amountField(tourismLimit(sellers[0]))}</div>`) : '';
@@ -1705,7 +1894,7 @@ function playForm(card) {
       const product = effect === 'bid-rigging' ? 'luxury' : effect.slice(5);
       const space = (economy.publicStorageCapacity?.[product] ?? 6) - (state.publicServices[product] ?? 0);
       const max = Math.min(role === 'middle' || product === 'luxury' ? 6 : 9, economy.inventory[role][product], Math.max(0, space));
-      return max >= 1 ? play(quantity(max)) : '';
+      return max >= 1 ? play(quantity(max, 1)) : '';
     }
     case 'personal-buy': return play(purchaseFields({ flexible: true }));
     case 'grant-build': case 'land-build':
@@ -1714,17 +1903,27 @@ function playForm(card) {
       const offers = markets[role]?.filter(item => ['food', 'luxury'].includes(item.resource));
       return offers?.length ? play(buildFields(role, offers, { price: item => Math.ceil(item.cost / 2) })) : '';
     }
-    case 'investment-build':
-      return play(selectField('source', '企業來源', [['market', '市場'], ['deck',
-        state.canInvestFromDeck ? '企業牌庫' : '企業牌庫（沒有可負擔且能建造的企業）', null, !state.canInvestFromDeck]])
-        + buildFields(role, markets[role], { price: item => Math.max(0, item.cost - (role === 'middle' ? 8 : 10)) }));
+    case 'investment-build': {
+      const market = state.investmentMarket ?? [];
+      const marketAvailable = market.some(item => !item.blocked);
+      const deckAvailable = state.canInvestFromDeck;
+      const deckReason = state.investmentDeckReason ?? '沒有可建造的企業';
+      const owner = meta.names[role];
+      const discount = role === 'middle' ? 8 : 10;
+      if (!marketAvailable && !deckAvailable) {
+        return `<p class="muted">${owner}企業市場目前無可建造企業。牌庫：${escape(deckReason)}。</p>`;
+      }
+      return play(selectField('source', '企業來源', [
+        ['market', `${owner}企業市場（減 $${discount}${marketAvailable ? '' : '，無可建造企業'}）`, null, !marketAvailable],
+        ['deck', `${owner}企業牌庫（加 $${discount}${deckAvailable ? '' : `，${deckReason}`}）`, null, !deckAvailable],
+      ]) + buildFields(role, market, { hidden: !marketAvailable }));
+    }
     case 'expand-build': {
       const budget = buildBudget(role);
       const offers = markets[role]?.map(item => ({ ...item, blocked: markets[role].some(other => other.id !== item.id
         && item.cost + other.cost <= budget) ? '' : '資金不足以建造兩家企業' }));
-      const firstCompany = offers?.find(item => !item.blocked);
       return offers?.length >= 2 ? play(buildFields(role, offers, { prefix: 'build0-' })
-        + buildFields(role, markets[role], { prefix: 'build1-', firstCompany })) : '';
+        + buildFields(role, markets[role], { prefix: 'build1-' })) : '';
     }
     case 'grow-storage':
       return play(selectField('resource', '倉庫種類', productOptions(products.slice(0, 4))) + buildFields(role, markets[role], { optional: true, storage: true }));
@@ -1732,9 +1931,12 @@ function playForm(card) {
     case 'fill-unemployed': case 'recruit':
       return play(companyField(own.filter(item => !item.operational)) + recipients(['working', 'middle'])
         + (effect === 'recruit' ? selectField('replacement', '供應不足時的替代技能', [['', '不指定'], ...skillOptions(products)]) : ''));
-    case 'competitive-wages':
-      return play(companyField(own.filter(item => !item.operational && item.wages))
-        + companyField(companies.filter(item => item.owner === 'state' && item.operational), '移出全組工人的公營企業', false, 'sourceCompany'));
+    case 'competitive-wages': {
+      const targets = own.filter(item => !item.operational && item.wages && item.slots.every(slot => !slot.worker)
+        && competitiveSources(item).length);
+      return targets.length ? play(`<div data-competitive-wages>${companyField(targets)}
+        <div data-competitive-source>${companyField(competitiveSources(targets[0]), '移出全組工人的公營企業', false, 'sourceCompany')}</div></div>`) : '';
+    }
     case 'brand-export': case 'food-export': {
       const product = effect === 'brand-export' ? 'luxury' : 'food';
       const stock = economy.inventory[role][product] + economy.tradeZone[product];
@@ -1753,7 +1955,7 @@ function playForm(card) {
     case 'provide-health': case 'provide-education': return play(recipients(['working', 'middle']));
     case 'export-health': case 'export-education': {
       const max = Math.min(8, state.publicServices[effect.slice(7)]);
-      return max >= 1 ? play(quantity(max)) : '';
+      return max >= 1 ? play(quantity(max, 1)) : '';
     }
     case 'shift-event':
       return state.content?.events.length ? play() : '<p>場上沒有事件，無法使用「轉移重點」。可棄掉此牌執行基本行動。</p>';
@@ -1764,7 +1966,6 @@ function playForm(card) {
       const targets = companies.filter(item => item.owner === 'capitalist' && !item.operational && !item.machineryBonus && !item.automated);
       const blocks = targets.map(item => `<div data-nationalize-slots="${escape(item.id)}" hidden>${item.slots.map((slot, index) => {
         const candidates = workers.filter(worker => !worker.committed
-          && (!worker.company || companies.find(company => company.id === worker.company)?.owner === 'state')
           && (!slot.role || slot.role === worker.role) && (slot.skill === 'any' || slot.skill === worker.skill));
         return selectField('card-staff-' + index,
           `工位 ${index + 1} · ${companySlotDetails(slot, meta.names)}${slot.optional ? '（選用）' : ''}`,
@@ -1774,7 +1975,7 @@ function playForm(card) {
         ${selectField('company', '轉為公營', [['', '選擇企業'], ...companyOptions(targets)])}
         ${companyCardChoices(targets)}
         ${selectField('hire', '指派工人的階級', [['', '略過指派'], ...roleOptions(['working', 'middle'])])}
-        <p class="muted">可從待業區或公營企業調動最多 3 名未承諾工人；企業須一次補滿必要工位。</p>
+        <p class="muted">可從待業區或其他企業調動最多 3 名未承諾工人；企業須一次補滿必要工位。</p>
         ${blocks}</div>`) : '';
     }
     case 'privatize': return play(companyField(own.filter(item => item.operational)));
@@ -1786,16 +1987,27 @@ function eventFields(event, prefix = '') {
   const { form: spec } = event;
   let fields = `<input type="hidden" name="${prefix}eventId" value="${escape(event.id)}">`;
   if (spec.targets) fields += selectField(prefix + 'recipient', '選擇階級', roleOptions(spec.targets));
-  if (spec.amounts) fields += selectField(prefix + 'amount', '金額', spec.amounts.map(amount => [amount, `$${amount}`]));
+  if (spec.amounts) {
+    const amounts = spec.amounts.filter(amount => amount * (spec.kind === 'stimulus' ? classes.length : 1) <= state.treasury);
+    fields += amounts.length ? selectField(prefix + 'amount', '金額', amounts.map(amount => [amount, `$${amount}`]))
+      : '<p data-event-unavailable>國庫不足以支付事件費用。</p>';
+  }
   if (spec.kind === 'provide' && spec.resources.length === 2) fields += numberField(prefix + 'amount',
     `其中 ${resources[spec.resources[0]]} 的數量`, Math.max(0, spec.targetAmounts[spec.targets[0]] - 1), 1);
   if (spec.kind === 'provide') fields += `<p class="muted">${Object.entries(spec.targetAmounts)
     .map(([role, amount]) => `${meta.names[role]} ${spec.resources[0] === 'cash' ? '$' : ''}${amount}`).join('、')}</p>`;
-  if (spec.kind === 'spend') fields += numberField(prefix + 'amount', `支出 ${resources[spec.resource]}`,
-    Math.min(spec.max, state.publicServices[spec.resource]));
+  if (spec.kind === 'spend') {
+    const max = Math.min(spec.max, state.publicServices[spec.resource]);
+    fields += max ? numberField(prefix + 'amount', `支出 ${resources[spec.resource]}`, max, 1)
+      : '<p data-event-unavailable>目前沒有可支出的資源。</p>';
+  }
   if (spec.kind === 'two') fields += checks(prefix + 'recipients', roleOptions(classes));
-  if (spec.kind === 'distribute') fields += classes.map(role => numberField(prefix + 'dist-' + role, meta.names[role],
-    spec.resource === 'votes' ? spec.max : Math.min(spec.max, state.publicServices.influence))).join('');
+  if (spec.kind === 'distribute' && spec.cost > state.treasury) fields += '<p data-event-unavailable>國庫不足以支付事件費用。</p>';
+  else if (spec.kind === 'distribute') {
+    const max = spec.resource === 'votes' ? spec.max : Math.min(spec.max, state.publicServices.influence);
+    fields += max ? classes.map(role => numberField(prefix + 'dist-' + role, meta.names[role], max)).join('')
+      + `<p>${spec.resource === 'votes' ? `合計須分配 ${spec.max} 枚方塊。` : '分配總數至少為 1。'}</p>` : '<p data-event-unavailable>目前沒有可分配的影響力。</p>';
+  }
   if (spec.kind === 'buy') {
     const space = (state.economy.publicStorageCapacity[spec.resource] ?? 6) - (state.publicServices[spec.resource] ?? 0);
     const companies = state.economy.companies.filter(company => company.owner === 'state').length;
@@ -1807,20 +2019,56 @@ function eventFields(event, prefix = '') {
     fields += prefix ? buildFields('middle', eligible, { prefix, idle: true, payer: 'state' })
       : selectField('company', '建造企業', companyOptions(eligible)) + companyCardChoices(eligible);
   }
-  return fields;
+  return `<fieldset class="event-options">${fields}</fieldset>`;
 }
 
 function eventCardInfo(event) {
-  return `<p>${escape(event.taskZh)}</p>
-    <p>獎勵 · ${escape(event.rewardZh)}<br>未處理懲罰 · ${escape(event.unresolvedPenaltyZh)}</p>`;
+  return `<p>${coloredGameText(event.taskZh)}</p>
+    <p>獎勵 · ${coloredGameText(event.rewardZh)}</p>
+    <p>未處理懲罰 · ${coloredGameText(event.unresolvedPenaltyZh)}</p>`;
 }
 
 function eventPanel() {
   if (!state.content?.events.length) return '';
-  return `<section class="panel"><h2>國家事件</h2>${state.content.events.map(event => `<details>
-    <summary>${escape(event.nameZh)}</summary>${eventCardInfo(event)}
-    ${(event.form.offers?.length ?? 1) > 0 ? form('event', '處理事件', eventFields(event)) : ''}
-    </details>`).join('')}</section>`;
+  return `<section class="event-action-list">${state.content.events.map(event =>
+    eventChoiceItem(event, (event.form.offers?.length ?? 1) > 0 ? form('event', '處理事件', eventFields(event)) : '')
+  ).join('<hr>')}</section>`;
+}
+
+function eventChoiceItem(event, controls) {
+  return `<section class="event-choice-item"><h3>．${escape(event.nameZh)}</h3>
+    <div class="event-choice-description">${eventCardInfo(event)}</div>${controls}</section>`;
+}
+
+function modalCardStep() {
+  return ['card-choice', 'event-choice', 'event-hire'].includes(state.phase)
+    || (state.phase === 'policy-choice' && ['action', 'immediate'].includes(state.policyChoice?.resume));
+}
+
+function cardStepDialog() {
+  const panel = state.phase === 'policy-choice' ? policyPanel() : decisionPanel();
+  return `<dialog id="card-step-dialog" class="action-confirmation" aria-label="完成卡牌或事件效果">${panel}</dialog>`;
+}
+
+function syncEventChoice(editor) {
+  const newEvent = editor.querySelector('[name="option"]');
+  const original = editor.querySelector('[name="replaced"]');
+  const replaced = original?.value;
+  if (original) {
+    newEvent.disabled = !replaced;
+    if (replaced && !newEvent.value) newEvent.selectedIndex = 0;
+  }
+  const option = newEvent.disabled ? '' : newEvent.value;
+  const list = editor.querySelector('[data-event-choice-fields]');
+  const added = state.content.cardChoice.cards.find(event => event.id === option);
+  const events = state.content.events.map(event => added && event.id === replaced ? added : event);
+  if (added && !replaced) events.push(added);
+  const replacement = added ? `<input type="hidden" name="option" value="${escape(option)}">
+    ${replaced ? `<input type="hidden" name="replaced" value="${escape(replaced)}">` : ''}` : '';
+  list.innerHTML = events.map(event =>
+    eventChoiceItem(event, form('card-choice', '處理事件', replacement + eventFields(event)))
+  ).join('<hr>');
+  for (const form of list.querySelectorAll('form')) scheduleActionCheck(form);
 }
 
 function decisionPanel() {
@@ -1856,13 +2104,15 @@ function decisionPanel() {
   }
   const choice = content.cardChoice;
   const pollReveal = content.pollReveal;
+  const pollCubes = drawn => `<ol>${drawn.map(cube => `<li>${meta.names[cube]}方塊</li>`).join('')}</ol>`;
   let controls = pollReveal && role !== pollReveal.role
-    ? `<p><strong>揭示的 5 枚方塊：</strong>${pollReveal.drawn.map(cube => meta.names[cube]).join('、')}</p>
+    ? `<p><strong>揭示的 5 枚方塊</strong></p>${pollCubes(pollReveal.drawn)}
       <p class="muted">等待${meta.names[pollReveal.role]}決定是否立即表決。</p>`
     : `<p>等待${meta.names[content.choosingRole]}完成卡牌選擇。</p>`;
+  if (choice?.effect === 'second-bill') controls = form('card-choice', '提交第二案', billFields(choice.policies));
   if (choice?.effect === 'fake-news') controls = form('card-choice', '確認移除（至多四枚）', checks('indices',
-    choice.drawn.map((cube, index) => [index, `${meta.names[cube]}方塊 ${index + 1}`])));
-  if (choice?.effect === 'poll') controls = `<p>${choice.drawn.map(cube => meta.names[cube]).join('、')}</p>`
+    choice.drawn.map((cube, index) => [index, `${index + 1}. ${meta.names[cube]}方塊`])));
+  if (choice?.effect === 'poll') controls = pollCubes(choice.drawn)
     + form('card-choice', '確認表決時機', '<label class="check"><input type="checkbox" name="immediate">使用這五枚方塊免費即時表決</label>');
   if (choice?.effect === 'export-insight') controls = `<div class="export-choice-cards">${choice.cards.map(card => {
     const fields = exportFields(card.offers, role === 'middle' ? 2 : 1);
@@ -1883,16 +2133,25 @@ function decisionPanel() {
     const active = content.events;
     const canPlace = choice.effect === 'priority-event' ? active.length < 2 : active.length > 0;
     const options = canPlace ? choice.cards : [];
-    const revealed = choice.cards.map(event =>
-      `<details open><summary>${escape(event.nameZh)}</summary>${eventCardInfo(event)}</details>`).join('');
-    controls = revealed ? `<section><h3>翻出的事件牌</h3>${revealed}</section>` : '';
-    if (choice.effect === 'shift-event' && !active.length) {
-      controls += form('card-choice', '收回轉移重點', '<p>場上沒有事件可替換。收回卡牌後可重新選擇主要行動。</p><input type="hidden" name="option" value="cancel-shift-focus">');
+    controls = '';
+    if (choice.effect === 'shift-event' && choice.eventBlocks && Object.values(choice.eventBlocks).every(Boolean)) {
+      const reasons = [...active, ...choice.cards].flatMap(event => {
+        const reason = choice.eventBlocks[event.id];
+        return reason ? [`<li>${escape(event.nameZh)} · ${escape(reason)}</li>`] : [];
+      }).join('');
+      controls += form('card-choice', '收回轉移重點',
+        `<p>沒有可處理的事件。收回後可重新選擇主要行動。</p>${reasons ? `<ul>${reasons}</ul>` : ''}
+          <input type="hidden" name="option" value="cancel-shift-focus">`);
+    } else {
+      const exchange = choice.effect === 'shift-event' && options.length > 0;
+      controls += `<div data-event-choice-editor>
+        <div class="${exchange ? 'event-exchange' : ''}">${exchange
+          ? selectField('replaced', '原有事件', [['', '維持原場面'], ...active.map(item => [item.id, item.nameZh])])
+            + '<span>交換</span>' : ''}
+        ${selectField('option', '新事件', [...(exchange ? [] : [['', '維持原場面']]),
+          ...options.map(item => [item.id, item.nameZh])], false, exchange)}</div>
+        <hr><div data-event-choice-fields></div></div>`;
     }
-    controls += [...active, ...options].map(event => form('card-choice', `處理 ${escape(event.nameZh)}`,
-      selectField('option', '翻出的新事件', [['', '維持原場面'], ...options.map(item => [item.id, item.nameZh])])
-      + (choice.effect === 'shift-event' && options.length ? selectField('replaced', '換下的事件', active.map(item => [item.id, item.nameZh])) : '')
-      + eventCardInfo(event) + eventFields(event))).join('');
   }
   return `<section class="panel"><h2>完成卡牌效果</h2>${controls}</section>`;
 }
@@ -1948,6 +2207,7 @@ function actionPanel(card) {
   if (state.phase === 'complete') return state.match?.final ? finalPanel() : '<section class="panel"><h2>試玩完成</h2><p class="muted">可在右側查看 VP、表決結果及對局紀錄。</p></section>';
   if (state.phase === 'production-confirm') return productionConfirmationPanel();
   if (state.phase === 'needs') return foodPanel();
+  if (modalCardStep()) return '<p class="muted">後續操作請見彈窗。</p>';
   if (state.phase === 'policy-choice') return policyPanel();
   if (state.phase === 'demonstration') return demonstrationPanel();
   if (state.phase === 'worker-arrival') return `<section class="panel"><h2>選擇替代技術工</h2>${state.workerArrival.role === state.role
@@ -1977,10 +2237,11 @@ function actionPanel(card) {
   const cardDetail = card ? `<div class="hand-detail ${state.role}"><strong>${escape(card.name)}</strong><p>${escape(card.description)}</p>
     ${card.policyAnyOf?.length ? `<p class="muted">適用政策 ${escape(card.policyAnyOf.join('／'))}</p>` : ''}
     ${card.legitimacy ? `<p class="muted">合法性 · ${escape(card.legitimacy)}</p>` : ''}</div>` : '';
-  const content = selectedAction === 'play'
+  const fields = selectedAction === 'play'
     ? cardDetail + (cardForm || `<p class="muted">${escape(card ? unavailable : '沒有可打出的手牌。')}</p>`)
-    : selected ? `<div class="basic-action-fields"><h3>${selected[1]}</h3>${selected[2]}</div>` : '';
-  const market = companyMarket(acting('build'), acting('build') ? '把企業拖到中央圖板上自己階級的私營部門，再確認建造。' : '');
+    : selected?.[2] ?? '';
+  const content = fields ? `<div class="basic-action-fields main-action-fields">${fields}</div>` : '';
+  const market = companyMarket(acting('build'), acting('build') ? '把企業拖到中央圖板上自己階級的私營企業，再確認建造。' : '');
   return `<section class="panel action-content" id="main-action-options">
     <h2>${mainActionHelp}</h2>
     <select name="main-action" aria-label="選擇主要行動"><option value="">選擇一項行動</option>
@@ -2077,11 +2338,12 @@ function foodPanel() {
     ${form('food', '確認食物結算', details + '<p data-food-estimate aria-live="polite" hidden></p>')}</section>`;
 }
 
-function settlementTable(title, columns, rows, totalRow, tableClass = '') {
+function settlementTable(title, columns, rows, totalRow, tableClass = '', groups) {
   const renderRow = ([label, ...cells]) => `<tr><th scope="row">${label}</th>${cells.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
   return `<div class="settlement-table-scroll"><table class="settlement-table ${tableClass}">
     ${title ? `<caption>${title}</caption>` : ''}<thead><tr>${columns.map(label => `<th scope="col">${label}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map(renderRow).join('')}</tbody>
+    ${groups ? groups.map(group => `<tbody><tr class="wage-group-heading"><th scope="rowgroup" colspan="${columns.length}">${group.label}</th></tr>
+      ${group.rows.map(renderRow).join('')}</tbody>`).join('') : `<tbody>${rows.map(renderRow).join('')}</tbody>`}
     ${totalRow ? `<tfoot>${renderRow(totalRow)}</tfoot>` : ''}
     </table></div>`;
 }
@@ -2089,37 +2351,36 @@ function settlementTable(title, columns, rows, totalRow, tableClass = '') {
 function settlementPanel() {
   const summary = state.match?.settlement;
   if (!summary) return '';
-  const { stage, food, wages, income, tax, interest, usage, production } = summary;
+  const { stage, food, wages, income, tax, interest, production } = summary;
   const { role } = state;
   const money = amount => amount == null ? '-' : `$${amount}`;
-  const incomeRows = [
-    ...(['working', 'middle'].includes(role) ? [['薪資收入', money(income.wages)]] : []),
-    ...(role !== 'working' ? [['食物銷售', money(income.foodSales)]] : []),
-    ...(role === 'state' ? [['進口關稅', money(income.tariffs)], ['稅收', money(income.taxes)]] : []),
-    [income.salesIncomplete ? '合計（已知金額）' : '合計', money(income.total)],
-  ];
+  const incomeRows = role === 'state'
+    ? classes.map(seat => [coloredGameLabel(meta.names[seat], `var(--${seat})`), money(income.taxByRole?.[seat] ?? 0)])
+    : (income.wageDetails ?? []).map(row => [
+      coloredGameLabel(row.company, `var(--industry-${row.resource})`), money(row.wage),
+    ]);
+  const incomeTotal = ['合計', money(role === 'state' ? income.taxes : income.wages)];
   const expenseRows = [];
-  if (food) {
-    const detail = food.settled
-      ? `已結算 · 自有 ${food.own} 份 · 補購 ${food.purchased + food.imported} 份${food.loans ? ` · 借款 ${food.loans} 筆` : ''}`
-      : `${food.currentShortage == null ? '' : `目前缺 ${food.currentShortage} 份 · 生產後預估 `}需 ${food.required} 份、可用 ${food.own} 份、缺 ${food.shortage} 份`;
-    expenseRows.push([coloredGameText('食物'), money(food.cost), money(food.gap), detail]);
-  }
-  if (role !== 'working') expenseRows.push(['應付薪資', money(wages.outgoing), money(wages.gap), '-']);
-  if (role !== 'state') expenseRows.push(['應付稅款', money(tax.due), money(tax.gap), '-']);
-  if (interest) expenseRows.push(['下輪利息', money(interest.due), money(interest.gap), '缺口按目前現金估算']);
-  return `<section class="panel settlement-gaps ${state.role}"><h3>本輪結算試算</h3>
-    <p class="muted">${stage === 'forecast' ? '按目前工位、政策及庫存試算輪末生產。'
-      : stage === 'food' ? '薪資已結算，收入合計仍包含待結算的估算金額。' : '本輪生產階段的收入與支出已結算。'}</p>
-    ${stage !== 'settled' ? '<p class="muted">待確認的食物缺口按進口試算。國內食物銷售在買方確認後計入賣方收入。</p>' : ''}
-    ${income.salesIncomplete ? '<p class="muted">此存檔缺少部分食物銷售明細。</p>' : ''}
-    ${settlementTable(stage === 'settled' ? '已入帳收入' : '預計收入', ['項目', '金額'], incomeRows)}
-    ${settlementTable('支出與缺口', ['項目', '金額', '資金缺口', '說明'], expenseRows)}
-    ${production ? productionDetails(production, stage === 'forecast') : ''}
-    ${usage.length ? settlementTable('生活資源 · 自願使用門檻（份）',
-      ['資源', '需求', '持有', '缺口', ...(role === 'middle' ? ['倉庫'] : [])],
-      usage.map(item => [coloredGameLabel(resources[item.resource], `var(--industry-${item.resource})`),
-        item.required, item.stock, item.shortage, ...(role === 'middle' ? [item.warehouse] : [])])) : ''}
+  if (food) expenseRows.push([coloredGameText('食物'), money(food.cost)]);
+  if (role !== 'working') expenseRows.push(['應付薪資', money(wages.outgoing)]);
+  if (role !== 'state') expenseRows.push(['應付稅款', money(tax.due)]);
+  if (interest) expenseRows.push(['下輪利息', money(interest.due)]);
+  const expenseTotal = (food?.cost ?? 0)
+    + (role !== 'working' ? wages.outgoing : 0)
+    + (role !== 'state' ? tax.due : 0)
+    + (interest?.due ?? 0);
+  return `<section class="panel settlement-gaps ${state.role}">
+    ${stage !== 'forecast' ? `<p class="muted">${stage === 'food'
+      ? '薪資已結算，尚待確認的支出按目前資料試算。' : '本輪生產階段的收入與支出已結算。'}</p>` : ''}
+    ${role !== 'capitalist' ? settlementTable(role === 'state' ? '預計稅收' : '薪資收入',
+      [role === 'state' ? '繳稅階級' : '企業', '金額'], incomeRows, incomeTotal) : ''}
+    ${production ? (['capitalist', 'middle', 'state'].includes(role)
+      ? productionTotals(production, stage === 'forecast') + companyProductionDetails(production, stage === 'forecast', [role], { expanded: true })
+      : productionDetails(production, stage === 'forecast')) : ''}
+    ${food ? settlementTable('預計消耗資源',
+      ['資源', '需求', '持有', '缺口'],
+      [[coloredGameText('食物'), food.required, food.own, food.shortage]], undefined, 'resource-usage-table') : ''}
+    ${settlementTable('預計支出', ['項目', '支出'], expenseRows, ['總計', money(expenseTotal)])}
     </section>`;
 }
 
@@ -2327,10 +2588,31 @@ function electionHeading(election) {
   return `${meta.policies[election.bill.policy]} ${election.bill.target} · ${election.nextVoter ? '公開表態' : '秘密投入'}`;
 }
 
+const cubeName = role => `<span class="election-cube-name ${role}">${meta.names[role]}方塊</span>`;
+const drawnCubeList = drawn => `<ol>${drawn.map(role => `<li>${cubeName(role)}</li>`).join('')}</ol>`;
+
+function cardResultMarkup({ changes, interestGroups, fakeNews }) {
+  if (fakeNews) {
+    const list = cubes => cubes.length ? drawnCubeList(cubes) : '<p class="muted">無</p>';
+    return `<p>抽出方塊:</p>${list(fakeNews.drawn)}
+      <p>移回供應區:</p>${list(fakeNews.removed)}
+      <p>放回投票袋:</p>${list(fakeNews.returned)}`;
+  }
+  if (!interestGroups) return `<ul class="log">${(changes?.length ? changes : ['已完成選擇。'])
+    .map(line => `<li>${coloredGameText(line)}</li>`).join('')}</ul>`;
+  const { drawn, role, added, before, after } = interestGroups;
+  return `<p>抽出方塊:</p>${drawnCubeList(drawn)}
+    <p>補入 ${added} 枚${cubeName(role)}</p>
+    <p>投票袋:</p><ul>${classes.map(seat => {
+      const delta = after[seat] - before[seat];
+      return `<li>${cubeName(seat)}：${before[seat]} → ${after[seat]}（${delta > 0 ? '+' : ''}${delta}）</li>`;
+    }).join('')}</ul>`;
+}
+
 function electionDetails(election) {
   const sides = { for: '贊成', against: '反對', absent: '不參與' };
-  return `<div class="stats">${meta.roles.map(role => `<span>${meta.names[role]} ${sides[election.sides[role]] ?? '待表態'}${election.submitted.includes(role) ? ' ✓' : ''}</span>`).join('')}</div>
-    ${election.drawn.length ? `<p class="muted">抽出方塊：${election.drawn.map(role => meta.names[role]).join('、')}</p>` : ''}`;
+  return `<div class="stats">${meta.roles.map(role => `<span class="election-stance" data-stance="${election.sides[role] ?? 'pending'}">${meta.names[role]} ${sides[election.sides[role]] ?? '待表態'}${election.submitted.includes(role) ? ' ✓' : ''}</span>`).join('')}</div>
+    ${election.drawn.length ? `<div class="muted">抽出方塊${drawnCubeList(election.drawn)}</div>` : ''}`;
 }
 
 function electionPanel() {
@@ -2361,7 +2643,8 @@ function syncElectionDialog() {
   const controls = electionDialog.querySelector('[data-election-controls]');
   controls.innerHTML = election.nextVoter
     ? '<form class="buttons" data-command="side"><button name="side" value="for">贊成</button><button name="side" value="against">反對</button></form>'
-    : form('bid', '秘密提交', numberField('amount', '投入影響力', state.players[state.role].influence));
+    : `<form data-command="bid">${numberField('amount', '投入影響力', state.players[state.role].influence)}
+      <div class="buttons"><button type="submit">秘密提交</button></div></form>`;
   if (!electionDialog.open) electionDialog.showModal();
   controls.querySelector('input, button')?.focus();
 }
@@ -2503,10 +2786,9 @@ function showCardPiles() {
   if (!cardPilesDialog.open) cardPilesDialog.showModal();
 }
 
-const adjustRoles = ['state', 'working', 'middle', 'capitalist'];
-const adjustTabs = [...adjustRoles, 'policy'];
-const adjustClasses = ['working', 'middle', 'capitalist'];
-const adjustRoleLabels = { state: '國家', working: '勞工', middle: '中產', capitalist: '資本家', policy: '公共政策' };
+const adjustTabs = ['policy', 'trade', 'working', 'middle', 'capitalist', 'state'];
+let adjustCatalog;
+const adjustRoleLabels = { state: '國家', working: '勞工', middle: '中產', capitalist: '資本家', policy: '公共政策', trade: '對外貿易' };
 const adjustLivingLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育', influence: '個人影響力' };
 const adjustStoredLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育' };
 const adjustPublicLabels = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育', influence: '媒體影響力' };
@@ -2527,17 +2809,15 @@ function adjustStorageFields(role) {
   const inventory = state.economy?.inventory?.[role] ?? {};
   const units = state.economy?.storageUnits?.[role] ?? {};
   const capacities = state.economy?.storageCapacity?.[role] ?? {};
-  return adjustSection('倉庫庫存',
-    Object.keys(adjustStoredLabels).map(key => adjustInput(adjustStoredLabels[key], `inventory-${key}`, inventory[key] ?? 0)).join(''))
-    + adjustSection('倉庫容量（單位）',
-      Object.keys(adjustStoredLabels).map(key => {
-        const unit = units[key] ?? 1;
-        const capacity = capacities[key] ?? 0;
-        const base = Math.max(1, Math.round(capacity / unit));
-        return adjustInput(adjustStoredLabels[key], `storageUnits-${key}`, unit,
-          { min: 1, hint: `1 單位＝${base} 份・目前 ${capacity} 份` });
-      }).join(''),
-      '容量以倉庫單位表示；每種資源的 1 單位等於該階級的單一倉庫容量。');
+  return adjustSection('倉庫庫存與容量', Object.entries(adjustStoredLabels).map(([key, label]) => {
+    const unit = units[key] ?? 1;
+    const capacity = capacities[key] ?? 0;
+    const base = Math.max(1, Math.round(capacity / unit));
+    return `<div class="adjust-storage-resource"><strong>${escape(label)}</strong>
+      ${adjustInput('庫存（份）', `inventory-${key}`, inventory[key] ?? 0)}
+      ${adjustInput('容量（倉庫單位）', `storageUnits-${key}`, unit,
+        { min: 1, hint: `1 單位＝${base} 份・目前 ${capacity} 份` })}</div>`;
+  }).join(''));
 }
 
 function adjustSelect(label, name, options, current) {
@@ -2573,15 +2853,31 @@ function adjustLivingFields() {
     Object.keys(adjustLivingLabels).map(key => adjustInput(adjustLivingLabels[key], `living-${key}`, state.players[adjustTab]?.[key] ?? 0)).join(''));
 }
 
+function currentFirst(options, current) {
+  return [...options].sort(([a], [b]) => Number(b === current) - Number(a === current));
+}
+
+function adjustCardFields(prefix, title, cards, current, count) {
+  const options = [['', '空置'], ...cards.map(card => [card.id, card.nameZh])];
+  return Array.from({ length: count }, (_, index) => selectField(`${prefix}-${index}`,
+    count === 1 ? title : `${title} ${index + 1}`, currentFirst(options, current[index]?.id ?? ''))).join('');
+}
+
 function hostAdjustBodyMarkup() {
   if (!state?.players) return '<p class="muted">目前沒有可調整的對局。</p>';
   if (adjustTab === 'policy') {
-    return adjustSection('七大政策', meta.policies.map((name, index) =>
-      adjustChoice(name, `policy-${index}`, ['A', 'B', 'C'], state.policies[index])).join(''),
-      '直接設定七大政策的現行區段，不會觸發政策變更的連鎖結算。')
-      + adjustSection('投票袋',
-        adjustClasses.map(role => adjustInput(adjustRoleLabels[role], `bag-${role}`, state.bag?.[role] ?? 0, { max: 25 })).join(''),
-        '直接覆寫袋內各階級方塊數；各階級上限 25 枚，福利區保留的方塊不在此欄內。');
+    const content = state.content;
+    return adjustSection('政治議題', meta.policies.map((name, index) =>
+      selectField('policy-' + index, escape(name), currentFirst(['A', 'B', 'C'].map(section => [section, section]),
+        state.policies[index]))).join(''))
+      + adjustSection('投票袋', classes.map(role => adjustInput(meta.names[role], `bag-${role}`, state.bag[role], { max: 25 })).join(''))
+      + (content ? adjustSection('國家事件', adjustCardFields('event', '事件', adjustCatalog.events
+        .filter(card => (card.minimumRound ?? 1) <= state.match.round), content.events, 2)) : '');
+  }
+  if (adjustTab === 'trade') {
+    const content = state.content;
+    return adjustSection('商務合約', adjustCardFields('deal', '商務合約', adjustCatalog.businessDeals, content.deals, 2))
+      + adjustSection('出口', adjustCardFields('export', '出口', adjustCatalog.exports, [content.export], 1));
   }
   const economy = state.economy ?? {};
   const player = state.players[adjustTab];
@@ -2590,12 +2886,13 @@ function hostAdjustBodyMarkup() {
       adjustInput('國庫', 'treasury', state.treasury)
       + adjustInput('個人影響力', 'living-influence', player?.influence ?? 0))
       + adjustSection('公共庫存',
-        Object.keys(adjustPublicLabels).map(key => adjustInput(adjustPublicLabels[key], `public-${key}`, state.publicServices?.[key] ?? 0)).join(''),
-        '國家持有的公共資源。')
-      + adjustSection('公共容量',
-        Object.keys(adjustPublicLabels).map(key => adjustInput(adjustPublicLabels[key], `publicCapacity-${key}`, economy.publicStorageCapacity?.[key] ?? 0)).join(''),
-        '公共容量原本由公營企業產能決定；這裡可覆寫為指定份數。')
-      + adjustClasses.map(role => adjustBenefitFields(role)).join('')
+        Object.keys(adjustPublicLabels).map(key => {
+          const capacity = economy.publicStorageCapacity[key];
+          return adjustInput(adjustPublicLabels[key], `public-${key}`, state.publicServices[key] ?? 0,
+            { max: capacity, hint: `容量 ${capacity} 份` });
+        }).join(''),
+        '容量為已開放的對應公營企業牌面產量總和加 6。')
+      + (state.content ? classes.map(role => adjustBenefitFields(role)).join('') : '')
       + '<p class="muted adjust-note">國家的食物、奢侈品與媒體影響力為固定價；醫療與教育售價由福利政策決定，沒有可直接調整的國內售價。</p>';
   }
   if (adjustTab === 'working') {
@@ -2619,15 +2916,22 @@ function hostAdjustBodyMarkup() {
 
 function renderHostAdjust() {
   if (!state) return;
-  if (!adjustTabs.includes(adjustTab)) adjustTab = 'state';
+  if (!adjustTabs.includes(adjustTab) || (adjustTab === 'trade' && !state.content)) adjustTab = 'state';
   hostAdjustDialog.className = `action-confirmation host-adjust-dialog ${state.role}`;
-  hostAdjustTabs.innerHTML = adjustTabs.map(role => `<button type="button" role="tab" data-adjust-tab="${role}"
+  hostAdjustTabs.innerHTML = adjustTabs.filter(tab => tab !== 'trade' || state.content).map(role => `<button type="button" role="tab" data-adjust-tab="${role}"
     aria-selected="${role === adjustTab}" tabindex="${role === adjustTab ? 0 : -1}">${adjustRoleLabels[role]}</button>`).join('');
   hostAdjustBody.innerHTML = hostAdjustBodyMarkup();
 }
 
-function showHostAdjust() {
+async function showHostAdjust() {
   if (busy || !state?.testMode || state.role !== state.host || state.phase !== 'action' || state.transaction) return;
+  try {
+    adjustCatalog ??= (await request('/api/catalog')).decks;
+  } catch (error) {
+    warning(error.message);
+    return;
+  }
+  if (!state?.testMode || state.role !== state.host || state.phase !== 'action' || state.transaction) return;
   renderHostAdjust();
   if (!hostAdjustDialog.open) hostAdjustDialog.showModal();
 }
@@ -2635,16 +2939,20 @@ function showHostAdjust() {
 function hostAdjustCommand() {
   const fields = new FormData(hostAdjustDialog.querySelector('form[data-host-adjust]'));
   const command = { type: 'host-adjust', target: adjustTab };
+  if (adjustTab === 'policy') {
+    command.policies = meta.policies.map((_, index) => fields.get('policy-' + index));
+    command.bag = Object.fromEntries(classes.map(role => [role, Number(fields.get(`bag-${role}`))]));
+    if (state.content) command.events = [fields.get('event-0'), fields.get('event-1')].filter(Boolean);
+    return command;
+  }
+  if (adjustTab === 'trade') {
+    command.deals = [fields.get('deal-0'), fields.get('deal-1')].filter(Boolean);
+    command.export = fields.get('export-0') || null;
+    return command;
+  }
   const number = name => Number(fields.get(name));
   const collect = (prefix, keys) => Object.fromEntries(keys.filter(key => fields.has(`${prefix}-${key}`))
     .map(key => [key, number(`${prefix}-${key}`)]));
-  if (adjustTab === 'policy') {
-    command.policies = meta.policies.map((_, index) => fields.get('policy-' + index));
-    const bag = Object.fromEntries(adjustClasses.filter(role => fields.has(`bag-${role}`))
-      .map(role => [role, number(`bag-${role}`)]));
-    if (Object.keys(bag).length) command.bag = bag;
-    return command;
-  }
   if (fields.has('treasury')) command.treasury = number('treasury');
   if (fields.has('cash')) command.cash = number('cash');
   if (fields.has('revenue')) command.revenue = number('revenue');
@@ -2661,10 +2969,8 @@ function hostAdjustCommand() {
   if (Object.keys(prices).length) command.prices = prices;
   const publicStock = collect('public', Object.keys(adjustPublicLabels));
   if (Object.keys(publicStock).length) command.public = publicStock;
-  const publicCapacity = collect('publicCapacity', Object.keys(adjustPublicLabels));
-  if (Object.keys(publicCapacity).length) command.publicCapacity = publicCapacity;
   const benefits = {};
-  for (const role of adjustClasses) {
+  for (const role of classes) {
     const values = collect(`benefit-${role}`, Object.keys(adjustBenefitLabels));
     if (Object.keys(values).length) benefits[role] = values;
   }
@@ -2674,31 +2980,19 @@ function hostAdjustCommand() {
 
 function playerInfoTabs() {
   const tabs = [
-    ['settlement', '結算試算', settlementPanel() || '<p class="panel muted">目前沒有結算試算。</p>'],
-    ['prices', '資源價格', resourcePricePanel() || '<p class="panel muted">目前沒有資源價格。</p>'],
-    ['seats', '四席摘要', `<section class="panel"><h2>四席摘要</h2><div class="seat-grid">${seatCards()}</div></section>`],
-    ['log', '對局紀錄', `<section class="panel"><h2>對局紀錄</h2><ul class="log">${state.log.slice(-10).reverse().map(entry => `<li>${escape(entry)}</li>`).join('')}</ul></section>`],
+    ['settlement', '試算', settlementPanel() || '<p class="panel muted">目前沒有試算。</p>'],
+    ['prices', '價格', resourcePricePanel() || '<p class="panel muted">目前沒有資源價格。</p>'],
+    ['seats', '摘要', `<section class="panel"><div class="seat-grid">${seatCards()}</div></section>`],
+    ['log', '記錄', `<section class="panel"><ul class="log">${state.log.slice(-10).reverse().map(entry => `<li>${escape(entry)}</li>`).join('')}</ul></section>`],
   ];
-  return `<section id="player-info" class="player-info">
-    <div class="player-info-tabs" role="tablist" aria-label="玩家圖版資訊">${tabs.map(([id, label]) => {
-      const selected = selectedBoardTab === id;
-      return `<button type="button" role="tab" id="player-tab-${id}" data-board-tab="${id}" aria-controls="player-panel-${id}"
-        aria-selected="${selected}" tabindex="${selected ? 0 : -1}">${label}</button>`;
-    }).join('')}</div>
-    ${tabs.map(([id, , content]) => `<div role="tabpanel" id="player-panel-${id}" aria-labelledby="player-tab-${id}" tabindex="0"
-      ${selectedBoardTab === id ? '' : 'hidden'}>${content}</div>`).join('')}
-  </section>`;
-}
-
-function openBoardTab(id) {
-  selectedBoardTab = id;
-  for (const tab of app.querySelectorAll('[data-board-tab]')) {
-    const selected = tab.dataset.boardTab === id;
-    tab.setAttribute('aria-selected', String(selected));
-    tab.tabIndex = selected ? 0 : -1;
-    document.getElementById(tab.getAttribute('aria-controls')).hidden = !selected;
-    if (selected) tab.focus({ preventScroll: true });
-  }
+  return `<div class="player-info-tabs" role="group" aria-label="對局資訊">${tabs.map(([id, label]) =>
+    `<button type="button" id="player-tab-${id}" data-board-tab="${id}" popovertarget="player-panel-${id}">${label}</button>`
+  ).join('')}</div>
+  ${tabs.map(([id, label, content]) => `<section class="player-info-popover" id="player-panel-${id}" popover aria-label="${label}">
+    <header class="mat-help-header"><strong>${label}</strong>
+    </header>
+    <div class="player-info-scroll">${content}</div>
+  </section>`).join('')}`;
 }
 
 function transferTargets() {
@@ -2718,16 +3012,19 @@ function transferTargets() {
 }
 
 function workerDestination(workerId, companyId, preferredSlot) {
-  const worker = state.economy.workers.find(item => item.id === workerId);
+  const cardRow = cardMoveForm() && cardMoveRow(workerId);
+  const worker = cardWorker(workerId);
   const company = state.economy.companies.find(item => item.id === companyId);
-  const moves = assignmentMoves();
-  if (!worker || !company || worker.role !== state.role || worker.committed || worker.company === companyId
-    || (moves.length >= 3 && !moves.some(move => move.worker === workerId))) return -1;
+  const moves = boardWorkerMoves().filter(move => move.worker !== workerId);
+  if (!worker || !company || worker.committed || worker.company === companyId) return -1;
+  if (cardMoveForm() ? !cardRow : worker.role !== state.role || moves.length >= 3) return -1;
   if (company.owner !== 'middle' && company.slots.some(slot => !slotVacant(slot, moves)
-    && state.economy.workers.find(occupant => occupant.id === slot.worker)?.role !== worker.role)) return -1;
+    && cardWorker(slot.worker)?.role !== worker.role)) return -1;
   return company.slots.findIndex((slot, index) => (preferredSlot === undefined || preferredSlot === index)
+    && (!cardRow || Array.from(cardRow.slot.options).some(option => option.value === `${companyId}:${index}` && !option.disabled))
     && (!slot.role || slot.role === worker.role) && (slot.skill === 'any' || slot.skill === worker.skill)
-    && (!slot.optional || company.slots.every(required => required.optional || !slotVacant(required, moves)))
+    && (!slot.optional || company.slots.every((required, requiredIndex) => required.optional || !slotVacant(required, moves)
+      || moves.some(move => move.company === companyId && move.slot === requiredIndex)))
     && slotVacant(slot, moves) && !moves.some(move => move.company === companyId && move.slot === index));
 }
 
@@ -2753,8 +3050,10 @@ function acceptsPiece(source, target) {
         const worker = state.economy.workers.find(candidate => candidate.id === source.id);
         return Boolean(slot && !draft.staff[index] && canStaffBuild(worker, item, slot, index));
       }
-      if (!acting('assign')) return false;
+      if (!boardAssignment()) return false;
       if (target.type === 'unemployed') {
+        if (cardMoveForm()) return cardWorker(source.id)?.role === target.id
+          && boardWorkerMoves().some(move => move.worker === source.id);
         const worker = state.economy.workers.find(item => item.id === source.id);
         const moves = draft?.type === 'assign' ? draft.moves : [];
         const queued = moves.find(move => move.worker === source.id);
@@ -2779,6 +3078,17 @@ function announceBoard(text) {
 function placePiece(source, target) {
   if (target.type === 'company-worker') {
     target = { type: 'slot', id: `${target.id}:${workerDestination(source.id, target.id)}` };
+  }
+  if (source.type === 'worker' && cardMoveForm() && ['slot', 'unemployed'].includes(target.type)) {
+    const moves = cardMoveForm();
+    const row = cardMoveRow(source.id);
+    row.worker.value = target.type === 'slot' ? source.id : '';
+    row.slot.value = target.type === 'slot' ? target.id : '';
+    syncCardMoves(moves);
+    refreshAssignmentBoard();
+    scheduleActionCheck(moves.closest('form'));
+    announceBoard('已更新卡牌的待確認指派。');
+    return;
   }
   switch (target.type) {
     case 'slot': case 'unemployed': {
@@ -2982,6 +3292,7 @@ window.addEventListener('keydown', event => {
 
 function waitingRoom() {
   const { players } = state.waiting;
+  const candidates = state.waiting.invitationCandidates ?? [];
   const self = players.find(player => player.id === state.role);
   const canStart = meta.roles.every(role => players.some(player => player.role === role));
   const seats = meta.roles.map(role => {
@@ -2994,7 +3305,7 @@ function waitingRoom() {
       ${locked ? '<svg class="seat-lock" viewBox="0 0 16 16" role="img" aria-label="已確認" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3.5" y="7" width="9" height="7" rx="1.5"/><path d="M5.5 7V4.5a2.5 2.5 0 0 1 5 0V7M8 9.5v2"/></svg>' : ''}
     </div>`;
   }).join('');
-  return `<div class="lobby"><section class="panel"><h1>${state.testMode ? '測試房等待區' : '等待區'}</h1>
+  return `<div class="lobby"><section class="panel"><h1>${state.testMode ? '測試房等待區' : '等待區'} · ${escape(state.roomName ?? state.code)}</h1>
     <p>已加入 ${players.length} / 4 人 · ${players.map(player =>
       `${escape(player.name)}${player.id === state.role ? '（你）' : ''}${player.ready ? ' ✓' : ''}`).join('、')}</p>
     <div class="waiting-seats">${seats}</div>
@@ -3002,6 +3313,8 @@ function waitingRoom() {
       <option value="">請選擇</option>${meta.roles.map(role =>
       `<option value="${role}" ${role === self.role ? 'selected' : ''}>${escape(meta.names[role])}</option>`).join('')}
     </select></label>
+    ${state.waiting.middleMarket?.length ? `<section><h2>中產起始企業市場</h2>${state.waiting.middleMarket.map(item =>
+      `<details><summary>${escape(item.name)}</summary>${companyCardInfo(item)}</details>`).join('')}</section>` : ''}
     ${state.waiting.skillSelection && self.role === 'middle' ? `<label>開局技術工技能<select data-waiting-skill ${self.ready ? 'disabled' : ''}>
       <option value="">請選擇</option>${skillOptions(products).map(([skill, label, color]) =>
         `<option value="${skill}" style="color:${color}" ${self.skill === skill ? 'selected' : ''}>${escape(label)}</option>`).join('')}</select></label>` : ''}
@@ -3009,6 +3322,14 @@ function waitingRoom() {
       ${self.ready ? '<p role="status">等待其他玩家確認</p>' : ''}
       <button class="primary" ${!self.ready && (!canStart || (state.waiting.skillSelection && self.role === 'middle' && !self.skill)) ? 'disabled' : ''}>${self.ready ? '取消' : '開始'}</button>
     </form>
+    ${state.waiting.invitations ? `<section class="waiting-invitations"><h2>邀請玩家</h2>
+      <form data-waiting-invite><label>帳號名稱<select name="name" required ${candidates.length ? '' : 'disabled'}>
+        <option value="" selected disabled>${candidates.length ? '選擇玩家' : '沒有可邀請的玩家'}</option>
+        ${candidates.map(name => `<option value="${escape(name)}">${escape(name)}</option>`).join('')}
+      </select></label><button type="submit" ${candidates.length ? '' : 'disabled'}>發出邀請</button></form>
+      ${state.waiting.invitations.length ? `<ul>${state.waiting.invitations.map(invite => `<li><span>${escape(invite.name)} · ${invite.joined ? '已加入' : '待加入'}</span>
+        <form data-waiting-revoke><input type="hidden" name="id" value="${escape(invite.id)}"><button type="submit">刪除邀請</button></form></li>`).join('')}</ul>` : '<p class="muted">目前沒有邀請。</p>'}
+    </section>` : ''}
   </section></div>`;
 }
 
@@ -3021,12 +3342,14 @@ function render() {
   hideTip();
   pieceControls.cancel();
   headerRoomCode.textContent = state.code;
+  const host = state.role === state.host;
+  renameRoomButton.hidden = !host;
   headerRoomCode.hidden = false;
   headerRoomActions.hidden = false;
   returnLobby.hidden = !account;
   closeRoom.hidden = state.role !== state.host;
   adjustGameButton.hidden = !state.testMode || state.role !== state.host || state.phase !== 'action' || Boolean(state.transaction);
-  saveRoomButton.hidden = loadRoomButton.hidden = closeRoom.hidden;
+  saveRoomButton.hidden = loadRoomButton.hidden = !host || !state.testMode;
   copyInvite.hidden = state.phase !== 'lobby';
   copyInvite.textContent = '複製邀請連結';
   if (state.phase === 'lobby') {
@@ -3035,7 +3358,7 @@ function render() {
       return;
     }
     const ready = meta.roles.every(role => state.seats[role]);
-    app.innerHTML = `<div class="lobby"><section class="panel"><h1>等待四個角色入座</h1><div class="two">${seatCards()}</div>
+    app.innerHTML = `<div class="lobby"><section class="panel"><h1>等待四個角色入座 · ${escape(state.roomName ?? state.code)}</h1><div class="two">${seatCards()}</div>
       <p class="muted">上方為本房的起始分配。四席都就緒後由房主開始。</p>
       ${state.role === 'middle' && state.content ? form('start-skill', '儲存開局技術工技能',
         selectField('skill', '技能（請依中產市場企業選擇）', skillOptions(products))) : ''}
@@ -3051,8 +3374,14 @@ function render() {
   app.innerHTML = `<div class="table-layout">
     <div class="column table-column" id="tabletop">
       <div class="statusbar">
-        <strong class="turn-summary">第 ${state.match?.round ?? 1} / 5 輪．第 ${turn} / ${turnsPerSeat} 回合．<span class="turn-roles">行動階級 - ${actingRoles}</span></strong>
-        ${phaseProgress()}
+        <div class="status-phase-row">
+          <strong class="turn-summary">第 ${state.match?.round ?? 1} / 5 輪．第 ${turn} / ${turnsPerSeat} 回合</strong>
+          ${phaseProgress()}
+        </div>
+        <div class="status-info-row">
+          <strong class="status-room-name">${escape(state.roomName ?? state.code)}</strong>
+          <strong class="turn-roles">${actingRoles}</strong>${playerInfoTabs()}
+        </div>
       </div>
       ${tableBoard()}${productionPanel()}${roundHistory()}
     </div>
@@ -3062,17 +3391,27 @@ function render() {
         ${draft && draft.type !== 'build' ? `<button type="button" data-clear-draft>${draft.type === 'assign' ? '取消指派' : '清除待確認選擇'}</button>` : ''}
         ${actionPanel(card)}
       </div>
-      <div id="player-boards">${playerDiagram(state, state.role, meta, well, resources, escape, assignmentUnionWorkers())}${playerInfoTabs()}</div>
+      <div id="player-boards">${playerDiagram(state, state.role, meta, well, resources, escape, assignmentUnionWorkers())}</div>
     </aside>
-  </div>`;
+  </div>${modalCardStep() ? cardStepDialog() : ''}`;
   fillDraft();
+  syncCompanyCards(app);
+  syncDealCards(app);
+  for (const allocation of app.querySelectorAll('[data-deal-allocation]')) syncDealAllocation(allocation.closest('form'));
+  if (cardMoveForm()) refreshAssignmentBoard();
   if (!syncVoteResultDialog()) {
     syncElectionDialog();
     syncRoundResultDialog();
   }
+  const cardStep = app.querySelector('#card-step-dialog');
+  if (cardStep) {
+    cardStep.addEventListener('cancel', event => event.preventDefault());
+    cardStep.showModal();
+  }
   app.querySelectorAll('select[data-colored-options]').forEach(syncSelectColor);
   const food = app.querySelector('[data-command="food"]');
   if (food) updateFoodEstimate(food);
+  for (const editor of app.querySelectorAll('[data-event-choice-editor]')) syncEventChoice(editor);
   for (const form of app.querySelectorAll('[data-command]')) scheduleActionCheck(form);
   if (cardPilesDialog.open) renderCardPiles();
 }
@@ -3081,26 +3420,69 @@ function wasRestored(next) {
   return state?.code === next.code && next.restoredRevision > (state.restoredRevision ?? 0);
 }
 
-let lastConnectionMarkup;
-function showConnection(next) {
-  if (!next.presence) return;
-  const players = next.waiting?.players ?? meta.roles.flatMap(role => {
-    const name = next.seats[role];
-    return name ? [{ id: role, role, name }] : [];
-  });
-  const statuses = players.map(({ id, role, name }) => {
-    const online = next.presence[id];
-    const classLabel = headerClassLabel(role) || '未選階級-';
-    return `<span title="${online ? '在線' : '離線'}">${classLabel}<span class="connection-player${online ? ' is-online' : ''}">${escape(name)}</span>${id === next.host ? ' (房長)' : ''}</span>`;
-  });
-  const markup = statuses.join(' · ');
-  if (connection.firstElementChild && lastConnectionMarkup === markup) return;
-  connection.innerHTML = markup;
-  lastConnectionMarkup = markup;
+const roomChat = document.querySelector('#room-chat');
+const chatDetails = roomChat.querySelector('details');
+const chatHistory = roomChat.querySelector('[data-chat-history]');
+const chatLatest = roomChat.querySelector('[data-chat-latest]');
+const chatForm = roomChat.querySelector('form');
+const chatSenderMeasure = roomChat.querySelector('.chat-sender-measure');
+new ResizeObserver(([entry]) => {
+  roomChat.style.setProperty('--chat-sender-width', `${Math.ceil(entry.contentRect.width)}px`);
+}).observe(chatSenderMeasure);
+new ResizeObserver(() => {
+  if (!roomChat.hidden && !chatDetails.open) {
+    app.style.setProperty('--room-chat-height', `${roomChat.offsetHeight}px`);
+  }
+}).observe(roomChat);
+let chatRoomCode;
+let lastChatId;
+
+function updateRoomChat(code, messages = []) {
+  const changedRoom = chatRoomCode !== code;
+  if (changedRoom) {
+    chatRoomCode = code;
+    chatForm.reset();
+    chatDetails.open = false;
+  }
+  roomChat.hidden = !code;
+  const latest = messages.at(-1);
+  if (!changedRoom && (latest?.id ?? 0) <= lastChatId) return;
+  lastChatId = latest?.id ?? 0;
+  const sender = message => `<span class="chat-sender">${headerClassLabel(message.role)}${escape(message.name)}:</span>`;
+  const line = message => `${sender(message)}<span class="chat-text">${escape(message.text)}</span>`;
+  const atBottom = chatHistory.scrollHeight - chatHistory.scrollTop <= chatHistory.clientHeight + 4;
+  chatLatest.innerHTML = latest ? line(latest) : '目前沒有訊息';
+  chatHistory.innerHTML = messages.map(message => `<li>${line(message)}</li>`).join('');
+  chatSenderMeasure.innerHTML = messages.map(sender).join('');
+  if (atBottom || changedRoom) chatHistory.scrollTop = chatHistory.scrollHeight;
 }
 
+chatDetails.addEventListener('toggle', () => {
+  if (chatDetails.open) chatHistory.scrollTop = chatHistory.scrollHeight;
+});
+
+chatForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const currentSeat = seat;
+  const input = chatForm.elements.text;
+  const text = input.value.trim();
+  const button = chatForm.querySelector('button');
+  if (!currentSeat || !text || button.disabled) return;
+  button.disabled = true;
+  try {
+    const { chat } = await request(`/api/rooms/${currentSeat.code}/chat`, { text });
+    if (seat !== currentSeat) return;
+    if (input.value.trim() === text) input.value = '';
+    updateRoomChat(currentSeat.code, chat);
+  } catch (error) {
+    if (seat === currentSeat) warning(error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
 function update(next) {
-  showConnection(next);
+  updateRoomChat(next.code, next.chat);
   if (!state || next.code !== state.code || next.revision > state.revision) {
     const restored = wasRestored(next);
     if (restored) {
@@ -3110,7 +3492,7 @@ function update(next) {
       electionPrompt = '';
       pendingVoteDialogId = undefined;
       actionConfirmation.returnValue = '';
-      for (const dialog of [actionConfirmation, electionDialog, voteResultDialog, roundResultDialog, roomSavesDialog, hostAdjustDialog]) if (dialog.open) dialog.close();
+      for (const dialog of [actionConfirmation, electionDialog, voteResultDialog, roundResultDialog, roomSavesDialog, hostAdjustDialog, document.querySelector('#card-result-dialog')]) if (dialog.open) dialog.close();
     }
     if (state && (restored || state.code !== next.code || state.turn !== next.turn || state.match?.round !== next.match?.round)) {
       selectedAction = null;
@@ -3144,6 +3526,8 @@ function leaveRoom(code) {
   sessionStorage.removeItem(storageKey);
   seat = null;
   state = undefined;
+  updateRoomChat(undefined);
+  document.querySelector('#card-result-dialog').close();
   connection.textContent = '';
   headerRoomCode.hidden = true;
   showLobby();
@@ -3165,8 +3549,9 @@ async function refresh() {
   try {
     const next = await request(`/api/rooms/${currentSeat.code}`, undefined, { presence: true, signal: AbortSignal.timeout(5000) });
     if (seat !== currentSeat || (state?.code === next.code && next.revision < state.revision)) return;
+    if (connection.textContent) connection.textContent = '';
+    updateRoomChat(next.code, next.chat);
     if (!pieceControls.active() && (!busy || wasRestored(next))) update(next);
-    else showConnection(next);
   } catch (error) {
     if (seat !== currentSeat) return;
     connection.textContent = '連線中斷 · 重試中';
@@ -3181,7 +3566,7 @@ async function refresh() {
 
 function actionFields(fields, prefix = '') {
   const input = {};
-  for (const key of ['amount', 'quantity', 'wage']) if (fields.has(prefix + key)) input[key] = Number(fields.get(prefix + key));
+  for (const key of ['amount', 'quantity', 'wage', 'slot']) if (fields.has(prefix + key)) input[key] = Number(fields.get(prefix + key));
   for (const key of ['side', 'resource', 'recipient', 'company', 'sourceCompany', 'operator', 'hire', 'skill', 'replacement', 'worker', 'unionWorker', 'eventId', 'dealId', 'destination', 'option', 'replaced']) {
     if (fields.get(prefix + key)) input[key] = fields.get(prefix + key);
   }
@@ -3217,7 +3602,7 @@ function readCommand(form, fields) {
     const [policy, target] = fields.get('bill').split(':');
     Object.assign(input, { policy: Number(policy), target });
   }
-  if (fields.has('bill0')) input.proposals = ['bill0', 'bill1'].map((key, index) => {
+  if (fields.has('bill0')) input.proposals = (fields.has('deferSecond') ? ['bill0'] : ['bill0', 'bill1']).map((key, index) => {
     const [policy, target] = fields.get(key).split(':');
     return { policy: Number(policy), target, immediate: fields.has(`immediate${index}`) };
   });
@@ -3349,7 +3734,19 @@ async function submitGameForm(event) {
         warning('房間代碼須為 8 碼，只能包含數字 0–9 和英文字母 A–F。', form.elements.code);
         return;
       }
-      await enterPlayerRoom(code, fields.has('testMode'));
+      await enterPlayerRoom(code, fields.has('testMode'), fields.get('roomName'));
+      return;
+    }
+    if (form.hasAttribute('data-resume-room')) {
+      const code = fields.get('code');
+      if (code) await enterPlayerRoom(code);
+      return;
+    }
+    if (form.hasAttribute('data-waiting-invite') || form.hasAttribute('data-waiting-revoke')) {
+      const revoke = form.hasAttribute('data-waiting-revoke');
+      if (revoke && !window.confirm('確定刪除這筆邀請？已加入的玩家也會被移出房間。')) return;
+      const input = revoke ? { type: 'revoke-invite', id: fields.get('id') } : { type: 'invite', name: fields.get('name') };
+      update(await request(`/api/rooms/${seat.code}/waiting`, input));
       return;
     }
     if (form.hasAttribute('data-waiting-confirm')) {
@@ -3384,9 +3781,19 @@ async function submitGameForm(event) {
     }
     boardStatus = '';
     update(next);
+    if (next.cardResult) {
+      const dialog = document.querySelector('#card-result-dialog');
+      dialog.querySelector('[data-card-result]').innerHTML = cardResultMarkup(next.cardResult);
+      dialog.showModal();
+    }
     pendingBody = undefined;
   } catch (error) {
-    if (form.hasAttribute('data-room') && error.status === 401) {
+    if (form.hasAttribute('data-resume-room')) {
+      if (error.status === 401) forgetPlayerAccount();
+      else if (error.status === 404 && account) account.rooms = account.rooms.filter(room => room.code !== fields.get('code'));
+      showLobby();
+      warning(error.message);
+    } else if (form.hasAttribute('data-room') && error.status === 401) {
       forgetPlayerAccount();
       showLobby();
       warning(error.message);
@@ -3405,7 +3812,9 @@ app.addEventListener('invalid', event => {
   if (!warningDialog.open) warning(event.target.validationMessage, event.target);
 }, true);
 electionDialog.addEventListener('submit', submitGameForm);
-electionDialog.querySelector('[data-close-election]').addEventListener('click', () => electionDialog.close());
+electionDialog.addEventListener('click', event => {
+  if (event.target.closest('[data-close-election]')) electionDialog.close();
+});
 cardPilesBody.addEventListener('click', event => {
   const button = event.target.closest('[data-pile-card]');
   if (button) selectPileCard(button);
@@ -3424,10 +3833,11 @@ hostAdjustTabs.addEventListener('click', event => {
 hostAdjustTabs.addEventListener('keydown', event => {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
   event.preventDefault();
-  const index = adjustTabs.indexOf(adjustTab);
-  const next = event.key === 'Home' ? 0 : event.key === 'End' ? adjustTabs.length - 1
-    : (index + (event.key === 'ArrowRight' ? 1 : -1) + adjustTabs.length) % adjustTabs.length;
-  adjustTab = adjustTabs[next];
+  const tabs = adjustTabs.filter(tab => tab !== 'trade' || state.content);
+  const index = tabs.indexOf(adjustTab);
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+    : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+  adjustTab = tabs[next];
   renderHostAdjust();
   hostAdjustTabs.querySelector(`[data-adjust-tab="${adjustTab}"]`)?.focus();
 });
@@ -3455,6 +3865,34 @@ voteResultDialog.addEventListener('cancel', event => {
   if (pendingVoteDialogId) event.preventDefault();
 });
 
+function positionInfoPanel(panel) {
+  const tab = document.querySelector(`[popovertarget="${panel.id}"][data-board-tab]`);
+  const { left, right, top, bottom } = tab.getBoundingClientRect();
+  const { clientWidth: width, clientHeight: height } = document.documentElement;
+  const below = Math.max(0, height - bottom - 8);
+  const above = Math.max(0, top - 8);
+  const opensBelow = below >= 648 || below >= above;
+  const available = opensBelow ? below : above;
+  panel.style.maxHeight = `${available}px`;
+  const panelWidth = Math.min(570, width - 16);
+  const panelHeight = Math.min(648, available);
+  panel.style.left = `${Math.max(8, Math.min((left + right - panelWidth) / 2, width - panelWidth - 8))}px`;
+  panel.style.top = `${opensBelow ? bottom : top - panelHeight}px`;
+}
+
+function repositionOpenInfoPanel() {
+  const panel = app.querySelector('.player-info-popover:popover-open');
+  if (panel) positionInfoPanel(panel);
+}
+
+window.addEventListener('resize', repositionOpenInfoPanel);
+window.addEventListener('scroll', repositionOpenInfoPanel, { passive: true });
+
+app.addEventListener('beforetoggle', event => {
+  if (!event.target.matches?.('.player-info-popover')) return;
+  if (event.newState === 'open') positionInfoPanel(event.target);
+}, true);
+
 app.addEventListener('change', async event => {
   if (event.target.matches('[data-waiting-role], [data-waiting-skill]')) {
     if (busy || !state?.waiting) return;
@@ -3476,6 +3914,15 @@ app.addEventListener('change', async event => {
   }
   if (event.target.matches('select[data-colored-options]')) syncSelectColor(event.target);
   const { name, value, form: fields } = event.target;
+  const eventEditor = event.target.closest('[data-event-choice-editor]');
+  if (eventEditor && ['option', 'replaced'].includes(name)) syncEventChoice(eventEditor);
+  if (['immediate0', 'deferSecond'].includes(name) && fields?.elements.namedItem('deferSecond')) {
+    const defer = fields.elements.namedItem('deferSecond');
+    defer.disabled = !fields.elements.namedItem('immediate0').checked;
+    if (defer.disabled) defer.checked = false;
+    const second = fields.querySelector('[data-second-bill-fields]');
+    second.disabled = second.hidden = defer.checked;
+  }
   if (name === 'bill0' && fields?.querySelector('[data-second-bill]')) {
     const second = fields.querySelector('[data-second-bill]');
     const selected = fields.elements.namedItem('bill1').value;
@@ -3501,11 +3948,25 @@ app.addEventListener('change', async event => {
     return;
   }
   const cardMoves = event.target.closest('[data-card-moves]');
-  if (cardMoves) syncCardMoves(cardMoves);
+  if (cardMoves) {
+    syncCardMoves(cardMoves);
+    refreshAssignmentBoard();
+  }
+  const competitive = event.target.closest('[data-competitive-wages]');
+  if (competitive && name === 'company') {
+    const target = state.economy.companies.find(item => item.id === value);
+    const source = competitive.querySelector('select[name="sourceCompany"]');
+    const template = document.createElement('template');
+    template.innerHTML = selectField('sourceCompany', '移出全組工人的公營企業', companyOptions(competitiveSources(target)), true);
+    const sourceLabel = source.closest('label');
+    const previews = sourceLabel.nextElementSibling;
+    sourceLabel.replaceWith(template.content);
+    if (previews?.matches('[data-company-choices]')) previews.outerHTML = companyCardChoices(competitiveSources(target));
+  }
   const nationalize = event.target.closest('[data-nationalize]');
   if (nationalize && name === 'company') syncNationalize(nationalize);
   const cardBuild = event.target.closest('[data-card-build]') ?? (['source', 'resource'].includes(name) && fields?.querySelector('[data-card-build]'));
-  if (cardBuild && (['source', 'resource'].includes(name) || name.endsWith('company') || name.includes('card-staff-'))) {
+  if (cardBuild && (['source', 'resource'].includes(name) || name.endsWith('company') || name.endsWith('slot') || name.includes('card-staff-'))) {
     updateCardBuild(cardBuild, name);
     if (name === 'build0-company') {
       const second = fields.elements.namedItem('build1-company')?.closest('[data-card-build]');
@@ -3532,9 +3993,8 @@ app.addEventListener('change', async event => {
       updateQuantityMax(fields.elements.namedItem(prefix + 'amount'), Math.max(0, spec.targetAmounts[value] - 1));
     }
   }
-  if (name === 'dealId') {
-    const goods = state.content.deals.find(deal => deal.id === value)?.goods;
-    for (const resource of ['food', 'luxury']) updateQuantityMax(fields.elements.namedItem('allocation-' + resource), goods?.[resource] ?? 0);
+  if (['dealId', 'destination'].includes(name) && fields?.querySelector('[data-deal-allocation]')) {
+    syncDealAllocation(fields);
   }
   if (event.target.name === 'free-action') {
     selectedFreeAction = event.target.value;
@@ -3569,6 +4029,7 @@ app.addEventListener('change', async event => {
       }
     }
     syncCardMoves(moves);
+    refreshAssignmentBoard();
     return;
   }
   if (education && event.target.name === 'worker') {
@@ -3602,9 +4063,46 @@ app.addEventListener('change', async event => {
   app.querySelector('[data-command="buy"]').elements.namedItem(event.target.name).focus({ preventScroll: true });
 });
 
+async function syncLobbyRoomName(form) {
+  const { code, roomName } = form.elements;
+  const key = code.value.trim().toUpperCase();
+  if (!roomName.readOnly) roomName.dataset.draft = roomName.value;
+  roomName.readOnly = Boolean(key);
+  roomName.value = key ? '' : roomName.dataset.draft ?? '';
+  if (!/^[A-F0-9]{8}$/.test(key)) return;
+  try {
+    const room = await request(`/api/rooms/${key}/name`, undefined, { token: accountToken });
+    if (form.isConnected && code.value.trim().toUpperCase() === key) roomName.value = room.roomName;
+  } catch {
+    // Joining the room reports invalid codes or expired sessions.
+  }
+}
+
+renameRoomButton.addEventListener('click', () => {
+  if (!state || state.role !== state.host || busy) return;
+  renameRoomDialog.querySelector('input').value = state.roomName ?? state.code;
+  renameRoomDialog.showModal();
+});
+renameRoomDialog.querySelector('[data-cancel-rename]').addEventListener('click', () => renameRoomDialog.close());
+renameRoomDialog.querySelector('form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!state || state.role !== state.host || busy) return;
+  busy = true;
+  try {
+    const roomName = event.currentTarget.elements.roomName.value;
+    update(await request(`/api/rooms/${seat.code}/name`, { roomName, revision: state.revision }));
+    renameRoomDialog.close();
+  } catch (error) {
+    warning(error.message);
+  } finally {
+    busy = false;
+  }
+});
+
 app.addEventListener('input', event => {
   const roomForm = event.target.closest('form[data-room]');
   if (roomForm && event.target.name === 'code') {
+    syncLobbyRoomName(roomForm);
     roomForm.querySelector('[data-test-room]').hidden = Boolean(event.target.value.trim());
     roomForm.querySelector('button').textContent = event.target.value.trim() ? '加入房間' : '建立房間';
   }
@@ -3625,32 +4123,33 @@ app.addEventListener('input', event => {
 
 for (const type of ['input', 'change']) app.addEventListener(type, event => scheduleActionCheck(event.target.closest('form[data-command]')));
 
-app.addEventListener('keydown', event => {
-  const tab = event.target.closest('[data-board-tab]');
-  if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-  event.preventDefault();
-  const tabs = [...tab.parentElement.querySelectorAll('[data-board-tab]')];
-  const index = tabs.indexOf(tab);
-  const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
-    : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
-  openBoardTab(tabs[next].dataset.boardTab);
+app.addEventListener('change', event => {
+  const form = event.target.closest('form');
+  if (form) {
+    syncCompanyCards(form);
+    syncDealCards(form);
+  }
 });
 
 app.addEventListener('click', async event => {
-  const resume = event.target.closest('[data-resume-room]');
-  if (resume) {
-    if (busy) return;
-    message();
-    busy = true;
-    try {
-      await enterPlayerRoom(resume.dataset.resumeRoom);
-    } catch (error) {
-      if (error.status === 401) forgetPlayerAccount();
-      else if (error.status === 404 && account) account.rooms = account.rooms.filter(room => room.code !== resume.dataset.resumeRoom);
-      showLobby();
-      warning(error.message);
-    } finally {
-      busy = false;
+  const dealCard = event.target.closest('[data-deal-choice]');
+  if (dealCard) {
+    const select = dealCard.form.elements.namedItem('dealId');
+    select.value = dealCard.dataset.dealChoice;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return;
+  }
+  const companyCard = event.target.closest('[data-company-choice]');
+  if (companyCard) {
+    const { control, available } = companyChoiceControl(companyCard);
+    if (available) {
+      if (control.type === 'checkbox') control.checked = !control.checked;
+      else {
+        const id = companyCard.dataset.companyChoice;
+        const canClear = control.closest('[data-card-build]') && Array.from(control.options).some(option => option.value === '');
+        control.value = canClear && control.value === id ? '' : id;
+      }
+      control.dispatchEvent(new Event('change', { bubbles: true }));
     }
     return;
   }
@@ -3672,20 +4171,11 @@ app.addEventListener('click', async event => {
     if (!electionDialog.open) electionDialog.showModal();
     return;
   }
-  const tab = event.target.closest('[data-board-tab]');
-  if (tab) {
-    openBoardTab(tab.dataset.boardTab);
-    return;
-  }
   const card = event.target.closest('[data-card]');
   if (card && selectedCard !== card.dataset.card) {
     selectedCard = card.dataset.card;
     render();
     app.querySelector('[data-card][aria-pressed="true"]')?.focus({ preventScroll: true });
-    return;
-  }
-  if (event.target.closest('[data-cancel-card-build]')) {
-    render();
     return;
   }
   if (event.target.closest('[data-clear-draft]')) {
@@ -3713,7 +4203,7 @@ function roomSaveDate(createdAt) {
 }
 
 saveRoomButton.addEventListener('click', async () => {
-  if (busy || !state || state.role !== state.host) return;
+  if (busy || !state?.testMode || state.role !== state.host) return;
   const { code, revision } = state;
   if (!window.confirm(`確定儲存房間 ${code} 的目前進度？`)) return;
   busy = true;
@@ -3728,7 +4218,7 @@ saveRoomButton.addEventListener('click', async () => {
 });
 
 loadRoomButton.addEventListener('click', async () => {
-  if (busy || !state || state.role !== state.host || roomSavesDialog.open) return;
+  if (busy || !state?.testMode || state.role !== state.host || roomSavesDialog.open) return;
   const { code, revision } = state;
   busy = true;
   try {
@@ -3754,7 +4244,7 @@ loadRoomButton.addEventListener('click', async () => {
 });
 
 async function restoreRoomSave(code, revision, id) {
-  if (busy || state?.code !== code || state.role !== state.host) return;
+  if (busy || !state?.testMode || state.code !== code || state.role !== state.host) return;
   busy = true;
   message();
   try {
@@ -3812,6 +4302,25 @@ try {
   if (!seat && account?.rooms.some(room => room.code === invite)) await enterPlayerRoom(invite);
   else await refresh();
   setInterval(refresh, 1200);
+  setInterval(async () => {
+    const panel = app.querySelector('[data-lobby-invitations]');
+    if (!panel || !accountToken || seat || busy) return;
+    const previous = JSON.stringify(account?.invitations ?? []);
+    try {
+      await loadPlayerRooms();
+      if (!panel.isConnected || previous === JSON.stringify(account?.invitations ?? [])) return;
+      const selected = panel.querySelector('select')?.value;
+      panel.innerHTML = lobbyInvitations();
+      panel.hidden = !account?.invitations?.length;
+      const select = panel.querySelector('select');
+      if (select && Array.from(select.options).some(option => option.value === selected && !option.disabled)) select.value = selected;
+    } catch (error) {
+      if (panel.isConnected && !busy && error.status === 401) {
+        forgetPlayerAccount();
+        showLobby();
+      }
+    }
+  }, 5000);
 } catch (error) {
   warning(error.message);
 }

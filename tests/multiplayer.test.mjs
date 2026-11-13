@@ -30,18 +30,52 @@ test('waiting room starts only after four distinct roles and four current confir
     for (const name of ['Host', ...roles.slice(1)]) {
       accounts.push(await request('/api/player/register', { body: { name, password: 'p' } }));
     }
-    const host = await request('/api/rooms', { body: { testMode: true }, token: accounts[0].token, status: 201 });
+    const host = await request('/api/rooms', { body: { testMode: true, roomName: '測試議事廳' }, token: accounts[0].token, status: 201 });
     const path = '/api/rooms/' + host.code;
+    assert.equal((await request(path + '/name', { token: accounts[1].token })).roomName, '測試議事廳');
+    const invite = name => request(path + '/waiting', { body: { type: 'invite', name }, token: host.token });
+    const middle = accounts[1];
+    const offered = await invite(middle.name);
+    const [invitation] = offered.waiting.invitations;
+    assert(!offered.waiting.invitationCandidates.includes(middle.name));
+    assert(!offered.waiting.invitationCandidates.includes(accounts[0].name));
+    assert(offered.waiting.invitationCandidates.includes(accounts[2].name));
+    assert.equal(invitation.joined, false);
+    assert.equal((await request('/api/player/rooms', { token: middle.token })).invitations[0].code, host.code);
+    const invitedSeat = await request(path + '/join', { body: {}, token: middle.token });
+    const revoke = { type: 'revoke-invite', id: invitation.id };
+    await request(path + '/waiting', { body: revoke, token: invitedSeat.token, status: 403 });
+    assert.equal((await request(path, { token: host.token })).waiting.invitations[0].joined, true);
+    const revoked = await request(path + '/waiting', { body: revoke, token: host.token });
+    assert.equal(revoked.waiting.players.length, 1);
+    assert.deepEqual((await request('/api/player/rooms', { token: middle.token })).invitations, []);
+    await request(path, { token: invitedSeat.token, status: 401 });
+    await request(path + '/join', { body: {}, token: middle.token, status: 403 });
+    await invite(middle.name);
     const tokens = [host.token];
     for (const account of accounts.slice(1)) tokens.push((await request(path + '/join', { body: {}, token: account.token })).token);
+    const extra = await request('/api/player/register', { body: { name: 'Extra', password: 'p' } });
+    await invite(extra.name);
+    assert.equal((await request('/api/player/rooms', { token: extra.token })).invitations[0].full, true);
+    await request(path + '/join', { body: {}, token: extra.token, status: 409 });
     assert.equal((await request(path + '/join', { body: {}, token: accounts[0].token })).token, host.token);
     const hostView = await request(path, { token: host.token, presence: true });
+    await request(path + '/chat', { body: { text: '未登入' }, status: 401 });
+    await request(path + '/chat', { body: { text: '   ' }, token: host.token, status: 400 });
+    const lobbyChat = await request(path + '/chat', { body: { text: ' 大家好 ' }, token: host.token, status: 201 });
+    assert.deepEqual(lobbyChat.chat, [{ id: 1, role: null, name: accounts[0].name, text: '大家好' }]);
     assert.equal(hostView.presence[hostView.role], true);
     assert.equal(Object.values(hostView.presence).filter(Boolean).length, 1);
     const guestView = await request(path, { token: tokens[1], presence: true });
+    assert.deepEqual(guestView.chat, lobbyChat.chat);
+    assert.equal(guestView.waiting.invitationCandidates, undefined);
     assert.equal(guestView.presence[hostView.role], true);
     assert.equal(guestView.presence[guestView.role], true);
     assert.equal(guestView.revision, hostView.revision);
+    const rename = { roomName: '四人測試桌', revision: hostView.revision };
+    await request(path + '/name', { body: rename, token: tokens[1], status: 403 });
+    assert.equal((await request(path + '/name', { body: rename, token: host.token })).roomName, '四人測試桌');
+    assert.equal((await request(path, { token: tokens[1] })).roomName, '四人測試桌');
     const change = (index, body, status) => request(path + '/waiting', { token: tokens[index], body, status });
     for (let index = 0; index < roles.length; index++) await change(index, { type: 'select', role: roles[index] });
     const conflict = await change(1, { type: 'select', role: 'working' });
@@ -52,6 +86,9 @@ test('waiting room starts only after four distinct roles and four current confir
     await change(0, { type: 'start-skill', skill: 'health' }, 400);
     await change(1, { type: 'ready', selectionRevision: resolved.waiting.selectionRevision }, 400);
     const selected = await change(1, { type: 'start-skill', skill: 'health' });
+    assert.equal(selected.waiting.middleMarket.length, 3);
+    assert(selected.waiting.middleMarket.every(company => company.skills.length));
+    assert.equal((await request(path, { token: host.token })).waiting.middleMarket, undefined);
     const ready = { type: 'ready', selectionRevision: selected.waiting.selectionRevision };
     await change(0, { type: 'ready', selectionRevision: conflict.waiting.selectionRevision }, 400);
     await change(0, ready);
@@ -59,6 +96,10 @@ test('waiting room starts only after four distinct roles and four current confir
     const others = await Promise.all([1, 2, 3].map(index => change(index, ready)));
     assert(others.every(view => view.phase === 'lobby'));
     assert.equal((await change(0, ready)).phase, 'action');
+    const gameChat = await request(path + '/chat', { body: { text: '開始了' }, token: host.token, status: 201 });
+    assert.deepEqual(gameChat.chat, [...lobbyChat.chat, { id: 2, role: 'working', name: accounts[0].name, text: '開始了' }]);
+    await request(path + '/waiting', { body: revoke, token: host.token, status: 409 });
+    assert.deepEqual((await request('/api/player/rooms', { token: extra.token })).invitations, []);
     for (const [index, token] of tokens.entries()) {
       const view = await request(path, { token, presence: true });
       assert.equal(view.role, roles[index]);
@@ -99,6 +140,7 @@ test('waiting room starts only after four distinct roles and four current confir
     server = await startServer(store, false, false);
     const login = await request('/api/player/login', { body: { name: 'Host', password: 'p' } });
     const { rooms } = await request('/api/player/rooms', { token: login.token });
+    assert.equal(rooms[0].roomName, '四人測試桌');
     assert.deepEqual(rooms.map(({ code, host }) => ({ code, host })), [{ code: host.code, host: true }]);
     assert.equal((await request(path + '/join', { body: {}, token: login.token })).token, host.token);
     const guestRooms = await request('/api/player/rooms', { token: accounts[1].token });
@@ -291,6 +333,12 @@ test('four connected seats complete five rounds using the full catalog', { timeo
           assert.equal((await snapshot(opponent)).content.cardChoice, undefined);
           await command(opponent, { type: 'card-choice' }, 400);
           current = await command(role, { type: 'card-choice', indices: [0], immediate: false });
+          if (role === 'working') {
+            const { drawn, removed, returned } = current.cardResult.fakeNews;
+            assert.deepEqual(removed, drawn.slice(0, 1));
+            assert.deepEqual(returned, drawn.slice(1));
+          } else assert(Array.isArray(current.cardResult.changes));
+          assert.equal((await snapshot(opponent)).cardResult, undefined);
         }
         assert(current.mainUsed);
         if (action.type === 'build') {
@@ -457,7 +505,7 @@ test('Room saves survive a restart and only the host can save, restore or delete
     assert.equal((await request('/quick')).status, 404);
     assert.equal((await post('/api/quick-room', {})).status, 404);
     assert.equal((await post('/api/quick-reload', {})).status, 404);
-    const created = await post('/api/rooms', { role: 'working', name: 'Host' });
+    const created = await post('/api/rooms', { role: 'working', name: 'Host', testMode: true });
     assert.equal(created.status, 201);
     const { code, token } = await created.json();
     const path = `/api/rooms/${code}`;
@@ -494,10 +542,17 @@ test('Room saves survive a restart and only the host can save, restore or delete
     assert.equal(savedResponse.status, 201);
     const record = await savedResponse.json();
     assert.deepEqual(Object.keys(record), ['id', 'createdAt']);
-    const other = await (await post('/api/rooms', { role: 'working', name: 'Other host' })).json();
+    const other = await (await post('/api/rooms', { role: 'working', name: 'Other host', testMode: true })).json();
     const otherPath = `/api/rooms/${other.code}`;
     assert.equal((await post(otherPath + '/restore', { revision: 1, id: record.id }, other.token)).status, 404);
     assert.equal((await request(otherPath, { method: 'DELETE', headers: { Authorization: `Bearer ${other.token}` } })).status, 200);
+    const regular = await (await post('/api/rooms', { role: 'working', name: 'Regular host' })).json();
+    const regularPath = `/api/rooms/${regular.code}`;
+    const regularAuth = { headers: { Authorization: `Bearer ${regular.token}` } };
+    assert.equal((await request(`${regularPath}/saves`, regularAuth)).status, 403);
+    assert.equal((await post(`${regularPath}/saves`, { revision: 1 }, regular.token)).status, 403);
+    assert.equal((await post(`${regularPath}/restore`, { revision: 1, id: record.id }, regular.token)).status, 403);
+    assert.equal((await request(regularPath, { ...regularAuth, method: 'DELETE' })).status, 200);
     const savedPath = join(store, `${code}.json`);
     const saved = storedRoom(store, code);
     await writeFile(savedPath, JSON.stringify({ ...saved, godKey: 'legacy-key', history: [], rewindRevision: 1 }));

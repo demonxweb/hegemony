@@ -28,6 +28,14 @@ export function createPlayerAccounts({ getSetting, insertSetting, listSettings, 
     return `${payload}.${sign(payload)}`;
   };
   return {
+    invitationCandidates(excludedIds) {
+      return all().filter(player => !excludedIds.has(player.id)).map(player => player.name)
+        .sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+    },
+    lookup(name) {
+      const player = findByName(validName(name));
+      return player && { id: player.id, name: player.name };
+    },
     async login(input, register, request) {
       const name = validName(input.name);
       const { password } = input;

@@ -50,7 +50,7 @@ Labor Market Deregulation|勞動市場鬆綁|指派任意數量待業工人，2C
 Personal Consumption|個人消費|購買單一資源，可向不限數量來源各買最多人口數，或只向一個來源買最多兩倍人口數。|
 Immigration Reform|移民改革|就移民政策提案，加入 2 枚己方投票方塊。|
 Growing Business|企業成長|為一種資源免費加倉，可再建造企業。若企業生產該資源，建造費減 $4。|
-Public Sector Overtime|公營部門加班|選一間營運中的公營企業，由國家發薪及生產，之後可向國家購買最多人口數的該項服務。|
+Public Sector Overtime|公營企業加班|選一間營運中的公營企業，由國家發薪及生產，之後可向國家購買最多人口數的該項服務。|
 Supplemental Income Program|收入補助計畫|國家按你在公營或資本家企業工作的工人數，每人付 $2，再可購買商品與服務。|中產每 5 名符合工人 +1
 [capitalist]
 Health Crisis|醫療危機|向國家出售最多 9 醫療，每單位 $10。受國家庫存容量限制，國家不足可借款。|資本家每售出 3 醫療 +1
@@ -102,7 +102,7 @@ Allowances and Subsidies|津貼與補助|提供任一階級 $20。|目標得 1 �
 Agenda-Setting|設定議程|每符合一項國家綱領政策，得 1 個人影響力。|
 Pressing Matters|緊急議案|提出一項法案，可免費即時投票。|
 Radical Reforms|激進改革|提案可跨區段，本案不能即時投票。|
-Public Sector Overtime|公營部門加班|選一家己方企業發薪並立即生產。|
+Public Sector Overtime|公營企業加班|選一家己方企業發薪並立即生產。|
 Construction Boom|營建繁榮|國家、勞工與資本家各獲 $15。|勞工、資本家各 +1
 Business Grants|企業補助|提供資本家金錢，按其擁有企業每家 $5。|資本家每 3 家企業 +1
 Higher VAT|提高加值稅|其他玩家各付國家 $15。|選擇兩階級各 −1

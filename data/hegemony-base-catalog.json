@@ -683,7 +683,7 @@
       {
         "id": "action-middle-public-sector-overtime",
         "name": "Public Sector Overtime",
-        "nameZh": "公營部門加班",
+        "nameZh": "公營企業加班",
         "copies": 1,
         "cardFaceUrl": "https://img.ludex.dev/_astro/mc-public-sector-overtime.COPAPPs5_3y2cc.webp",
         "verification": "requirement_effect_legitimacy_face_checked",
@@ -1329,7 +1329,7 @@
       {
         "id": "action-state-public-sector-overtime",
         "name": "Public Sector Overtime",
-        "nameZh": "公營部門加班",
+        "nameZh": "公營企業加班",
         "copies": 2,
         "cardFaceUrl": "https://img.ludex.dev/_astro/st-public-sector-overtime.BQU9qcar_Z1Brt7Q.webp",
         "verification": "requirement_effect_legitimacy_face_checked",

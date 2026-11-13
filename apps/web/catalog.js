@@ -48,7 +48,7 @@ function buildGroups({ decks, marketSizes, policies, names, storage }) {
       ...(card.machineryBonus ? [['機械加成', `產量 +${card.machineryBonus}`]] : []),
       ['適用人數', `${card.eligiblePlayerCounts.join('、')} 人局`],
       ['卡片配置', card.startingPlayerCounts.length ? `${card.startingPlayerCounts.join('、')} 人局起始企業`
-        : card.owner === 'state' ? '公營部門擴充' : card.requiresActionCard ? '合作農場' : '企業市場牌庫'],
+        : card.owner === 'state' ? '公營企業擴充' : card.requiresActionCard ? '合作農場' : '企業市場牌庫'],
     ];
   };
   const groups = [
