@@ -20,6 +20,34 @@ const loadRoomButton = document.querySelector('#load-room');
 const closeRoom = document.querySelector('#close-room');
 const roomSavesDialog = document.querySelector('#room-saves');
 const tooltip = document.querySelector('#board-tooltip');
+
+// ===== 自動彈出的視窗：依序一個一個確認 =====
+// 生產、結算、表決等視窗不再一個蓋在另一個上面：已經有視窗開著時，新的視窗先排隊，
+// 前一個關閉（確認）後，才依出現的先後順序顯示下一個。使用者自己點開的視窗（說明、確認行動…）不受影響。
+const dialogQueue = [];
+const anyDialogOpen = () => Boolean(document.querySelector('dialog[open]'));
+function openInOrder(dialog) {
+  if (!dialog || dialog.open) return;
+  if (anyDialogOpen()) {
+    if (!dialogQueue.includes(dialog.id)) dialogQueue.push(dialog.id);
+    return;
+  }
+  dialog.showModal();
+}
+// 不需要了的視窗（例如表決已經結束），從排隊中拿掉。
+function unqueueDialog(dialog) {
+  const index = dialogQueue.indexOf(dialog?.id);
+  if (index >= 0) dialogQueue.splice(index, 1);
+}
+function pumpDialogs() {
+  while (dialogQueue.length && !anyDialogOpen()) {
+    // 重新用 id 找：畫面重繪後，同一個視窗會是新的元素。
+    const dialog = document.getElementById(dialogQueue.shift());
+    if (dialog?.isConnected && !dialog.open) dialog.showModal();
+  }
+}
+document.addEventListener('close', pumpDialogs, true);
+setInterval(pumpDialogs, 250);
 const actionConfirmation = document.querySelector('#action-confirmation');
 const electionDialog = document.querySelector('#election-dialog');
 const voteResultDialog = document.querySelector('#vote-result-dialog');
@@ -2442,9 +2470,7 @@ function syncFinalResultDialog() {
   const dialog = document.querySelector('#final-result-dialog');
   dialog.querySelector('[data-final-result]').innerHTML = finalDialogMarkup();
   // 先看第五輪的計分結果，關閉後才彈出終局結算。
-  const show = () => { if (!dialog.open) dialog.showModal(); };
-  if (roundResultDialog.open) roundResultDialog.addEventListener('close', show, { once: true });
-  else show();
+  openInOrder(dialog);
 }
 
 function showRoundResult(row) {
@@ -2477,7 +2503,7 @@ function showRoundResult(row) {
     ['wages', '生產薪資', open(companyProductionDetails(row.production, false, undefined, { grouped: true })) || '<p class="muted">本輪沒有生產紀錄。</p>'],
   ];
   roundResultDialog.querySelector('[data-round-result]').innerHTML = statTabsMarkup(tabs);
-  if (!roundResultDialog.open) roundResultDialog.showModal();
+  openInOrder(roundResultDialog);
 }
 
 function syncRoundResultDialog() {
@@ -2795,6 +2821,7 @@ function syncElectionDialog() {
   const election = state.phase === 'election' && state.election;
   if (!election || !pendingVoters(election).includes(state.role)) {
     electionPrompt = '';
+    unqueueDialog(electionDialog);
     if (electionDialog.open) electionDialog.close();
     return;
   }
@@ -2808,8 +2835,8 @@ function syncElectionDialog() {
     ? '<form class="buttons" data-command="side"><button name="side" value="for">贊成</button><button name="side" value="against">反對</button></form>'
     : `<form data-command="bid">${numberField('amount', '投入影響力', state.players[state.role].influence)}
       <div class="buttons"><button type="submit">秘密提交</button></div></form>`;
-  if (!electionDialog.open) electionDialog.showModal();
-  controls.querySelector('input, button')?.focus();
+  openInOrder(electionDialog);
+  if (electionDialog.open) controls.querySelector('input, button')?.focus();
 }
 
 function showVoteResult(result) {
@@ -2844,7 +2871,7 @@ function showVoteResult(result) {
         return `<span class="vote-draw-cube ${role}" role="img" aria-label="${name}" title="${name}"></span>`;
       }).join('') || '—'}</p>
     </div>`;
-  if (!voteResultDialog.open) voteResultDialog.showModal();
+  openInOrder(voteResultDialog);
 }
 
 function syncVoteResultDialog() {
@@ -3629,7 +3656,7 @@ function render() {
   for (const dialog of app.querySelectorAll('#card-step-dialog, #production-step-dialog')) {
     // 必須完成這個步驟才能繼續，所以不能按 Esc 關掉。
     dialog.addEventListener('cancel', event => event.preventDefault());
-    dialog.showModal();
+    openInOrder(dialog);
   }
   app.querySelectorAll('select[data-colored-options]').forEach(syncSelectColor);
   const food = app.querySelector('[data-command="food"]');
@@ -3777,7 +3804,7 @@ function syncWageIncome(view) {
   wageIncomePending.push(...payments.slice(wageIncomeSeen));
   wageIncomeSeen = payments.length;
   wageIncomeDialog.querySelector('[data-wage-income]').innerHTML = wageIncomeMarkup(view);
-  if (!wageIncomeDialog.open) wageIncomeDialog.showModal();
+  openInOrder(wageIncomeDialog);
 }
 
 wageIncomeDialog.addEventListener('close', () => { wageIncomePending = []; });
@@ -3878,7 +3905,10 @@ function syncWaitingActions(view) {
   waitingActionsCount = count;
   if (!count || log.at(-1).role === view.role) return;
   if (waitingActionsDialog.open && waitingActionsDialog.dataset.mode === 'summary') waitingActionsDialog.close();
-  if (!waitingActionsDialog.open && document.querySelector('dialog[open]')) return;
+  if (!waitingActionsDialog.open && document.querySelector('dialog[open]')) {
+    waitingActionsCount = -1;
+    return;
+  }
   const cycleStart = Math.floor(view.turn / meta.roles.length) * meta.roles.length;
   openRecordDialog('waiting', `第 ${view.match.round} 輪 · 第 ${roomTurnNumber(view.turn)} 回合 · 各席行動`,
     turnRecordMarkup(view, log.filter(entry => entry.turn >= cycleStart), view.turn, true));
@@ -4208,7 +4238,7 @@ async function submitGameForm(event) {
     if (next.cardResult) {
       const dialog = document.querySelector('#card-result-dialog');
       dialog.querySelector('[data-card-result]').innerHTML = cardResultMarkup(next.cardResult);
-      dialog.showModal();
+      openInOrder(dialog);
     }
     pendingBody = undefined;
   } catch (error) {
