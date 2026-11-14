@@ -259,7 +259,8 @@ summary { cursor: pointer; font-weight: 700; }
 .status-info-row:has(#player-panel-settlement:popover-open) #player-tab-settlement,
 .status-info-row:has(#player-panel-prices:popover-open) #player-tab-prices,
 .status-info-row:has(#player-panel-seats:popover-open) #player-tab-seats,
-.status-info-row:has(#player-panel-log:popover-open) #player-tab-log { background: #382d24; border-color: var(--gold); color: var(--gold); }
+.status-info-row:has(#player-panel-log:popover-open) #player-tab-log,
+.status-info-row:has(#player-panel-rounds:popover-open) #player-tab-rounds { background: #382d24; border-color: var(--gold); color: var(--gold); }
 .player-info-popover:popover-open { display: flex; flex-direction: column; gap: 8px; }
 .player-info-scroll { flex: 1; min-height: 0; overflow: auto; }
 .player-info-scroll .settlement-gaps { margin-top: 0; }
@@ -690,3 +691,9 @@ body:has(#app.dragging) .board-tooltip { visibility: hidden; }
 .bag-line > h3 { flex: 0 0 auto; margin: 0; white-space: nowrap; }
 .bag-line .bag-row { flex: 1 1 auto; min-width: 0; margin: 0; gap: 3px; }
 .bag-line .bag-row span { padding: 4px 3px; font-size: .64rem; white-space: nowrap; }
+
+/* 自動彈出的視窗（浮動、可拖曳，不鎖定畫面）；位置由 app.js 設定 */
+dialog.floating { position: fixed; inset: auto; margin: 0; max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); overflow: auto;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 65%); }
+dialog.floating h2, dialog.floating > header, dialog.floating .mat-help-header { cursor: move; touch-action: none; user-select: none; -webkit-user-select: none; }
+.board-tooltip { z-index: 2000; }

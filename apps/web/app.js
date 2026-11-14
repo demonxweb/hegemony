@@ -21,33 +21,54 @@ const closeRoom = document.querySelector('#close-room');
 const roomSavesDialog = document.querySelector('#room-saves');
 const tooltip = document.querySelector('#board-tooltip');
 
-// ===== 自動彈出的視窗：依序一個一個確認 =====
-// 生產、結算、表決等視窗不再一個蓋在另一個上面：已經有視窗開著時，新的視窗先排隊，
-// 前一個關閉（確認）後，才依出現的先後順序顯示下一個。使用者自己點開的視窗（說明、確認行動…）不受影響。
-const dialogQueue = [];
-const anyDialogOpen = () => Boolean(document.querySelector('dialog[open]'));
-function openInOrder(dialog) {
+// ===== 自動彈出的視窗：不鎖定畫面、可以拖曳，由使用者自己決定先看哪一個 =====
+// 生產、結算、表決等視窗用「非強制」的方式開啟：背景仍可操作與捲動，沒有遮罩；
+// 同時有好幾個時會錯開排列，拖曳標題列就能移開，點到的視窗會移到最上面。
+let floatingTop = 60;
+const floatingPositions = new Map();
+
+const viewSize = () => ({ width: window.innerWidth || 1024, height: window.innerHeight || 768 });
+
+function moveFloating(dialog, left, top) {
+  // 至少留一小塊標題列在畫面內，才拖得回來。
+  const view = viewSize();
+  const x = Math.min(Math.max(80 - dialog.offsetWidth, left), view.width - 80);
+  const y = Math.min(Math.max(0, top), view.height - 44);
+  dialog.style.left = `${Math.round(x)}px`;
+  dialog.style.top = `${Math.round(y)}px`;
+  floatingPositions.set(dialog.id, { left: x, top: y });
+}
+
+function showFloating(dialog) {
   if (!dialog || dialog.open) return;
-  if (anyDialogOpen()) {
-    if (!dialogQueue.includes(dialog.id)) dialogQueue.push(dialog.id);
-    return;
-  }
-  dialog.showModal();
+  const others = document.querySelectorAll('dialog.floating[open]').length;
+  dialog.classList.add('floating');
+  dialog.show();
+  const saved = floatingPositions.get(dialog.id);
+  moveFloating(dialog, saved?.left ?? (viewSize().width - dialog.offsetWidth) / 2 + others * 26, saved?.top ?? 56 + others * 26);
+  dialog.style.zIndex = String(++floatingTop);
 }
-// 不需要了的視窗（例如表決已經結束），從排隊中拿掉。
-function unqueueDialog(dialog) {
-  const index = dialogQueue.indexOf(dialog?.id);
-  if (index >= 0) dialogQueue.splice(index, 1);
-}
-function pumpDialogs() {
-  while (dialogQueue.length && !anyDialogOpen()) {
-    // 重新用 id 找：畫面重繪後，同一個視窗會是新的元素。
-    const dialog = document.getElementById(dialogQueue.shift());
-    if (dialog?.isConnected && !dialog.open) dialog.showModal();
-  }
-}
-document.addEventListener('close', pumpDialogs, true);
-setInterval(pumpDialogs, 250);
+
+let floatingDrag = null;
+document.addEventListener('pointerdown', event => {
+  const dialog = event.target.closest?.('dialog.floating');
+  if (!dialog) return;
+  dialog.style.zIndex = String(++floatingTop);
+  const handle = event.target === dialog || event.target.closest('h2, header, .mat-help-header');
+  if (!handle || event.target.closest('button, a, input, select, textarea, summary')) return;
+  const box = dialog.getBoundingClientRect();
+  floatingDrag = { dialog, dx: event.clientX - box.left, dy: event.clientY - box.top, id: event.pointerId };
+  event.preventDefault();
+});
+document.addEventListener('pointermove', event => {
+  if (!floatingDrag || event.pointerId !== floatingDrag.id) return;
+  moveFloating(floatingDrag.dialog, event.clientX - floatingDrag.dx, event.clientY - floatingDrag.dy);
+});
+const endFloatingDrag = event => {
+  if (floatingDrag && event.pointerId === floatingDrag.id) floatingDrag = null;
+};
+document.addEventListener('pointerup', endFloatingDrag);
+document.addEventListener('pointercancel', endFloatingDrag);
 const actionConfirmation = document.querySelector('#action-confirmation');
 const electionDialog = document.querySelector('#election-dialog');
 const voteResultDialog = document.querySelector('#vote-result-dialog');
@@ -2470,7 +2491,7 @@ function syncFinalResultDialog() {
   const dialog = document.querySelector('#final-result-dialog');
   dialog.querySelector('[data-final-result]').innerHTML = finalDialogMarkup();
   // 先看第五輪的計分結果，關閉後才彈出終局結算。
-  openInOrder(dialog);
+  showFloating(dialog);
 }
 
 function showRoundResult(row) {
@@ -2503,7 +2524,7 @@ function showRoundResult(row) {
     ['wages', '生產薪資', open(companyProductionDetails(row.production, false, undefined, { grouped: true })) || '<p class="muted">本輪沒有生產紀錄。</p>'],
   ];
   roundResultDialog.querySelector('[data-round-result]').innerHTML = statTabsMarkup(tabs);
-  openInOrder(roundResultDialog);
+  showFloating(roundResultDialog);
 }
 
 function syncRoundResultDialog() {
@@ -2758,13 +2779,13 @@ function roundSettlementDetails(row) {
 function roundHistory() {
   const history = state.match?.history ?? [];
   if (!history.length) return '';
-  return `<details class="panel" open><summary>輪次結算</summary>${[...history].reverse().map(row => `<details>
+  return `<div class="round-history">${[...history].reverse().map((row, index) => `<details${index === 0 ? ' open' : ''}>
     <summary>第 ${row.round} 輪 · 稅收 $${row.taxes.total} · ${row.imf?.intervened ? 'IMF 介入' : '未介入 IMF'}</summary>
     ${roundSettlementDetails(row)}
     ${roundLoanDetails(row)}
     ${companyProductionDetails(row.production)}
     <p>輪末分數 ${coloredGameText(Object.entries(row.points).map(([role, points]) => `${meta.names[role]} +${points}`).join('、'))}。</p>
-    </details>`).join('')}</details>`;
+    </details>`).join('')}</div>`;
 }
 
 function pendingVoters(election) {
@@ -2821,7 +2842,6 @@ function syncElectionDialog() {
   const election = state.phase === 'election' && state.election;
   if (!election || !pendingVoters(election).includes(state.role)) {
     electionPrompt = '';
-    unqueueDialog(electionDialog);
     if (electionDialog.open) electionDialog.close();
     return;
   }
@@ -2835,7 +2855,7 @@ function syncElectionDialog() {
     ? '<form class="buttons" data-command="side"><button name="side" value="for">贊成</button><button name="side" value="against">反對</button></form>'
     : `<form data-command="bid">${numberField('amount', '投入影響力', state.players[state.role].influence)}
       <div class="buttons"><button type="submit">秘密提交</button></div></form>`;
-  openInOrder(electionDialog);
+  showFloating(electionDialog);
   if (electionDialog.open) controls.querySelector('input, button')?.focus();
 }
 
@@ -2871,7 +2891,7 @@ function showVoteResult(result) {
         return `<span class="vote-draw-cube ${role}" role="img" aria-label="${name}" title="${name}"></span>`;
       }).join('') || '—'}</p>
     </div>`;
-  openInOrder(voteResultDialog);
+  showFloating(voteResultDialog);
 }
 
 function syncVoteResultDialog() {
@@ -3184,6 +3204,7 @@ function playerInfoTabs() {
     ['prices', '價格', resourcePricePanel() || '<p class="panel muted">目前沒有資源價格。</p>'],
     ['seats', '摘要', `<section class="panel"><div class="seat-grid">${seatCards()}</div></section>`],
     ['log', '記錄', recordPanel()],
+    ['rounds', '結算', `<section class="panel">${roundHistory() || '<p class="muted">目前還沒有輪次結算。</p>'}</section>`],
   ];
   return `<div class="player-info-tabs" role="group" aria-label="對局資訊">${tabs.map(([id, label]) =>
     `<button type="button" id="player-tab-${id}" data-board-tab="${id}" popovertarget="player-panel-${id}">${label}</button>`
@@ -3632,7 +3653,7 @@ function render() {
           <strong class="turn-roles">${actingRoles}</strong>${playerInfoTabs()}
         </div>
       </div>
-      ${tableBoard()}${productionPanel()}${roundHistory()}
+      ${tableBoard()}${productionPanel()}
     </div>
     <aside class="column action-desk" id="action-desk">${handBoard(card)}
       ${transferTargets()}<div id="action-controls" class="column">
@@ -3656,7 +3677,7 @@ function render() {
   for (const dialog of app.querySelectorAll('#card-step-dialog, #production-step-dialog')) {
     // 必須完成這個步驟才能繼續，所以不能按 Esc 關掉。
     dialog.addEventListener('cancel', event => event.preventDefault());
-    openInOrder(dialog);
+    showFloating(dialog);
   }
   app.querySelectorAll('select[data-colored-options]').forEach(syncSelectColor);
   const food = app.querySelector('[data-command="food"]');
@@ -3804,7 +3825,7 @@ function syncWageIncome(view) {
   wageIncomePending.push(...payments.slice(wageIncomeSeen));
   wageIncomeSeen = payments.length;
   wageIncomeDialog.querySelector('[data-wage-income]').innerHTML = wageIncomeMarkup(view);
-  openInOrder(wageIncomeDialog);
+  showFloating(wageIncomeDialog);
 }
 
 wageIncomeDialog.addEventListener('close', () => { wageIncomePending = []; });
@@ -3871,7 +3892,7 @@ function openRecordDialog(mode, title, markup) {
   waitingActionsDialog.dataset.mode = mode;
   waitingActionsDialog.querySelector('#waiting-actions-title').textContent = title;
   waitingActionsDialog.querySelector('[data-waiting-actions]').innerHTML = markup;
-  if (!waitingActionsDialog.open) waitingActionsDialog.showModal();
+  showFloating(waitingActionsDialog);
 }
 
 // 輪到自己時，列出自己上一個回合起各席做了什麼（含自己）。每個回合只顯示一次。
@@ -3884,7 +3905,7 @@ function showTurnSummary(view) {
     turnSummaryKey = key;
     return;
   }
-  if (waitingActionsDialog.open || document.querySelector('dialog[open]')) return;
+  if (waitingActionsDialog.open) return;
   turnSummaryKey = key;
   openRecordDialog('summary', '輪到你了 · 上次你行動後各席的行動', turnRecordMarkup(view, entries, undefined, true));
 }
@@ -3905,10 +3926,6 @@ function syncWaitingActions(view) {
   waitingActionsCount = count;
   if (!count || log.at(-1).role === view.role) return;
   if (waitingActionsDialog.open && waitingActionsDialog.dataset.mode === 'summary') waitingActionsDialog.close();
-  if (!waitingActionsDialog.open && document.querySelector('dialog[open]')) {
-    waitingActionsCount = -1;
-    return;
-  }
   const cycleStart = Math.floor(view.turn / meta.roles.length) * meta.roles.length;
   openRecordDialog('waiting', `第 ${view.match.round} 輪 · 第 ${roomTurnNumber(view.turn)} 回合 · 各席行動`,
     turnRecordMarkup(view, log.filter(entry => entry.turn >= cycleStart), view.turn, true));
@@ -4238,7 +4255,7 @@ async function submitGameForm(event) {
     if (next.cardResult) {
       const dialog = document.querySelector('#card-result-dialog');
       dialog.querySelector('[data-card-result]').innerHTML = cardResultMarkup(next.cardResult);
-      openInOrder(dialog);
+      showFloating(dialog);
     }
     pendingBody = undefined;
   } catch (error) {
@@ -4638,7 +4655,7 @@ app.addEventListener('click', async event => {
     return;
   }
   if (event.target.closest('[data-open-election]')) {
-    if (!electionDialog.open) electionDialog.showModal();
+    showFloating(electionDialog);
     return;
   }
   const card = event.target.closest('[data-card]');
