@@ -3,13 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Hegemony｜議事廳 · v0.1.6</title>
+  <title>Hegemony｜議事廳 · v0.1.7</title>
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/mobile.css" media="(max-width: 640px), (orientation: landscape) and (max-height: 500px)">
   <script src="/app.js" type="module"></script>
+  <script src="/mobile.js" type="module"></script>
 </head>
 <body>
   <header class="topbar">
+    <button id="mobile-menu-toggle" class="mobile-only" type="button" aria-label="開啟選單" aria-expanded="false" aria-controls="mobile-drawer">☰</button>
+    <span id="mobile-title" class="mobile-only">HEGEMONY</span>
+    <div id="mobile-drawer" class="topbar-items">
     <a class="brand" href="/" aria-label="Hegemony 首頁"><img src="/assets/icons/vote.svg" alt=""><span>HEGEMONY<small>議事廳 <strong id="header-room-code" hidden></strong></small></span></a>
+    <div id="mobile-info-menu" class="mobile-only" role="group" aria-label="對局資訊">
+      <button type="button" data-proxy="settlement">試算</button>
+      <button type="button" data-proxy="prices">價格</button>
+      <button type="button" data-proxy="seats">摘要</button>
+      <button type="button" data-proxy="log">記錄</button>
+    </div>
     <div id="header-room-actions" class="room-actions" hidden>
       <button id="return-lobby" type="button" hidden>回到大廳</button>
       <button id="rename-room" type="button" hidden>修改房間名</button>
@@ -25,7 +36,20 @@
       <button id="player-logout" type="button">登出</button>
       <button id="player-password" type="button">修改密碼</button>
     </div>
+    </div>
   </header>
+  <div id="mobile-scrim" class="mobile-only"></div>
+  <nav id="mobile-tabs" class="mobile-only" aria-label="面板">
+    <button type="button" data-sheet="chat" aria-pressed="false">聊天</button>
+    <button type="button" data-sheet="hand" aria-pressed="false">手牌・行動</button>
+    <button type="button" data-sheet="free" aria-pressed="false">免費行動</button>
+    <button type="button" data-sheet="boards" aria-pressed="false">我的圖板</button>
+  </nav>
+  <div id="mobile-zoom" class="mobile-only" role="group" aria-label="主圖板縮放">
+    <button type="button" data-zoom="in" aria-label="放大">＋</button>
+    <button type="button" data-zoom="out" aria-label="縮小">－</button>
+    <button type="button" data-zoom="reset" aria-label="還原">⤢</button>
+  </div>
   <main id="app" aria-label="遊戲畫面"><p>正在載入房間設定…</p></main>
   <section id="room-chat" class="room-chat" aria-label="房間聊天" hidden>
     <div class="panel">

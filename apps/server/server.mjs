@@ -45,7 +45,7 @@ async function route(request, response) {
   const path = new URL(request.url, 'http://localhost').pathname;
   if (request.method === 'GET') {
     response.setHeader('X-Content-Type-Options', 'nosniff');
-    const pages = { '/': 'index.html', '/help': 'help.html', '/help.js': 'help.js', '/help.css': 'help.css', '/help-content.js': 'help-content.js', '/style.css': 'style.css',
+    const pages = { '/': 'index.html', '/help': 'help.html', '/help.js': 'help.js', '/help.css': 'help.css', '/help-content.js': 'help-content.js', '/mobile.css': 'mobile.css', '/mobile.js': 'mobile.js', '/style.css': 'style.css',
       '/admin': 'admin.html', '/admin.js': 'admin.js',
       '/catalog.css': 'catalog.css', '/catalog.js': 'catalog.js', '/catalog-action-details.js': 'catalog-action-details.js',
       '/app.js': 'app.js', '/boards.js': 'boards.js', '/pieces.js': 'pieces.js' };

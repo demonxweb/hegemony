@@ -1338,7 +1338,7 @@ function marketCompanyCard(item, movable = false, selectable = false, pick = fal
 }
 
 function boardEvents(events = []) {
-  return `<section class="board-events"><h3>${boardHeadingHelp('國家事件',
+  return `<section class="board-zone board-events"><h3>${boardHeadingHelp('國家事件',
     '開局設置\n把事件牌庫洗勻，翻開 2 張放在圖板的事件格。如果翻到只能在第 2～5 輪使用的牌，就洗回牌庫重翻，直到兩格都是第一輪可用的事件。',
     '之後每輪準備階段會公開兩張事件牌。把滑鼠移到卡牌上，可以看處理條件、各選項的獎勵，以及沒處理的懲罰。',
     '輪到國家時，可以用「處理國家事件」選一張事件，依牌面選對象並完成任務。任務可能要付錢或資源、提供福利，或做指定的行動。完成後拿到那個選項的獎勵，例如提高合法性、拿永久標記或得 VP，然後棄掉事件牌。',
@@ -1378,10 +1378,6 @@ function tableBoard() {
     && !plannedStaff.includes(worker.id) && !moves.some(move => move.worker === worker.id));
   const farms = economy?.companies.filter(item => item.owner === 'working') ?? [];
   const emptyFarms = Math.max(0, 2 - farms.length);
-  const range = length => Array.from({ length }, (_, index) => index + 1);
-  const rounds = track('輪次', range(5), (match?.round ?? 1) - 1);
-  const multipliers = [1, 2, 3, 4, 5, 6, 7, 9, 11];
-  const tax = track('稅倍率', multipliers, multipliers.indexOf(state.taxMultiplier));
   const deals = content?.deals ?? [];
   const offers = content?.export?.offers ?? match?.exports ?? [];
   const trade = tradeTips(deals, offers);
@@ -1398,6 +1394,7 @@ function tableBoard() {
   ].join('\n\n');
   return `<section class="main-board" aria-labelledby="main-board-title">
     <h1 id="main-board-title">遊戲圖板</h1>
+    <span class="board-turn">第 ${match?.round ?? 1} 輪．第 ${roomTurnNumber(state.turn)} 回合</span>
     ${boardSurface('central')}${['top', 'right', 'bottom', 'left'].map(edge => scoreEdge(state.players, edge)).join('')}
     <div class="score-help">${boardHelpButton('勝利分數軌 (VP)', scoreHelp, escape)}</div>
     <div class="board-interior">
@@ -1413,23 +1410,23 @@ function tableBoard() {
         '對外貿易\n6A：食物關稅 $10、奢侈品關稅 $6，下一輪準備時公開 0 張商務合約。\n6B：食物關稅 $5、奢侈品關稅 $3，公開 1 張商務合約。\n6C：食物和奢侈品的關稅都是 $0，公開 2 張商務合約。',
         '移民\n7A：下一輪準備時，勞工和中產各多抽 0 張移民牌。\n7B：各多抽 1 張。\n7C：各多抽 2 張。',
         '計分方式\n第 1～5 項也會影響計分。國家每輪計分時，現行政策每符合政治綱領一項，得 1 VP。終局時，勞工、中產、資本家分別看這五項有幾項落在 A、B、C 區，查表得分。')}</h3>${policyDiagram(state, meta, escape, tipAttrs)}</section>
-      <div class="board-civic-stack"><section class="board-zone board-civic"><div class="board-metrics"><div><h3>${boardHeadingHelp('輪次',
+      <div class="board-civic-stack"><div class="board-civic"><div class="board-metrics"><section class="board-zone board-metric"><h3>${boardHeadingHelp('輪次',
         '一局共五輪，每輪依序是準備、行動、生產、選舉、計分。第一輪跳過準備階段；沒有待表決的法案時，輪末選舉也跳過。',
-        '行動階段每個階級有五個回合。第五輪計分後，結算貸款和各階級的終局分數。')}</h3>${rounds}</div><div><h3>${boardHeadingHelp('稅倍率',
+        '行動階段每個階級有五個回合。第五輪計分後，結算貸款和各階級的終局分數。')}</h3><p class="treasury-amount"><strong>${match?.round ?? 1}</strong></p></section><section class="board-zone board-metric"><h3>${boardHeadingHelp('稅倍率',
         '開局設置\n稅倍率標記放在 5。起始稅制是 3A，醫療福利 4B 的修正值是 1，教育福利 5C 的修正值是 0，所以倍率是 3＋2 ×（1＋0）＝5。',
         '先看醫療福利和教育福利目前各在哪個區段：A 算 2、B 算 1、C 算 0，再把兩項加起來。',
         '再套用稅制。\n3A：稅倍率＝3＋2 × 福利修正值總和。\n3B：稅倍率＝2＋福利修正值總和。\n3C：稅倍率固定是 1。',
         '例如稅制 3B、醫療 4A、教育 5B：福利修正值總和是 2＋1＝3，稅倍率是 2＋3＝5。中產和資本家的僱用稅，等於各自營運中的企業數 × 稅倍率，所以有 3 家營運企業就繳 3 × 5＝$15。',
         '各階級繳的稅\n生產階段每個階級都要繳稅，稅款全部存進國庫，國家自己不繳。\n勞工：人口 × 所得稅單價。\n中產：「有中產工人在裡面工作、但不是中產自己開的營運企業」有幾家 × 所得稅單價，再加上自己營運的企業數 × 稅倍率。\n資本家：營運企業數 × 稅倍率（僱用稅），再依營收查企業稅。',
         '所得稅單價\n看勞動市場和稅制兩項政策：\n勞動市場 2A：稅制 3A 是 $7、3B 是 $6、3C 是 $5。\n勞動市場 2B：3A、3B、3C 都是 $4。\n勞動市場 2C：3A 是 $1、3B 是 $2、3C 是 $3。',
-        '資本家的企業稅\n先繳完僱用稅，再用剩下的營收查表（稅制 3A、3B、3C）：\n營收 $0～4：免稅。\n$5～9：$1、$2、$2。\n$10～24：$5、$5、$4。\n$25～49：$12、$10、$7。\n$50～99：$24、$15、$10。\n$100～199：$40、$30、$20。\n$200～299：$100、$70、$40。\n$300 以上：$160、$120、$60。')}</h3>${tax}</div></div>
-        <h3>${boardHeadingHelp('投票袋',
+        '資本家的企業稅\n先繳完僱用稅，再用剩下的營收查表（稅制 3A、3B、3C）：\n營收 $0～4：免稅。\n$5～9：$1、$2、$2。\n$10～24：$5、$5、$4。\n$25～49：$12、$10、$7。\n$50～99：$24、$15、$10。\n$100～199：$40、$30、$20。\n$200～299：$100、$70、$40。\n$300 以上：$160、$120、$60。')}</h3><p class="treasury-amount"><strong>${state.taxMultiplier}</strong></p></section></div>
+        <section class="board-zone bag-line"><h3>${boardHeadingHelp('投票袋',
           '開局設置\n勞工、中產、資本家的方塊各取 8 枚放進袋子，共 24 枚，其餘留在供應區。國家不用方塊，只靠個人影響力參與表決。',
           '補充方塊\n輪末有法案要表決時，先補一次。\n勞工：補人口的一半，進位。\n中產：人口和營運企業數取較大的，除以 2 後進位。\n資本家：補營運企業數的一半，進位。\n例如勞工人口 5、中產人口 4 且有 5 家營運企業、資本家有 4 家營運企業，分別補 3、3、2 枚。',
           '抽票與回收\n一般表決是先表態，再抽 5 枚方塊。每枚方塊按它所屬階級的立場算 1 票，投入的影響力每份也算 1 票。抽票時如果袋子空了，就照上面的公式補兩次再繼續抽。',
-          '結果確定後，抽出的方塊只有落敗的一方會放回袋子，勝方的方塊回到供應區，雙方投入的影響力都用掉。平票算贊成方獲勝，所以反對方抽出的方塊會放回袋子。')}</h3><div class="bag-row">${Object.entries(state.bag).map(([role, count]) => `<span class="${role}">${meta.names[role]} <b>${count}</b></span>`).join('')}</div>
+          '結果確定後，抽出的方塊只有落敗的一方會放回袋子，勝方的方塊回到供應區，雙方投入的影響力都用掉。平票算贊成方獲勝，所以反對方抽出的方塊會放回袋子。')}</h3><div class="bag-row">${Object.entries(state.bag).map(([role, count]) => `<span class="${role}">${meta.names[role]} <b>${count}</b></span>`).join('')}</div></section>
         ${boardEvents(content?.events)}
-        <h3>${boardHeadingHelp('國家福利',
+        <section class="board-zone board-welfare"><h3>${boardHeadingHelp('國家福利',
           '開局設置\n勞工、中產、資本家的福利區，每個項目一開始都顯示灰色的「-」。國家第一次提供福利時，才把指定的錢、資源或方塊放進那個階級的區域。',
           '國家可以靠事件或卡牌，把錢、資源或投票方塊放進勞工、中產或資本家的福利區。主圖板會依階級用圖示列出待領的福利項目和數量。',
           '如果該階級已經有待領福利，下次再提供時，通常會用新的福利換掉原來的內容；部分卡牌允許保留並合併。',
@@ -1444,7 +1441,7 @@ function tableBoard() {
               const count = content?.benefits[role]?.[key] ?? 0;
               return count === 0 ? '<td class="muted" aria-label="0">-</td>' : `<td>${count}</td>`;
             }).join('')}</tr>`).join('')}</tbody>
-        </table></div></section>
+        </table></div></section></div>
         <section class="board-zone board-treasury"><h3>${boardHeadingHelp('國庫',
           '開局設置\n從供應區拿 $120 放進主圖板的國庫，當作國家的起始資金。國家一開始沒有貸款。',
           '國庫顯示國家目前能花的錢。其他階級繳的稅、進口關稅、公共服務的銷售收入，以及部分卡牌給的錢，都存進國庫。',
@@ -1687,7 +1684,7 @@ function phaseProgress() {
     const skipped = (id === 'preparation' && round === 1) || (id === 'elections' && electionsHeld === false);
     const status = skipped ? '略過' : index === current ? '進行中' : index < current ? '已完成' : '待進行';
     return `<li data-round-phase="${id}" ${index === current ? 'aria-current="step"' : ''}>
-      <strong class="mat-zone-title">${index + 1}. ${label} ${boardHelpButton(label + '階段', roundPhaseHelp[id].join('\n\n'), escape)}</strong><small>${status}</small></li>`;
+      <strong class="mat-zone-title"><span class="phase-no">${index + 1}. </span>${label} ${boardHelpButton(label + '階段', roundPhaseHelp[id].join('\n\n'), escape)}</strong><small>${status}</small></li>`;
   }).join('')}</ol>`;
 }
 
@@ -3166,6 +3163,7 @@ function playerInfoTabs() {
   ).join('')}</div>
   ${tabs.map(([id, label, content]) => `<section class="player-info-popover" id="player-panel-${id}" popover aria-label="${label}">
     <header class="mat-help-header"><strong>${label}</strong>
+    <button type="button" popovertarget="player-panel-${id}" popovertargetaction="hide" aria-label="關閉${label}">×</button>
     </header>
     <div class="player-info-scroll">${content}</div>
   </section>`).join('')}`;
@@ -3561,7 +3559,7 @@ function render() {
     <div class="column table-column" id="tabletop">
       <div class="statusbar">
         <div class="status-phase-row">
-          <strong class="turn-summary">第 ${state.match?.round ?? 1} / 5 輪．第 ${turn} / ${turnsPerSeat} 回合</strong>
+          <strong class="turn-summary">第 ${state.match?.round ?? 1}<span class="of"> / 5</span> 輪．第 ${turn}<span class="of"> / ${turnsPerSeat}</span> 回合</strong>
           ${phaseProgress()}
         </div>
         <div class="status-info-row">

@@ -57,3 +57,13 @@
 .help-role.state > summary b { color: var(--state); }
 .help-section h3[id] { scroll-margin-top: 56px; }
 .help-subhead { margin: 12px 0 6px; color: var(--gold); font-size: .95rem; }
+@media (max-width: 640px) {
+  .help-page { padding-inline: 0; }
+  .help-toc { position: sticky; top: 0; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding: 6px 0; scrollbar-width: none; }
+  .help-toc a { flex: 0 0 auto; padding: 6px 12px; }
+  .help-section { scroll-margin-top: 52px; }
+  .help-section > h2 { font-size: 1.05rem; }
+  .help-table { font-size: .8rem; }
+  .help-table th, .help-table td { padding: 5px 6px; }
+  .help-grid { grid-template-columns: minmax(0, 1fr); }
+}

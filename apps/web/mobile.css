@@ -1,0 +1,195 @@
+/* ================= 手機版（寬度 640px 以下；由 index.html 的 media 屬性載入）=================
+   畫面只留主遊戲圖板（可拖曳、縮放）。頂欄收進左側滑動選單；狀態列壓成一行；
+   聊天、手牌＋主要行動、免費行動、我的圖板收成底部小分頁，點了才從下方展開。
+   body.m-game：目前是遊戲畫面（有 .table-layout）；body.m-sheet-open：有展開的底部面板。 */
+:root { --m-status-h: 38px; --m-tabs-h: 46px; }
+html { -webkit-text-size-adjust: 100%; }
+body { min-height: 100dvh; }
+h1 { font-size: 1.45rem; }
+.panel { padding: 12px; border-radius: 12px; }
+main { padding: 8px 8px 44px; }
+
+/* ---------- 輸入與按鈕：好點、不放大 ---------- */
+input, select, textarea { font-size: 16px; }
+button, select, input:not([type="checkbox"]):not([type="radio"]) { min-height: 40px; }
+.primary { min-height: 44px; }
+.buttons { gap: 8px; }
+.buttons > button { flex: 1 1 auto; }
+.mat-help { min-width: 26px; min-height: 26px; }
+
+/* ---------- 頂欄與左側滑動選單 ---------- */
+.topbar { position: relative; z-index: 31; flex-wrap: nowrap; gap: 8px; padding: 4px 8px; min-height: 48px; }
+#mobile-menu-toggle { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; min-height: 0; padding: 0; font-size: 1.25rem; line-height: 1; }
+#mobile-title { display: inline; font-weight: 750; letter-spacing: .08em; font-size: .92rem; }
+#mobile-drawer { position: fixed; z-index: 40; inset: 0 auto 0 0; width: min(84vw, 320px); display: flex; flex-direction: column; align-items: stretch; gap: 10px;
+  padding: 14px 12px 0; overflow-y: auto; background: #111a25; border-right: 1px solid var(--line);
+  transform: translateX(-105%); transition: transform .2s ease; visibility: hidden; }
+body.m-menu-open #mobile-drawer { transform: none; visibility: visible; }
+#mobile-scrim { display: block; position: fixed; z-index: 39; inset: 0; background: rgb(5 10 17 / 62%); opacity: 0; pointer-events: none; transition: opacity .2s; }
+body.m-menu-open #mobile-scrim { opacity: 1; pointer-events: auto; }
+#mobile-drawer .brand { order: -10; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+#mobile-drawer .brand small { display: block; font-size: .8rem; }
+#mobile-info-menu { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; order: -5; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+body:not(.m-game) #mobile-info-menu { display: none; }
+#mobile-drawer button, #mobile-drawer .catalog-link { min-height: 42px; justify-content: flex-start; text-align: left; font-size: .92rem; }
+#mobile-drawer .room-actions:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+#mobile-drawer .catalog-link { display: flex; align-items: center; }
+#mobile-drawer .header-account:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin: auto 0 0; padding: 10px 0 calc(14px + env(safe-area-inset-bottom)); position: sticky; bottom: 0; background: #111a25; border-top: 1px solid var(--line); }
+#mobile-drawer .header-account span { grid-column: 1 / -1; font-size: .9rem; }
+#mobile-drawer .connection { margin: 0; text-align: left; font-size: .75rem; }
+.topbar:has(.header-account:not([hidden])), .topbar:has(.room-actions:not([hidden])) { flex-wrap: nowrap; }
+
+/* 遊戲畫面：頂欄本身不佔高度，☰ 浮在狀態列左邊 */
+body.m-game .topbar { position: static; min-height: 0; height: 0; padding: 0; border: 0; overflow: visible; }
+body.m-game #mobile-title { display: none; }
+body.m-game #mobile-menu-toggle { position: fixed; z-index: 41; top: 0; left: 2px; width: 38px; height: var(--m-status-h); }
+body.m-game.m-menu-open #mobile-menu-toggle { z-index: 41; }
+
+/* ---------- 狀態列：一行（回合、五個階段、四個階級色塊）---------- */
+body.m-game { height: 100dvh; overflow: hidden; }
+body.m-game main { max-width: none; padding: 0; }
+body.m-game .statusbar { position: fixed; z-index: 30; top: 0; left: 0; right: 0; display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+  height: var(--m-status-h); padding: 0 8px 0 44px; border-width: 0 0 1px; border-radius: 0; overflow: hidden; font-size: .7rem; }
+body.m-game .status-phase-row, body.m-game .status-info-row { display: contents; }
+.turn-summary { display: none; }
+.board-turn { display: block; position: absolute; z-index: 1; left: 10px; top: 0; height: var(--board-title-height); display: flex; align-items: center; font-size: .66rem; font-weight: 600; color: #c5d3e0; white-space: nowrap; }
+.round-phases { display: flex; flex: 1 1 0; min-width: 0; gap: 2px; overflow: hidden; }
+.round-phases li { flex: 1 1 0; min-width: 0; justify-content: center; padding: 2px 0; font-size: .66rem; border-radius: 0; }
+.round-phases .phase-no, .round-phases small, .round-phases .mat-help { display: none; }
+.round-phases .mat-zone-title { gap: 0; }
+body.m-game .status-room-name, body.m-game .player-info-tabs { display: none; }
+.turn-roles { flex: 0 0 auto; display: flex; align-items: center; gap: 3px; }
+.turn-roles > span[aria-hidden="true"] { display: none; }
+.turn-role { display: block; width: 13px; height: 13px; padding: 0; font-size: 0; line-height: 0; border: 0; border-radius: 0; background: var(--role); opacity: .75; transition: width .15s, height .15s; }
+.turn-role[aria-current="true"] { width: 22px; height: 22px; opacity: 1; box-shadow: 0 0 0 2px rgb(255 255 255 / 55%); text-shadow: none; }
+
+/* 資訊面板（試算／價格／摘要／記錄）撐滿畫面，蓋過 JS 算出的位置 */
+.player-info-popover { inset: 8px !important; width: auto !important; height: auto !important; max-width: none; max-height: none; padding: 12px; }
+
+/* ---------- 主遊戲圖板：整個畫面，可拖曳、縮放 ---------- */
+body.m-game .table-layout { display: block; }
+body.m-game #tabletop { position: fixed; z-index: 1; top: var(--m-status-h); left: 0; right: 0; bottom: calc(var(--m-tabs-h) + env(safe-area-inset-bottom));
+  overflow: hidden; touch-action: none; overscroll-behavior: none; }
+body.m-game #tabletop { display: block; }
+body.m-game #tabletop > :not(.statusbar):not(.main-board) { display: none; }
+body.m-game .main-board { height: auto; max-height: none; margin: 0; transform-origin: 0 0; will-change: transform; user-select: none; -webkit-user-select: none; }
+#mobile-zoom { display: none; }
+body.m-game #mobile-zoom { display: flex; flex-direction: column; gap: 6px; position: fixed; z-index: 20; right: 8px; bottom: calc(var(--m-tabs-h) + env(safe-area-inset-bottom) + 10px); }
+body.m-game.m-sheet-open #mobile-zoom { display: none; }
+#mobile-zoom button { width: 40px; height: 40px; min-height: 0; padding: 0; border-radius: 50%; background: rgb(38 59 82 / 88%); font-size: 1.1rem; }
+
+/* ---------- 底部小分頁與向上展開的面板 ---------- */
+#mobile-tabs { display: none; }
+body.m-game #mobile-tabs { display: flex; position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; height: calc(var(--m-tabs-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom); background: #111a25; border-top: 1px solid var(--line); }
+#mobile-tabs button { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; padding: 0 2px; border: 0; border-radius: 0; background: none; font-size: .8rem; color: var(--ink); }
+#mobile-tabs button[aria-pressed="true"] { color: var(--gold); background: #1b2736; box-shadow: inset 0 2px 0 var(--gold); }
+#mobile-tabs button.has-action::after { content: ''; position: absolute; top: 9px; right: calc(50% - 38px); width: 7px; height: 7px; border-radius: 50%; background: #ff7a59; }
+
+body.m-game .action-desk { display: none; position: fixed; z-index: 25; left: 0; right: 0; bottom: calc(var(--m-tabs-h) + env(safe-area-inset-bottom));
+  max-height: 64dvh; overflow-y: auto; padding: 8px; flex-direction: column; gap: 8px; background: #0f1721; border-top: 2px solid var(--gold); border-radius: 14px 14px 0 0; box-shadow: 0 -10px 26px rgb(0 0 0 / 55%); }
+body.m-game .action-desk > * { display: none; }
+body[data-sheet="hand"] .action-desk, body[data-sheet="free"] .action-desk, body[data-sheet="boards"] .action-desk { display: flex; }
+body[data-sheet="hand"] .action-desk > .hand, body[data-sheet="hand"] .action-desk > .transfer-target, body[data-sheet="hand"] .action-desk > .drop-toolbar { display: block; }
+body[data-sheet="hand"] .action-desk > #action-controls, body[data-sheet="free"] .action-desk > #action-controls { display: grid; }
+body[data-sheet="hand"] #action-controls > #free-action-options { display: none; }
+body[data-sheet="free"] #action-controls > :not(#free-action-options) { display: none; }
+body[data-sheet="free"] .action-desk:not(:has(#free-action-options))::after { content: '目前沒有可用的免費行動。'; padding: 14px 6px; color: var(--muted); }
+body[data-sheet="boards"] .action-desk > #player-boards { display: block; }
+.hand-rack { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 86px; gap: 6px; padding: 4px 2px 8px; scroll-snap-type: x proximity; }
+.hand-card { min-height: 104px; scroll-snap-align: start; }
+.hand-card strong { font-size: .8rem; }
+.hand-card small { font-size: .66rem; }
+
+/* 聊天：收在底部分頁，點「聊天」才出現 */
+body.m-game .room-chat { display: none !important; }
+body.m-game[data-sheet="chat"] .room-chat:not([hidden]) { display: block !important; z-index: 26; bottom: calc(var(--m-tabs-h) + env(safe-area-inset-bottom)); padding: 0 8px 6px; }
+body.m-game[data-sheet="chat"] .room-chat .panel { border: 2px solid var(--gold); border-radius: 14px; box-shadow: 0 -10px 26px rgb(0 0 0 / 55%); }
+.room-chat ol { height: min(38dvh, 300px); }
+
+/* ---------- 大廳、等待房間、彈窗 ---------- */
+.lobby { margin: 8px auto; }
+.waiting-seats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.waiting-extras { grid-template-columns: minmax(0, 1fr); }
+.action-confirmation, #card-step-dialog, #mat-help-dialog, .warning-dialog { width: calc(100% - 16px); max-height: calc(100dvh - 16px); padding: 14px; }
+#mat-help-dialog { height: calc(100dvh - 16px); }
+.action-confirmation .buttons { justify-content: stretch; }
+.settlement-table-scroll, .price-table-scroll, .round-result-body { overflow-x: auto; }
+.settlement-table { font-size: .78rem; }
+
+/* ---------- 圖板內部：窄螢幕改單欄 ---------- */
+.mat-state-legit, .mat-state-row { grid-template-columns: minmax(0, 1fr); }
+.mat-agenda .agenda-tags { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mat-agenda .agenda-tags span { font-size: .72rem; }
+.mat-personal .mat-goods-wells { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.worker-pools { grid-template-columns: minmax(0, 1fr); }
+.worker-pools .worker-pool { flex: 0 0 auto; min-height: 40px; }
+
+/* ---------- 主圖板（手機）：拿掉勝利分數軌；各區塊單欄；未啟用的企業格先隱藏 ---------- */
+.main-board { --board-padding: 6px; --board-title-height: 28px; }
+.main-board .score-edge, .main-board .score-help { display: none; }
+.board-interior { grid-template-columns: minmax(0, 1fr); gap: 6px;
+  grid-template-areas: 'politics' 'civic' 'trade' 'resources' 'public' 'capitalist' 'middle' 'workers'; }
+.board-workers { grid-row-end: auto; }
+
+/* 輪次、稅倍率：只留目前的數字，和標題同一行 */
+.board-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 0; }
+.board-civic { gap: 6px; grid-template-rows: none; }
+.board-civic-stack { gap: 6px; }
+
+/* 投票袋：標題與三個階級方塊同一行（方框樣式沿用桌面版） */
+.bag-line .bag-row span { font-size: .74rem; padding: 4px 5px; }
+
+/* 對外貿易：兩兩一行 */
+.trade-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* 公營企業、私營企業（資本家、中產）、待業工人：由上往下排；還沒啟用的格子先隱藏 */
+.sector-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.public-card-back, .sector-empty { display: none; }
+.board-workers { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; align-content: start; }
+.board-workers .worker-pool-row, .worker-pools > .worker-pool-row { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.worker-pool-row > strong { flex: 0 0 2.6em; }
+.worker-pools .worker-pool-row .worker-pool { flex: 1 1 auto; min-width: 0; align-content: flex-start; }
+
+/* 聊天分頁的未讀數字 */
+#mobile-tabs button[data-unread] { font-weight: 700; }
+#mobile-tabs button[data-unread]::after { content: attr(data-unread); position: absolute; top: 5px; right: calc(50% - 30px); min-width: 17px; height: 17px; padding: 0 4px;
+  display: grid; place-items: center; border-radius: 9px; background: #ff5a4f; color: #fff; font-size: .68rem; font-weight: 700; line-height: 1; }
+
+/* ================= 橫向手機：標題資訊移到左邊、分頁移到右邊，都改成直式 ================= */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root { --m-side-w: 33px; }
+
+  /* 左邊：☰ 在最上面，往下依序是回合、五個階段、四個階級色塊 */
+  body.m-game #mobile-menu-toggle { top: 2px; left: 0; width: var(--m-side-w); height: 36px; padding: 0; font-size: 1.1rem; }
+  body.m-game .statusbar { top: 0; right: auto; bottom: 0; left: 0; width: var(--m-side-w); height: auto; flex-direction: column; align-items: stretch; gap: 6px;
+    padding: 42px 2px 6px; border-width: 0 1px 0 0; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
+    .round-phases { flex: 0 0 auto; flex-direction: column; gap: 3px; overflow: visible; }
+  .round-phases li { flex: 0 0 auto; width: 100%; padding: 3px 0; font-size: .62rem; }
+  .turn-roles { flex-direction: column; align-items: center; gap: 4px; margin-top: 2px; }
+
+  /* 中間：主圖板 */
+  body.m-game #tabletop { top: 0; bottom: 0; left: var(--m-side-w); right: var(--m-side-w); }
+
+  /* 右邊：四個分頁直排 */
+  body.m-game #mobile-tabs { top: 0; bottom: 0; left: auto; right: 0; width: var(--m-side-w); height: auto; flex-direction: column;
+    padding: 0; border-top: 0; border-left: 1px solid var(--line); }
+  #mobile-tabs button { flex: 1 1 0; width: 100%; padding: 2px 0; font-size: .72rem; line-height: 1.25; white-space: normal; border-bottom: 1px solid var(--line); }
+  #mobile-tabs button:last-child { border-bottom: 0; }
+  #mobile-tabs button[aria-pressed="true"] { box-shadow: inset 3px 0 0 var(--gold); }
+  #mobile-tabs button.has-action::after { top: 4px; right: 2px; }
+  #mobile-tabs button[data-unread]::after { top: 2px; right: 0; min-width: 14px; height: 14px; font-size: .6rem; }
+
+  /* 向上展開的面板與聊天：只佔中間區域；縮放按鈕靠右 */
+  body.m-game .action-desk { left: var(--m-side-w); right: var(--m-side-w); bottom: 0; max-height: 82dvh; }
+  body.m-game[data-sheet="chat"] .room-chat { left: var(--m-side-w); right: var(--m-side-w); bottom: 0; }
+  .room-chat ol { height: min(50dvh, 160px); }
+  body.m-game #mobile-zoom { right: calc(var(--m-side-w) + 8px); bottom: 8px; flex-direction: row; }
+  #mobile-zoom button { width: 36px; height: 36px; }
+  .hand-card { min-height: 88px; }
+
+  /* 橫向：文字改成直列顯示（回合、五個階段名稱、右邊的分頁） */
+  .round-phases .mat-zone-title { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 1px; }
+  .round-phases li { display: flex; align-items: center; justify-content: center; padding: 4px 0; }
+  #mobile-tabs button { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 3px; padding: 4px 0; font-size: .72rem; }
+}
