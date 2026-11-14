@@ -11,6 +11,9 @@ test('registry lists strategies and falls back to the default for unknown ids', 
   const ids = listStrategies().map(item => item.id);
   assert(ids.includes('minimal') && ids.includes('basic'));
   assert.equal(getStrategy('does-not-exist').id, 'minimal');
+  // 選單順序：目標導向在前（第一個是預設），最小合法與基礎在最後。
+  assert.equal(ids[0], 'goal-balanced');
+  assert.deepEqual(ids.slice(-2), ['minimal', 'basic']);
   assert.equal(getStrategy(undefined).id, 'minimal');
 });
 

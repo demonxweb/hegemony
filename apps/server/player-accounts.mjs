@@ -27,7 +27,33 @@ export function createPlayerAccounts({ getSetting, insertSetting, listSettings, 
     const payload = `${Buffer.from(id).toString('base64url')}.${Date.now() + 86_400_000}.${version}`;
     return `${payload}.${sign(payload)}`;
   };
+  const throttle = request => {
+    const client = clientId(request);
+    const now = Date.now();
+    for (const [key, entry] of attempts) if (entry.until <= now) attempts.delete(key);
+    if (!attempts.has(client) && attempts.size >= 2048) throw new GameError('登入請求過多，請稍後再試。', 429);
+    const attempt = attempts.get(client) ?? { count: 0, until: now + 15 * 60_000 };
+    if (attempt.count >= 20) throw new GameError('嘗試次數過多，請稍後再試。', 429);
+    attempt.count++;
+    attempts.set(client, attempt);
+  };
   return {
+    // 玩家自己改密碼：要先驗證舊密碼。不更動帳號版本，所以目前已登入的畫面與座位不會被登出。
+    async changePassword(request, input) {
+      const { id } = this.authenticate(request);
+      const { oldPassword, newPassword } = input ?? {};
+      validatePassword(oldPassword);
+      if (typeof newPassword !== 'string' || newPassword.length < 1) throw new GameError('請輸入新密碼。');
+      if (newPassword === oldPassword) throw new GameError('新密碼不能和目前的密碼相同。');
+      throttle(request);
+      const current = find(id);
+      if (!current) throw new GameError('請先登入玩家帳號。', 401);
+      const hash = await passwordHash(oldPassword, current.salt, current.hash);
+      if (!same(hash, current.hash)) throw new GameError('目前的密碼不正確。', 401);
+      const salt = randomBytes(16).toString('hex');
+      updateSetting(playerPrefix + id, JSON.stringify({ ...current, salt, hash: await passwordHash(newPassword, salt) }));
+      return { ok: true };
+    },
     invitationCandidates(excludedIds) {
       return all().filter(player => !excludedIds.has(player.id)).map(player => player.name)
         .sort((a, b) => a.localeCompare(b, 'zh-Hant'));
@@ -40,14 +66,7 @@ export function createPlayerAccounts({ getSetting, insertSetting, listSettings, 
       const name = validName(input.name);
       const { password } = input;
       validatePassword(password);
-      const client = clientId(request);
-      const now = Date.now();
-      for (const [key, entry] of attempts) if (entry.until <= now) attempts.delete(key);
-      if (!attempts.has(client) && attempts.size >= 2048) throw new GameError('登入請求過多，請稍後再試。', 429);
-      const attempt = attempts.get(client) ?? { count: 0, until: now + 15 * 60_000 };
-      if (attempt.count >= 20) throw new GameError('嘗試次數過多，請稍後再試。', 429);
-      attempt.count++;
-      attempts.set(client, attempt);
+      throttle(request);
       const existing = findByName(name);
       if (register && existing) throw new GameError('這個暱稱已被使用。', 409);
       const salt = existing?.salt ?? randomBytes(16).toString('hex');

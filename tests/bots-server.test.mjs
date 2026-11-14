@@ -52,6 +52,7 @@ test('one human and three AI seats play all five rounds through the HTTP API', {
     const host = await call('/api/rooms', { body: {}, token: account.token, status: 201 });
     const path = `/api/rooms/${host.code}`;
     const waiting = body => call(`${path}/waiting`, { body, token: host.token });
+    await waiting({ type: 'set-bot-think', seconds: 0 });
     await waiting({ type: 'select', role: 'middle' });
     await waiting({ type: 'start-skill', skill: 'food' });
     for (const [role, strategy] of [['working', 'basic'], ['capitalist', 'minimal'], ['state', 'minimal']]) {
@@ -127,6 +128,7 @@ test('a host can fill the other seats with AI of different strengths and play on
     const ids = lobby.waiting.strategies.map(item => item.id);
     for (const id of ['minimal', 'basic', 'goal-balanced', 'goal-growth', 'goal-frugal', 'goal-political']) assert(ids.includes(id), id);
 
+    await waiting({ type: 'set-bot-think', seconds: 0 });
     await waiting({ type: 'select', role: 'middle' });
     await waiting({ type: 'start-skill', skill: 'food' });
     await request(`${path}/waiting`, { body: { type: 'add-bot', role: 'middle' }, token: host.token, status: 400 });

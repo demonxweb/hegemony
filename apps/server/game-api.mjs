@@ -44,8 +44,13 @@ function runRoomBots(room) {
 // AI 思考時間：房間設定最長秒數（0 = 立即，維持原本的同步行為）。大於 0 時，輪到 AI 不立刻行動，
 // 而是在 0.2～1 倍最長秒數之間隨機等一段時間再行動，玩家看得到「AI 思考中」與秒數，AI 之間也有不同的節奏。
 // 思考時間只是刻意的等待，不限制運算：行動一定會做到有合法行動為止（找不到時 5 秒後重試，不會放棄）。
-export const botThinkChoices = [0, 2, 5, 10, 20, 30];
+// 介面提供的選項。0（立即行動）不再列在選項裡，但 API 仍接受，供測試與自動化使用。
+export const botThinkChoices = [2, 5, 10, 20, 30];
+const defaultBotThink = 5;
 
+// 先計算、再等待：輪到某個 AI 時，立刻在遊戲複本上讓它把這一輪的步驟全部算出來（得到一串命令），
+// 算了多久就從隨機的等待時間裡扣掉，剩下的時間才等；時間到再把算好的命令套用到真正的遊戲。
+// 所以「思考時間」是總長度，運算時間包含在裡面，運算比等待時間還久時就不再多等。
 function planThinking(room) {
   const seats = botSeats(room);
   const actor = room.botThinkMax > 0 && Object.keys(seats).length ? nextBotActor(room.game, seats, room.host) : null;
@@ -54,28 +59,50 @@ function planThinking(room) {
     return;
   }
   if (room.thinking?.role === actor && !room.thinking.stuck) return;
-  room.thinking = { role: actor, since: Date.now(), delayMs: Math.round(room.botThinkMax * 1000 * (0.2 + 0.8 * Math.random())) };
-}
-
-// 思考時間到了：讓這個 AI 做完它的步驟，記下實際運算花的時間，再安排下一個 AI。
-function finishThinking(room) {
-  const started = Date.now();
-  const { role } = room.thinking;
+  const since = Date.now();
+  const totalMs = Math.round(room.botThinkMax * 1000 * (0.2 + 0.8 * Math.random()));
+  const copy = structuredClone(room.game);
+  const commands = [];
   try {
-    runBotActor(room.game, botSeats(room), { host: room.host, onStep: recordStep(room) });
-    room.botStats = { ...room.botStats, [role]: { lastMs: Date.now() - started } };
-    room.thinking = null;
-    room.revision++;
-    planThinking(room);
+    runBotActor(copy, seats, { host: room.host, onStep: ({ actor: who, command }) => commands.push({ actor: who, command }) });
   } catch (error) {
     if (!(error instanceof BotStuckError)) throw error;
     if (!room.thinking?.stuck) room.game.log.push(`AI 找不到合法行動，持續重試：${error.message}`);
-    room.thinking = { role, since: Date.now(), delayMs: 5000, stuck: true };
-    room.revision++;
+    room.thinking = { role: actor, since: Date.now(), delayMs: 5000, stuck: true };
+    return;
   }
+  const computeMs = Date.now() - since;
+  room.game.botPlans = copy.botPlans ?? room.game.botPlans;
+  room.thinking = { role: actor, since, delayMs: Math.max(totalMs, computeMs), computeMs, commands };
 }
 
-// 席位或階級變動時，真人須重新確認；AI 永遠視為已確認。
+// 等待時間到了：套用事先算好的命令，記下這個 AI 的運算時間，再安排下一個 AI。
+// 若等待期間狀態被改過（例如房主調整），算好的命令不再適用，改為重新計算。
+function finishThinking(room) {
+  const { role, commands = [], computeMs } = room.thinking;
+  if (!room.thinking.stuck && commands.length) {
+    try {
+      for (const { actor, command } of commands) {
+        applyRecorded(room.game, actor, command, true);
+        recordCommand(room.record, room.game, actor, command);
+      }
+      room.botStats = { ...room.botStats, [role]: { lastMs: computeMs } };
+      room.thinking = null;
+      room.revision++;
+      planThinking(room);
+      return;
+    } catch (error) {
+      if (!(error instanceof GameError)) throw error;
+    }
+  }
+  room.thinking = null;
+  planThinking(room);
+  room.revision++;
+}
+
+// 還原存檔等整份等待區被換掉時，真人須重新確認；AI 永遠視為已確認。
+// 一般的等待區操作（別人換階級、增減 AI、撤銷邀請）不會取消已經按下開始的人，
+// 只有改了自己階級的人，自己的確認會被取消。
 function unreadyHumans(waiting) {
   for (const item of waiting.players) item.ready = Boolean(item.bot);
 }
@@ -129,7 +156,7 @@ export function newRoom(host, readRoom, full) {
   let code;
   do code = randomBytes(4).toString('hex').toUpperCase();
   while (readRoom(code));
-  return { code, revision: 0, host, seats: {}, processed: {}, game: createGame({ full }) };
+  return { code, revision: 0, host, seats: {}, processed: {}, botThinkMax: defaultBotThink, game: createGame({ full }) };
 }
 
 function joinWaitingRoom(room, input, accountId, seatToken) {
@@ -222,12 +249,11 @@ function updateWaitingRoom(room, id, input, accounts) {
       if (index >= 0) {
         waiting.players.splice(index, 1);
         waiting.selectionRevision++;
-        unreadyHumans(waiting);
       }
     }
   } else if (input.type === 'set-bot-think') {
     if (id !== waiting.host) throw new GameError('只有房主可以設定 AI 思考時間。', 403);
-    requireRule(botThinkChoices.includes(input.seconds), 'AI 最長思考時間只能選 0、2、5、10、20 或 30 秒。');
+    requireRule(input.seconds === 0 || botThinkChoices.includes(input.seconds), 'AI 最長思考時間只能選 2、5、10、20 或 30 秒。');
     room.botThinkMax = input.seconds;
   } else if (input.type === 'add-bot' || input.type === 'remove-bot') {
     if (id !== waiting.host) throw new GameError('只有房主可以管理 AI。', 403);
@@ -244,21 +270,19 @@ function updateWaitingRoom(room, id, input, accounts) {
       waiting.players.splice(index, 1);
     }
     waiting.selectionRevision++;
-    unreadyHumans(waiting);
   } else if (input.type === 'select') {
     requireRule(input.role === null || roles.includes(input.role), '請選擇有效的階級。');
     if (player.role === input.role) return id;
     player.role = input.role;
     delete player.skill;
+    player.ready = false;
     waiting.selectionRevision++;
-    unreadyHumans(waiting);
   } else if (input.type === 'start-skill') {
     requireRule(room.game.content && player.role === 'middle' && !player.ready
       && ['food', 'luxury', 'health', 'education', 'influence'].includes(input.skill), '請由中產選擇有效的開局技術工技能。');
     if (player.skill === input.skill) return id;
     player.skill = input.skill;
     waiting.selectionRevision++;
-    unreadyHumans(waiting);
   } else if (input.type === 'cancel') {
     player.ready = false;
   } else if (input.type === 'ready') {
@@ -323,9 +347,9 @@ function replayResponse(room, role, stepText) {
   };
 }
 
-export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRooms, addRoomSave, listRoomSaves, readRoomSave, getSetting, insertSetting, listSettings, getSaveKey, clientId,
+export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRooms, addRoomSave, listRoomSaves, readRoomSave, getSetting, insertSetting, listSettings, updateSetting, getSaveKey, clientId,
   full = true, allowLegacyRooms = false }) {
-  const accounts = createPlayerAccounts({ getSetting, insertSetting, listSettings, getSaveKey, clientId });
+  const accounts = createPlayerAccounts({ getSetting, insertSetting, listSettings, updateSetting, getSaveKey, clientId });
   // 國家是否沒有任何合法的主要行動（可跳過）。只在國家的回合計算，並依房間版本快取：
   // 房主調整、換牌、還原存檔都會讓版本改變，下次視圖就會重算。pass 命令本身不信任這個快取。
   const passCache = new Map();
@@ -369,7 +393,7 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
     const stuck = noLegalAction(room, role);
     const think = room.botThinkMax > 0 || room.thinking ? {
       max: room.botThinkMax ?? 0, stats: room.botStats ?? {},
-      thinking: room.thinking && { role: room.thinking.role, elapsedMs: Date.now() - room.thinking.since, delayMs: room.thinking.delayMs, stuck: Boolean(room.thinking.stuck) },
+      thinking: room.thinking && { role: room.thinking.role, elapsedMs: Date.now() - room.thinking.since, delayMs: room.thinking.delayMs, computeMs: room.thinking.computeMs, stuck: Boolean(room.thinking.stuck) },
     } : undefined;
     return { ...roomView(room, role, accounts), ...(stuck !== undefined && { noLegalAction: stuck }), ...(think && { botThink: think }), chat: (room.chat ?? []).slice(-chatLimit) };
   };
@@ -392,6 +416,9 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
     if (request.method === 'POST' && ['/api/player/register', '/api/player/login'].includes(path)) {
       const player = await accounts.login(await readJson(request), path.endsWith('/register'), request);
       return json(response, 200, player);
+    }
+    if (request.method === 'POST' && path === '/api/player/password') {
+      return json(response, 200, await accounts.changePassword(request, await readJson(request)));
     }
     if (request.method === 'GET' && path === '/api/player/rooms') {
       const player = accounts.authenticate(request);

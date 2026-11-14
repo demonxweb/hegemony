@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Hegemony｜議事廳 · v0.1.5</title>
+  <title>Hegemony｜議事廳 · v0.1.6</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" type="module"></script>
 </head>
@@ -13,17 +13,17 @@
     <div id="header-room-actions" class="room-actions" hidden>
       <button id="return-lobby" type="button" hidden>回到大廳</button>
       <button id="rename-room" type="button" hidden>修改房間名</button>
-      <button id="copy-invite" type="button">複製邀請連結</button>
       <button id="adjust-game" type="button" hidden>調整</button>
       <button id="save-room" type="button" hidden>儲存</button>
       <button id="load-room" type="button" hidden>讀取</button>
       <button id="close-room" type="button" hidden>關閉房間</button>
     </div>
-    <a class="catalog-link" href="/catalog" target="_blank" rel="noopener">卡牌與元件圖鑑</a>
+    <a class="catalog-link" href="/help" target="_blank" rel="noopener">說明</a>
     <span id="connection" class="connection" role="status"></span>
     <div id="header-account" class="header-account" hidden>
       <span id="header-account-name"></span>
       <button id="player-logout" type="button">登出</button>
+      <button id="player-password" type="button">修改密碼</button>
     </div>
   </header>
   <main id="app" aria-label="遊戲畫面"><p>正在載入房間設定…</p></main>
@@ -37,6 +37,16 @@
       <form><button type="button" class="chat-toggle" data-chat-toggle aria-expanded="false" aria-label="展開聊天記錄">▾</button><input name="text" maxlength="500" required aria-label="聊天訊息" placeholder="輸入訊息"><button type="submit">送出</button></form>
     </div>
   </section>
+  <dialog id="password-dialog" class="action-confirmation" aria-labelledby="password-title">
+    <h2 id="password-title">修改密碼</h2>
+    <form>
+      <label>目前的密碼<input name="oldPassword" type="password" autocomplete="current-password" required autofocus></label>
+      <label>新密碼<input name="newPassword" type="password" autocomplete="new-password" required></label>
+      <label>再輸入一次新密碼<input name="confirmPassword" type="password" autocomplete="new-password" required></label>
+      <p class="muted" id="password-message" role="status"></p>
+      <div class="buttons"><button type="button" data-cancel-password>取消</button><button class="primary">儲存新密碼</button></div>
+    </form>
+  </dialog>
   <dialog id="rename-room-dialog" class="action-confirmation" aria-labelledby="rename-room-title">
     <h2 id="rename-room-title">修改房間名稱</h2>
     <form>

@@ -1292,7 +1292,7 @@ export function applyHostAdjustment(game, command) {
     const pricesByRole = economy.domesticPrices ??= {};
     pricesByRole[target] ??= {};
     for (const [resource, price] of Object.entries(command.prices)) {
-      requireRule(Object.hasOwn(allowed, resource) && allowed[resource].includes(price), '請選擇圖版上的售價。');
+      requireRule(Object.hasOwn(allowed, resource) && allowed[resource].includes(price), '請選擇圖板上的售價。');
       pricesByRole[target][resource] = price;
     }
   }

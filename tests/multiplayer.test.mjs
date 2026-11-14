@@ -97,7 +97,15 @@ test('waiting room starts only after four distinct roles and four current confir
     assert.equal(selected.waiting.middleMarket.length, 3);
     assert(selected.waiting.middleMarket.every(company => company.skills.length));
     assert.equal((await request(path, { token: host.token })).waiting.middleMarket, undefined);
-    const ready = { type: 'ready', selectionRevision: selected.waiting.selectionRevision };
+    // 已經按下開始的人，不會因為別人改階級而被自動取消；改階級的人只取消自己的確認。
+    await change(0, { type: 'ready', selectionRevision: selected.waiting.selectionRevision });
+    const moved = await change(3, { type: 'select', role: null });
+    assert.equal(moved.waiting.players.find(player => player.role === 'working').ready, true);
+    assert.equal(moved.waiting.players.find(player => player.id === moved.role).ready, false);
+    await change(3, { type: 'select', role: roles[3] });
+    assert.equal((await request(path, { token: host.token })).waiting.players.find(player => player.role === 'working').ready, true);
+    await change(0, { type: 'cancel' });
+    const ready = { type: 'ready', selectionRevision: (await request(path, { token: host.token })).waiting.selectionRevision };
     await change(0, { type: 'ready', selectionRevision: conflict.waiting.selectionRevision }, 400);
     await change(0, ready);
     await change(0, { type: 'cancel' });

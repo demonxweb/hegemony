@@ -33,7 +33,7 @@ export function adjustPrices(game, role, prices) {
   const entries = Object.entries(prices);
   const allowed = domesticPriceLevels[role];
   requireRule(entries.length && entries.every(([resource, price]) => Object.hasOwn(allowed, resource)
-    && allowed[resource].includes(price) && marketQuote(game, role, resource).price !== price), '請選擇圖版上的不同售價。');
+    && allowed[resource].includes(price) && marketQuote(game, role, resource).price !== price), '請選擇圖板上的不同售價。');
   const pricesByRole = game.economy.domesticPrices ??= {};
   pricesByRole[role] = { ...pricesByRole[role], ...prices };
 }

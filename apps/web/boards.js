@@ -74,12 +74,14 @@ export function boardSurface(id) {
   </svg>`;
 }
 
-export function track(label, values, active, color = '#efc274') {
+export function track(label, values, active, color = '#efc274', { square = false } = {}) {
   const step = 28;
-  return `<svg class="board-track" viewBox="0 0 ${values.length * step} 27" role="img" aria-label="${label}">
+  // square：格子的高度和寬度一樣（合法性軌使用）。
+  const [height, top, cell, textY] = square ? [28, 1, 26, 18] : [27, 2, 23, 17];
+  return `<svg class="board-track" viewBox="0 0 ${values.length * step} ${height}" role="img" aria-label="${label}">
     <title>${label}</title>${values.map((value, index) => `<g transform="translate(${index * step} 0)">
-      <rect x="1" y="2" width="26" height="23" rx="4" fill="${index === active ? color : '#151c24'}" stroke="${color}" stroke-opacity="${index === active ? 1 : .38}"/>
-      <text x="14" y="17" text-anchor="middle" fill="${index === active ? '#121820' : '#f3ecdb'}">${value}</text>
+      <rect x="1" y="${top}" width="26" height="${cell}" rx="4" fill="${index === active ? color : '#151c24'}" stroke="${color}" stroke-opacity="${index === active ? 1 : .38}"/>
+      <text x="14" y="${textY}" text-anchor="middle" fill="${index === active ? '#121820' : '#f3ecdb'}">${value}</text>
     </g>`).join('')}</svg>`;
 }
 
@@ -200,75 +202,75 @@ function wealthTrack(wealth, record, color) {
 }
 
 const populationHelp = [
-  '開局設置\n勞工與中產各有 10 名工人，包含 7 名在職與 3 名待業。工人數標記放在 10，對應人口 3。',
-  '上排是本階級的工人總數，下排是對應的人口。每滿 3 名工人算 1 人口，人口最低為 3、最高為 10。例如 10 或 11 名工人都是人口 3，到了 12 名才升到人口 4。',
-  '準備階段補充工人、移民政策、使用醫療或卡牌效果都可能改變工人總數。就業和待業工人都計入，單純換工作不會改變人口。',
-  '人口決定輪末必須消耗的食物、使用醫療／教育／奢侈品時要消耗的份數，以及一般購買行動每個來源的購買上限。',
+  '開局設置\n勞工和中產各有 10 名工人（7 名有工作、3 名待業），工人數標記放在 10，人口是 3。',
+  '上排是本階級的工人總數，下排是對應的人口。每 3 名工人算 1 人口，最少 3、最多 10。例如 10 或 11 名工人都是人口 3，要到 12 名才升到人口 4。',
+  '準備階段補工人、移民政策、使用醫療或卡牌效果，都會改變工人總數。有工作的和待業的都算，只換工作不會改變人口。',
+  '人口決定三件事：輪末要吃多少食物、用醫療／教育／奢侈品時要用掉幾份、買東西時每個來源最多能買幾份。',
 ].join('\n\n');
 
 const personalGoodsHelp = [
-  '開局設置\n勞工與中產各放入 1 份個人影響力。食物、醫療、教育與奢侈品的生活資源格從 0 開始。中產的起始商品放在商業倉庫。',
-  '取得時機\n在自己的行動回合用「購買商品與服務」，一次選一種資源，最多向兩個來源購買，每個來源最多買等同目前人口的份數。買到的資源直接放入生活資源區。部分卡牌或「領取福利」也會把資源交給你。中產可把自己的倉庫當成其中一個來源，免費移入生活資源區。',
-  '食物\n每輪生產階段發薪後，進入食物需求結算。必須消耗等同當時人口的食物。先扣生活資源區的食物，缺額可從國內有庫存的賣方購買，其餘從外國市場補足。人口 4、手上有 2 份時，須再買 2 份並立即消耗。',
-  '醫療\n輪到自己時，選免費行動「使用醫療」，從生活資源區消耗等同目前人口的醫療。繁榮前進一格，取得新格的 VP，另得 2 VP，並新增一名通用工人到待業區。新增工人後更新人口軌。',
-  '教育\n輪到自己時，選免費行動「使用教育」，消耗等同目前人口的教育。選一名可受訓的己方工人，以及供應區仍有的不同技能。工會成員與占用指定技能工位的工人不能受訓。中產若要改換已具技能的工人，該工人須在待業區。完成後繁榮前進一格，取得新格的 VP。',
-  '奢侈品\n輪到自己時，選免費行動「使用奢侈品」，消耗等同目前人口的奢侈品，將繁榮推進一格並取得新格的 VP。例如人口 4、繁榮 3 時，消耗 4 份奢侈品可升到繁榮 4 並立即得 4 VP。使用醫療、教育或奢侈品，各會占用本回合的一次免費行動。',
-  '個人影響力\n可向國家購買公共媒體影響力，或透過卡牌等效果取得。一般提案時可花 1 影響力，讓該法案立即進入表決。表決時先表態並抽出方塊，再決定要投入多少影響力。每投入 1 份，所支持的一方加 1 票。投入的影響力在表決結束時消耗。',
+  '開局設置\n勞工和中產各有 1 份個人影響力。食物、醫療、教育、奢侈品的生活資源從 0 開始。中產的起始商品放在商業倉庫。',
+  '取得資源\n輪到自己時，用「購買商品與服務」一次買一種資源，最多向兩個來源買，每個來源最多買目前人口那麼多份。買到的直接放進生活資源。部分卡牌或「領取福利」也會給你資源。中產可以把自己的倉庫當成其中一個來源，免費搬進生活資源。',
+  '食物\n每輪生產階段發完薪後，要結算食物：必須吃掉和目前人口一樣多的食物。先用生活資源裡的食物，不夠的向國內有庫存的賣家買，還不夠就向外國市場買。例如人口 4、手上有 2 份，就要再買 2 份並馬上吃掉。',
+  '醫療\n輪到自己時，可以選免費行動「使用醫療」，用掉和人口一樣多的醫療。繁榮前進一格並拿新格的 VP，另外再得 2 VP，並新增一名通用工人（待業）。新增工人後，人口軌也會更新。',
+  '教育\n選免費行動「使用教育」，用掉和人口一樣多的教育，挑一名可受訓的己方工人，再從供應區還有的其他技能中選一個。工會成員和佔著指定技能工位的工人不能受訓。中產若要換掉已有技能的工人，這名工人必須在待業區。完成後繁榮前進一格，並拿新格的 VP。',
+  '奢侈品\n選免費行動「使用奢侈品」，用掉和人口一樣多的奢侈品，繁榮前進一格並拿新格的 VP。例如人口 4、繁榮 3，用 4 份奢侈品就升到繁榮 4，馬上得 4 VP。醫療、教育、奢侈品都是免費行動，每回合只能選其中一個。',
+  '個人影響力\n可以向國家買公共媒體影響力，或靠卡牌等效果取得。提案時可以花 1 點影響力，讓法案馬上表決。表決時先表態、抽方塊，再決定投入幾份影響力；每投入 1 份，你支持的那一邊就多 1 票，表決結束後這些影響力就用掉了。',
 ].join('\n\n');
 
 const warehouseHelp = [
-  '企業在生產階段產出的資源按種類入庫。格內顯示庫存／容量和目前售價。超過容量的部分會丟棄。勞工與中產可在自己的購買行動中按標示售價購買。倉庫持有人可在自己的行動回合選「對外出口」，按現行出口牌交出指定數量並取得金錢。',
-  '食物\n由農業企業生產，資本家也能透過商務合約進貨。中產與資本家的基礎容量皆為 8 份。除了平時出售或出口，也可在輪末食物需求結算時賣給需要補足食物的勞工或中產。終局每滿 2 份得 1 VP。',
-  '奢侈品\n由奢侈品企業生產，資本家也能透過商務合約進貨。中產基礎容量為 8 份，資本家為 12 份。可供國內購買，或依出口牌出售。終局每滿 3 份得 1 VP。',
-  '醫療\n由醫療企業生產。中產基礎容量為 8 份，資本家為 12 份。可供國內購買，依出口牌出售，或按特定卡牌效果賣給國家。終局每滿 3 份得 1 VP。',
-  '教育\n由教育企業生產。中產基礎容量為 8 份，資本家為 12 份。可供國內購買，依出口牌出售，或按特定卡牌效果賣給國家。終局每滿 3 份得 1 VP。',
-  '終局按資源種類各自取整。例如 5 份食物得 2 VP，4 份醫療得 1 VP，合計 3 VP。',
-  '倉庫擴充\n中產與資本家共用 6 塊倉庫板塊。每個階級的每種資源最多擴充一次。擴充只會讓選定資源的容量翻倍，板塊之後固定用於該資源。例如食物容量從 8 增至 16 份。',
+  '企業在生產階段產出的資源，會按種類放進倉庫。每格顯示「庫存／容量」和目前的售價，超過容量的會丟掉。勞工和中產買東西時，可以照這個售價買。倉庫的主人在自己的回合可以選「對外出口」，照現行出口牌交出指定數量的貨物換錢。',
+  '食物\n由農業企業生產，資本家也能靠商務合約進貨。中產和資本家的基本容量都是 8 份。可以平常賣、出口，也可以在輪末食物結算時，賣給缺食物的勞工或中產。終局每 2 份得 1 VP。',
+  '奢侈品\n由奢侈品企業生產，資本家也能靠商務合約進貨。基本容量中產 8 份、資本家 12 份。可以賣給國內買家，也可以照出口牌出口。終局每 3 份得 1 VP。',
+  '醫療\n由醫療企業生產。基本容量中產 8 份、資本家 12 份。可以賣給國內買家、照出口牌出口，或靠特定卡牌賣給國家。終局每 3 份得 1 VP。',
+  '教育\n由教育企業生產。基本容量中產 8 份、資本家 12 份。可以賣給國內買家、照出口牌出口，或靠特定卡牌賣給國家。終局每 3 份得 1 VP。',
+  '終局時每種資源各自計算，不足一組的不算。例如 5 份食物得 2 VP、4 份醫療得 1 VP，合計 3 VP。',
+  '倉庫擴充\n中產和資本家共用 6 塊倉庫板塊。每個階級的每種資源最多擴充一次，擴充後那種資源的容量翻倍，板塊就固定用在那種資源上。例如食物容量從 8 份變成 16 份。',
 ].join('\n\n');
 
 const revenueHelp = [
-  '開局設置\n資本家的營收區放入 $120。',
-  '營收是資本家本輪可優先動用的金錢。國內銷售、出口等新收入通常先存入這裡。建造企業、發薪和繳稅等支出一般先從營收扣，營收不足再用資本補差額。',
-  '生產階段發薪後，先繳僱用稅（營運企業數 × 稅倍率）。再以繳完僱用稅後的營收餘額，依政策 3 的稅表查出企業稅。剩餘營收在輪末計分階段全部轉入資本。',
-  '例如發薪後剩 $80，有 2 家營運企業且稅倍率為 5，先繳 $10 僱用稅。營收剩 $70，若政策是 3B，再繳 $15 企業稅，最後轉入資本 $55。',
+  '開局設置\n資本家的營收區放 $120。',
+  '營收是資本家本輪最先動用的錢。國內銷售、出口等新收入，通常先存進這裡。建造企業、發薪、繳稅這些支出，一般先從營收扣，不夠再用資本補。',
+  '生產階段發完薪後，先繳僱用稅（營運中的企業數 × 稅倍率），再用扣完僱用稅的營收餘額，照政策 3 的稅表算出企業稅。企業稅要看營收和稅制，查表方式見「稅倍率」的說明。剩下的營收在輪末計分階段全部轉進資本。',
+  '例如發薪後剩 $80、有 2 家營運企業、稅倍率 5：先繳 $10 僱用稅，剩 $70；政策是 3B，再繳 $15 企業稅，最後 $55 轉進資本。',
 ].join('\n\n');
 
 const capitalHelp = [
   '開局設置\n資本區從 $0 開始。',
-  '資本累積歷輪轉入的營收，也可以補足本輪支出。一般支出先用營收，差額由資本支付。若卡牌指定優先用資本，例如「購買私人島嶼」，就先扣資本，差額再用營收。兩邊加總仍付不起強制支出時，每筆貸款的 $50 會先存入資本。',
-  '輪末把繳稅後剩餘的營收轉入資本，再依資本總額對照財富軌計分。支付支出會降低資本餘額，因此也可能降低這一輪的基本財富分。',
-  '例如原有資本 $50，輪末轉入 $55，營收歸零、資本變成 $105。這輪按 $100 級距得 5 VP，若刷新財富紀錄，再加上跨格獎勵。',
+  '資本會累積每一輪轉進來的營收，也能用來補足本輪的支出。一般支出先用營收，不夠才由資本補；如果卡牌指定先用資本（例如「購買私人島嶼」），就先扣資本，不夠再用營收。兩邊加起來還是付不出強制支出，才會借款，每筆貸款的 $50 先存進資本。',
+  '輪末把繳完稅剩下的營收轉進資本，再用資本總額對照財富軌計分。花錢會讓資本變少，也可能拉低這一輪的基本財富分。',
+  '例如原本資本 $50，輪末轉進 $55，營收歸零、資本變成 $105。這一輪按 $100 這一級算 5 VP；如果刷新了財富紀錄，再加上跨格獎勵。',
 ].join('\n\n');
 
 const wealthHelp = [
-  '開局設置\n財富紀錄標記從 $0 級距開始。',
-  '輪末計分時，將繳完薪資與稅後剩餘的營收轉入資本。以資本總額對照軌道上已達到的最高門檻，取得該格標示的 VP。',
-  '財富標記記錄你曾達到的最高資本門檻。打破紀錄時，每比舊紀錄多前進一格，就多得 3 VP。如果資本之後下降，基本分照當輪實際達到的門檻計算，財富標記留在原格。',
-  '例如紀錄在 $50，這輪資本到 $100，基本得 5 VP。跨過 $75 和 $100 兩格再得 6 VP，合計 11 VP。',
+  '開局設置\n財富紀錄標記放在 $0 這一級。',
+  '輪末計分時，先把繳完薪資和稅之後剩下的營收轉進資本，再用資本總額對照軌道上已達到的最高門檻，拿那一格標的 VP。',
+  '財富標記記錄你「曾經達到」的最高門檻。破紀錄時，比舊紀錄每多前進一格，就多得 3 VP。之後資本就算下降，基本分仍照當輪實際達到的門檻算，標記留在原位。',
+  '例如紀錄在 $50，這輪資本到 $100，基本分 5 VP；跨過 $75 和 $100 兩格，再得 6 VP，合計 11 VP。',
 ].join('\n\n');
 
 const legitimacyHelp = [
-  '開局設置\n國家對勞工、中產及資本家的合法性標記各放在第 2 格。三個階級的永久標記數都是 0。',
-  '國家對勞工、中產和資本家各有一條合法性軌，範圍為 1 到 10。處理事件、執行卡牌效果，或依 A 區福利政策免費提供醫療或教育，都可能提高指定階級的合法性。部分事件的懲罰會降低合法性。',
-  '事件或卡牌獎勵可能給予永久標記。每獲得一枚，該階級的合法性立即 +1，之後每輪重設時也會再加 1。軌道旁的 +N 是該階級持有的永久標記數。',
-  '輪末將三條合法性軌中最低的兩個數字相加，就是國家這輪的合法性分數。接著重設每條軌道：先將數值除以 2，有小數就進到下一個整數，再加上該階級的永久標記數，最高為 10。',
-  '例如三條軌道為 7、5、4，國家得 5＋4＝9 VP。若第一條有 2 枚永久標記，重設後為 7÷2 向上取整得 4，再加 2，成為 6。',
+  '開局設置\n國家對勞工、中產、資本家的合法性標記都放在第 2 格，三個階級的永久標記數都是 0。',
+  '國家對勞工、中產、資本家各有一條合法性軌，範圍是 1 到 10。處理事件、執行卡牌效果，或在 A 區福利政策下免費提供醫療或教育，都可能提高某個階級的合法性；部分事件的懲罰會降低合法性。',
+  '事件或卡牌可能給「永久標記」。每拿到 1 枚，該階級的合法性馬上 +1，之後每輪重設時也會再加 1。軌道旁的 +N，就是這個階級的永久標記數。',
+  '輪末，取三條軌道中最低的兩個數字相加，就是國家這輪的合法性分數。接著每條軌道重設：數值先除以 2（有小數就進位），再加上該階級的永久標記數，最高 10。',
+  '例如三條軌道是 7、5、4，國家得 5＋4＝9 VP。若第一條有 2 枚永久標記，重設後是 7÷2 進位得 4，再加 2，變成 6。',
 ].join('\n\n');
 
 const freeTradeHelp = [
-  '開局設置\n資本家把自由貿易區板塊放在圖版旁。食物和奢侈品的起始庫存都是 0。',
-  '取得貨物\n資本家在行動回合選「商業交易」，挑一張場上的商務合約，再指定食物與奢侈品的到貨位置。整批放進自由貿易區只付合約基價。只要有任何貨物進商業倉庫，就按目前對外貿易政策支付整張合約的關稅。線上版可在交易確認前選擇「分配到兩處」。',
-  '容量與轉移\n食物最多存 8 份，奢侈品最多存 12 份，各自計算，超出容量的貨物會丟棄。交易確認後，自由貿易區與商業倉庫的庫存各自保留，不能互相轉移。自由貿易區的貨物僅供出口，國內銷售和輪末食物需求結算使用商業倉庫的庫存。',
-  '出口\n輪到自己時選「對外出口」，勾選現行出口牌的交易。可用兩處的同類庫存湊足牌上要求，線上版會先扣自由貿易區，再扣商業倉庫。例如一筆出口需要 5 份食物，自由貿易區有 3 份，就從商業倉庫再扣 2 份。一般出口行動中每個交易選項可做一次，所得存入營收。',
-  '終局計分\n將兩處的食物合計後，每滿 2 份得 1 VP。奢侈品也先合計，每滿 3 份得 1 VP。',
+  '開局設置\n資本家把自由貿易區板塊放在圖板旁，食物和奢侈品的起始庫存都是 0。',
+  '取得貨物\n資本家選「商業交易」，挑一張場上的商務合約，再指定食物和奢侈品要放哪裡。整批放進自由貿易區，只付合約基價。只要有任何貨物進商業倉庫，就要照目前的對外貿易政策，付整張合約的關稅。線上版在確認前可以選「分配到兩處」。',
+  '容量與轉移\n食物最多存 8 份、奢侈品最多存 12 份，各自計算，超過的會丟掉。交易確認後，自由貿易區和商業倉庫的庫存各管各的，不能互相搬。自由貿易區的貨只能出口；國內銷售和輪末食物結算用的是商業倉庫的庫存。',
+  '出口\n輪到自己時選「對外出口」，勾選現行出口牌上的交易。兩邊同類型的庫存可以合併湊數，線上版會先扣自由貿易區，再扣商業倉庫。例如出口要 5 份食物、自由貿易區有 3 份，就再從商業倉庫扣 2 份。一般出口行動中，每個交易選項可以做一次，收入存進營收。',
+  '終局計分\n兩處的食物加起來，每 2 份得 1 VP；奢侈品也先加起來，每 3 份得 1 VP。',
 ].join('\n\n');
 
 const loanHelp = [
-  '開局設置\n所有階級都從 0 筆貸款開始。',
-  '何時借款\n付不起強制支出時才借款，例如生產階段的薪資、食物需求結算、稅款，或準備階段的利息。其他玩家的卡牌也可能造成強制支出。每筆貸款取得 $50，玩家板的貸款數加 1。資本家的借款存入資本。線上版若在食物結算時需要借款，須先確認借貸才能完成結算。',
-  '利息\n每輪準備階段按當時持有的貸款筆數，每筆支付 $5。例如有 2 筆貸款，這次就付 $10。利息與本金分開計算。若付不起利息，會再借款。資本家優先用資本付息。',
-  '如何還款\n輪到自己時，選免費行動「償還貸款」，確認支付 $50，清掉 1 筆貸款。資本家優先用資本還款。還清的貸款之後免付利息。國家的貸款若達財政政策門檻，生產階段還會檢查是否能以每筆 $55 償還足夠筆數，以避免 IMF 介入。',
-  '終局結算\n第五輪後，資本家每筆未還貸款扣 5 VP。勞工、中產與國家每筆按 $55 結清。若金錢不足，以 $5 為單位盡量償還，每欠 $5 扣 1 VP。例如有 1 筆貸款、手上有 $38，可先還 $35，剩欠 $20，因此扣 4 VP。',
+  '開局設置\n所有階級一開始都是 0 筆貸款。',
+  '何時借款\n只有付不起強制支出時才會借款，例如生產階段的薪資、食物結算、稅款，或準備階段的利息。其他階級打出的卡牌，也可能讓你多出強制支出。每借一筆拿到 $50，圖板上的貸款數 +1。資本家借的錢存進資本。線上版若在食物結算時需要借款，要先確認借貸，結算才能完成。',
+  '利息\n每輪準備階段，依目前的貸款筆數，每筆付 $5。例如有 2 筆貸款，這次就付 $10。利息和本金分開算。付不起利息就再借一筆。資本家優先用資本付利息。',
+  '如何還款\n輪到自己時，選免費行動「償還貸款」，確認付 $50，就清掉 1 筆。資本家優先用資本還款。還清的貸款之後不用再付利息。國家的貸款如果達到財政政策的門檻（1A、1B 是 2 筆，1C 是 1 筆），生產階段會要求國庫用每筆 $55 還到門檻以下；還不起，IMF 就會介入，後果見「國庫」的說明。',
+  '終局結算\n第五輪後，資本家每筆沒還的貸款扣 5 VP。勞工、中產、國家每筆要用 $55 還清；錢不夠時，以 $5 為單位盡量還，每欠 $5 扣 1 VP。例如 1 筆貸款、手上 $38：先還 $35，剩欠 $20，扣 4 VP。',
 ].join('\n\n');
 
 export function boardHelpButton(title, description, escape) {
@@ -321,8 +323,8 @@ export function playerDiagram(state, role, meta, wells, resources, escape, union
     `<h4><span class="mat-zone-title">${title} ${help(title, description)}</span>${detail}</h4>`;
   const warehouse = () => `<section class="warehouse mat-zone" aria-label="${names[role]}商業倉庫">
     ${heading('商業倉庫', role === 'middle'
-      ? '開局設置\n中產的商業倉庫放入 1 份食物與 1 份醫療，奢侈品和教育從 0 開始。\n\n' + warehouseHelp + '\n\n中產在主要行動打出「企業成長」時，可選一種尚未擴充的資源免費加倉。中產要自用時，須在「購買商品與服務」把自己的倉庫選為來源。移轉免費，仍占一個來源且受人口上限限制。'
-      : '開局設置\n資本家的商業倉庫放入 1 份食物、2 份奢侈品及 2 份教育，醫療從 0 開始。個人影響力從 1 開始。\n\n' + warehouseHelp + '\n\n資本家在自己的回合選免費行動「購買倉庫」，選擇一種旗下企業能生產且尚未擴充的資源，再支付 $20 確認。例如醫療容量可從 12 增至 24 份。終局把自由貿易區的同類貨物合併計分。此處顯示的個人影響力可用於提案或表決。', '<small>庫存／容量</small>')}
+      ? '開局設置\n中產的商業倉庫有 1 份食物和 1 份醫療，奢侈品和教育是 0。\n\n' + warehouseHelp + '\n\n中產在主要行動打出「企業成長」時，可以選一種還沒擴充的資源，免費加倉。中產要自己用倉庫裡的貨，要在「購買商品與服務」把自己的倉庫選成來源。搬進生活資源不用錢，但仍算一個來源，也受人口上限限制。'
+      : '開局設置\n資本家的商業倉庫有 1 份食物、2 份奢侈品、2 份教育，醫療是 0。個人影響力從 1 開始。\n\n' + warehouseHelp + '\n\n資本家在自己的回合選免費行動「購買倉庫」，挑一種旗下企業能生產、又還沒擴充的資源，付 $20 確認。例如醫療容量可以從 12 份變成 24 份。終局時，自由貿易區裡同類的貨會和倉庫合併計分。這裡顯示的個人影響力，可以用在提案或表決。', '<small>庫存／容量</small>')}
     <div class="mat-storage-wells">${storedResources.map(key =>
       wells(resources[key], inventory[key] ?? 0, key, role, undefined, economy?.storageCapacity?.[role]?.[key])).join('')}${role === 'capitalist' ? influence : ''}</div>
   </section>`;
@@ -334,29 +336,30 @@ export function playerDiagram(state, role, meta, wells, resources, escape, union
     const goods = ['food', 'luxury', 'health', 'education'].map(key => wells(resources[key], player[key] ?? 0, key, role, 'goods')).join('');
     const prosperity = role === 'middle' ? state.match?.middleProsperityIndex : state.match?.workingProsperity;
     const prosperityHelp = [
-      '開局設置\n勞工與中產的繁榮標記都放在第 0 格。',
-      '使用醫療、教育或奢侈品時，從生活資源區消耗等同人口的份數。繁榮標記前進一格，立即獲得新格印的 VP。使用醫療另得 2 VP 並新增一名通用工人，使用教育還能訓練一名工人。',
+      '開局設置\n勞工和中產的繁榮標記都放在第 0 格。',
+      '用醫療、教育或奢侈品時，會從生活資源扣掉和人口一樣多的份數，繁榮標記前進一格，馬上拿新格上印的 VP。用醫療另外再得 2 VP 並新增一名通用工人，用教育還能訓練一名工人。',
       role === 'middle'
-        ? '中產在輪末計分時，若目前繁榮值低於滿編企業數，可再前進一格並得分。滿編企業須有兩名工人，有勞工選用工位的企業也要填滿該格。中產軌有重複數字，例如從第一個 5 前進到第二個 5，仍可再得 5 VP。下一輪準備時退兩格。'
-        : '例如人口 4、繁榮 3，使用 4 份奢侈品會前進到 4，立即得 4 VP。下一輪準備時退一格。',
-      '繁榮最低退到 0，退格時已獲得的 VP 仍然保留。',
+        ? '中產在輪末計分時，如果目前的繁榮值低於「滿編」的企業數，可以再前進一格並得分。「滿編」是指企業的所有工位都有人，包含勞工的選用工位。中產軌上有重複的數字，例如從第一個 5 前進到第二個 5，仍然再得 5 VP。下一輪準備時退兩格。'
+        : '例如人口 4、繁榮 3，用 4 份奢侈品就前進到 4，馬上得 4 VP。下一輪準備時退一格。',
+      '繁榮最低退到 0；退格不會拿走已經得到的 VP。',
     ].join('\n\n');
     const eligibleUnionSkills = new Set(unionWorkers.map(worker => worker.skill));
-    const unionZone = () => `<section class="mat-zone mat-unions">${heading('產業工會', '開局設置\n五個產業工會格開局皆為空。\n\n勞工可透過「指派工人」，將一名該產業的技術工派進工會。成立時須有至少 4 名其他勞工在該產業的企業工作。若人數後來低於 4 人，工會工人回到待業區。\n\n每個工會在生產階段給 1 影響力、在輪末計分給 2 VP。例如維持 3 個工會，一輪可得 3 影響力及 6 VP。')}<div class="mat-union-grid">
+    const unionZone = () => `<section class="mat-zone mat-unions">${heading('產業工會', '開局設置\n五個產業工會格一開始都是空的。\n\n勞工可以在「指派工人」時，把一名該產業的技術工派進工會。成立時，該產業的企業裡要有至少 4 名其他勞工在工作。被派進工會的，是一名本來待業的該產業技術工：他會從待業區移進工會格，不能再被指派或受訓（工人總數和人口照算）。同一個產業只能有一個工會，所以每格只會是「已成立」或還沒成立。\n\n工會沒有手動移出的方式。只有當這個產業有工作的勞工掉到 4 人以下，工會才會自動解散：工人回到待業區、這格變回未成立，之後條件再達到時可以重新成立。\n\n每個工會在生產階段給 1 影響力，輪末計分給 2 VP。例如維持 3 個工會，一輪可得 3 影響力和 6 VP。')}<div class="mat-union-grid">
       ${Object.entries(industries).map(([skill, name]) => {
         const count = economy?.unions.filter(id => economy.workers.find(worker => worker.id === id)?.skill === skill).length ?? 0;
         const status = count ? 'established' : eligibleUnionSkills.has(skill) ? 'eligible' : 'ineligible';
         const label = count ? '已成立' : status === 'eligible' ? '可成立' : '未達成立條件';
+        const shortLabel = count ? '已成立' : status === 'eligible' ? '可成立' : '未達條件';
         const tip = count ? `tabindex="0" data-tip-title="${escape(name + '工會成員')}" data-tip-body="已承諾\n承諾到期 · 工會維持期間一直承諾。該產業在職勞工少於 4 人，工會解散，工人回到待業區。"` : '';
         return `<div class="mat-union-slot ${status}" style="--skill:${workerColors[skill]}" aria-label="${name}工會 ${label}" ${tip}>
-          ${workerFigure('working', skill)}<span>${name}</span><b>${count}</b></div>`;
+          ${workerFigure('working', skill)}<span>${name}</span><b>${shortLabel}</b></div>`;
       }).join('')}</div></section>`;
     body = `<section class="mat-zone mat-population">${heading('人口軌', populationHelp, `<span>工人 ${workers} 人 · 人口 ${population}</span>`)}
       ${populationTrack(workers, population, playerTracks.population, color)}</section>
-      <div class="mat-class-layout"><div class="mat-stack"><section class="mat-zone mat-prosperity">${heading('繁榮軌', prosperityHelp)}
-        ${track('繁榮', playerTracks.prosperity[role], prosperity, color)}</section>${role === 'working' ? unionZone() : warehouse()}</div>
-        <div class="mat-stack">${moneyZone('收入', player.cash, `開局設置\n勞工從 $30 開始，中產從 $40 開始。\n\n` + '這是本階級可支用的現金。生產階段領取薪資，部分福利或卡牌也會給現金。中產另可透過國內銷售和出口取得現金。\n\n行動回合可用現金購買商品與服務。輪末須支付補買食物的費用與稅款。資金不足以支付強制支出時，每筆貸款取得 $50，後續每輪準備階段每筆付 $5 利息。')}<section class="mat-zone mat-personal">${heading('生活資源', personalGoodsHelp)}
-          <div class="mat-goods-wells">${goods}${influence}</div></section></div></div>`;
+      <div class="mat-class-layout"><section class="mat-zone mat-prosperity">${heading('繁榮軌', prosperityHelp)}
+        ${track('繁榮', playerTracks.prosperity[role], prosperity, color)}</section>${moneyZone('收入', player.cash, `開局設置\n勞工從 $30 開始，中產從 $40 開始。\n\n這一區放的是本階級手上可以花的現金（圖板上叫「收入」）。生產階段領薪水，部分福利或卡牌也會給現金；中產還可以靠國內銷售和出口賺錢。\n\n行動回合可以用現金買商品與服務。輪末要付補買食物的錢和稅款。如果錢不夠付強制支出，就要借款，每筆拿到 $50，之後每輪準備階段每筆付 $5 利息。`)}</div>
+      <div class="mat-stack">${role === 'working' ? unionZone() : warehouse()}<section class="mat-zone mat-personal">${heading('生活資源', personalGoodsHelp)}
+          <div class="mat-goods-wells">${goods}${influence}</div></section></div>`;
   } else if (role === 'capitalist') {
     body = `<div class="mat-capital-accounts">${moneyZone('營收', player.revenue, revenueHelp)}${moneyZone('資本', player.capital, capitalHelp)}</div>
       <section class="mat-zone mat-wealth">${heading('財富軌', wealthHelp, '<span>資本級距／分數</span>')}${wealthTrack(playerTracks.wealth, state.match?.wealth ?? 0, color)}</section>
@@ -364,20 +367,23 @@ export function playerDiagram(state, role, meta, wells, resources, escape, union
       <section class="mat-zone mat-free-trade">${heading('自由貿易區', freeTradeHelp, '<small>僅供出口</small>')}<div class="well-row">${['food', 'luxury'].map(key =>
         wells(resources[key], economy?.tradeZone[key] ?? 0, key, undefined, undefined, economy?.freeTradeCapacity?.[key])).join('')}</div></section>`;
   } else {
-    const welfare = ['醫療', '教育'].map((name, index) => {
+    const welfare = [['醫療', 'health'], ['教育', 'education']].map(([name, resource], index) => {
       const section = state.policies[3 + index];
       const price = policyRules.public_health_and_education_price[section];
-      return `<div><strong class="mat-zone-title">${name} $${price} ${help('公共' + name, (index === 0 ? '開局設置\n醫療福利設在 4B，公共醫療每份 $5。' : '開局設置\n教育福利設在 5C，公共教育每份 $10。') + '\n\n這裡顯示當前福利政策對應的公共服務單價。勞工或中產在自己的行動回合從國家購買，資源由主圖板的公共服務區扣除，貨款存入國庫。\n\nA 區每份 $0，每免費提供 3 份，購買階級的合法性 +1。例如一次提供 6 份可加 2。B 區每份 $5，每筆交易讓國家得 1 VP。C 區每份 $10。')}</strong><small>${section === 'A' ? '每 3 份 · 合法性 +1' : section === 'B' ? '每筆 · +1 VP' : '原價'}</small></div>`;
+      return `<div class="resource-well" data-resource="${resource}"><span><img class="icon" src="/assets/icons/${resource}.svg" alt="">${name}</span>
+        <small class="well-note">${section === 'A' ? '每 3 份 合法性 +1' : section === 'B' ? '每筆 +1 VP' : '原價'}</small><small class="well-price">單價 $${price}</small></div>`;
     }).join('');
-    body = `<section class="mat-zone mat-legitimacy">${heading('合法性與永久標記', legitimacyHelp)}<div class="mat-state-top"><div class="legitimacy-tracks">${classes.map(seat =>
+    body = `<div class="mat-state-legit"><section class="mat-zone mat-legitimacy">${heading('合法性', legitimacyHelp)}<div class="mat-state-top"><div class="legitimacy-tracks">${classes.map(seat =>
       `<div><span>${names[seat]} <b>+${state.content?.legitimacyTokens[seat] ?? 0}</b></span>
-        ${track(`${names[seat]}合法性 ${state.legitimacy[seat]}`, numbers(10, 1), state.legitimacy[seat] - 1, roleColors[seat])}</div>`).join('')}</div>
-        <div class="mat-welfare">${welfare}</div></div></section>
-      <section class="warehouse mat-zone" aria-label="國家貨物倉庫與影響力">${heading('貨物倉庫與個人影響力', '開局設置\n國家的食物和奢侈品各從 0 開始，個人影響力從 1 開始。主圖板公共服務區的媒體影響力另行設置。\n\n國家可透過卡牌取得食物和奢侈品，也可能透過公營企業生產，所得放入這裡。格內顯示庫存／容量與售價。勞工與中產可在購買行動向國家購買，國家也可在自己的行動回合按出口牌出售。國家終局每滿 2 份食物、每滿 3 份奢侈品，各得 1 VP。\n\n國家可用「競選」把最多 3 份公共媒體影響力轉為個人影響力。個人影響力可用於發起即時表決，或在表決抽票後投入，每份加 1 票。')}
+        ${track(`${names[seat]}合法性 ${state.legitimacy[seat]}`, numbers(10, 1), state.legitimacy[seat] - 1, roleColors[seat], { square: true })}</div>`).join('')}</div>
+        </div></section>
+      <section class="mat-zone mat-agenda">${heading('政治綱領', '開局設置\n把政治綱領牌庫洗勻，翻開最上面 1 張，放在國家圖板旁讓大家都看得到。這張牌列出第一輪的五項政策目標。\n\n之後每輪準備階段會翻開新的政治綱領。每個代碼包含政策編號和目標區段，例如 3B 代表稅制的目標是 B 區。國家可以靠提案或卡牌推動政策改變。\n\n輪末計分時，逐項核對政策 1 到 5 目前的區段，每符合一項得 1 VP。例如綱領的 1C、3B、5A 三項都和現行政策一致，就得 3 VP。這筆分數和合法性分數分開加。')}
+        <p class="agenda-tags">${state.match?.agenda.map((section, index) => `<span style="--policy:${policyColors[index]}">${escape(meta.policies[index])} ${index + 1}${escape(section)}</span>`).join('') ?? '—'}</p></section></div>
+      <div class="mat-state-row"><section class="warehouse mat-zone" aria-label="國家貨物倉庫與影響力">${heading('倉庫', '開局設置\n國家的食物和奢侈品都從 0 開始，個人影響力從 1 開始。主圖板公共服務區的媒體影響力另外設置。\n\n國家可以靠卡牌取得食物和奢侈品，也可能由公營企業生產，都放在這裡。每格顯示「庫存／容量」和售價。勞工和中產可以在購買行動向國家買，國家也可以在自己的回合照出口牌賣出。終局時，國家每 2 份食物、每 3 份奢侈品，各得 1 VP。\n\n國家可以用「競選」，把最多 3 份公共媒體影響力轉成個人影響力。個人影響力可以用來發起即時表決，或在表決抽完票後投入，每份加 1 票。')}
         <div class="mat-storage-wells">${['food', 'luxury'].map(resource => wells(resources[resource], state.publicServices[resource] ?? 0,
           resource, 'state', undefined, economy?.publicStorageCapacity?.[resource])).join('')}${influence}</div></section>
-      <section class="mat-zone mat-agenda">${heading('政治綱領', '開局設置\n洗勻政治綱領牌庫，翻開頂部 1 張，放在國家圖版旁讓所有玩家查看。這張牌列出第一輪的五項政策目標。\n\n後續每輪準備階段翻開新的政治綱領。每個代碼標示政策編號及目標區段，例如 3B 代表稅制目標為 B 區。國家可透過提案或卡牌效果推動政策變更。\n\n輪末計分時，逐一核對政策 1 到 5 的生效區段，每符合一項得 1 VP。例如綱領有 1C、3B、5A 三項與現行政策相符，就得 3 VP。這筆分數與合法性得分分開相加。')}
-        <p class="agenda-tags">${state.match?.agenda.map((section, index) => `<span style="--policy:${policyColors[index]}">${escape(meta.policies[index])} ${index + 1}${escape(section)}</span>`).join('') ?? '—'}</p></section>`;
+      <section class="mat-zone mat-public" aria-label="公共資源">${heading('公共資源', '開局設置\n醫療福利設在 4B，公共醫療每份 $5；教育福利設在 5C，公共教育每份 $10。\n\n這裡顯示目前福利政策對應的公共醫療和公共教育單價，以及賣出後國家能得到的好處。庫存和買賣在主圖板的「公共服務」區：勞工或中產在自己的行動回合向國家購買，資源從公共服務區扣掉，貨款存進國庫。\n\nA 區每份 $0，每免費提供 3 份，購買的階級合法性 +1（例如一次提供 6 份就 +2）。B 區每份 $5，每筆交易讓國家得 1 VP。C 區每份 $10，照原價收費。')}
+        <div class="mat-welfare">${welfare}</div></section></div>`;
   }
   return `<section class="player-mat ${role}" style="--role:${color}" aria-label="${names[role]}圖板">
     ${boardSurface(role)}<div class="player-mat-content"><header><h3>${names[role]}圖板</h3><span>${player.vp} VP · <span class="mat-zone-title">貸款 ${economy?.loans[role] ?? 0} ${help('貸款', loanHelp)}</span></span></header>${body}</div></section>`;

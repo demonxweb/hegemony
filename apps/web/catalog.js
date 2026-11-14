@@ -11,7 +11,7 @@ const categories = { action: '行動卡', company: '企業卡', export: '出口�
 const componentGroups = [
   { title: '一般卡', categories: ['action', 'company', 'export', 'agenda', 'event'] },
   { title: '小型卡', categories: ['immigration', 'deal', 'loan'] },
-  { title: '板塊與圖版', categories: ['storage'] },
+  { title: '板塊與圖板', categories: ['storage'] },
 ];
 const $ = id => document.getElementById(id);
 
@@ -89,8 +89,8 @@ function buildGroups({ decks, marketSizes, policies, names, storage }) {
       ['取得方式', '資本家可花 $20購買；中產可透過行動卡取得。'],
       ['容量', `擴充一種指定資源的倉庫至原容量的 ${storage.storageTileMultiplier} 倍。同一階級每種資源最多放一片。`],
     ]),
-    storageGroup('資本家商業倉庫', ['capitalist'], '圖版內建', capacities('capitalist'), 'capitalist'),
-    storageGroup('中產商業倉庫', ['middle'], '圖版內建', [...capacities('middle'),
+    storageGroup('資本家商業倉庫', ['capitalist'], '圖板內建', capacities('capitalist'), 'capitalist'),
+    storageGroup('中產商業倉庫', ['middle'], '圖板內建', [...capacities('middle'),
       ['用途', '商業庫存獨立於生活資源區。一般自用須先轉入生活資源區；輪末缺食時可直接取用倉庫食物。'],
       ['媒體影響力', '生產後直接放入生活資源區。'],
     ], 'middle'),
@@ -99,9 +99,9 @@ function buildGroups({ decks, marketSizes, policies, names, storage }) {
     ], 'capitalist'),
     storageGroup('國家公共服務與商品', ['state'], '圖板區域', [
       ['容量', `每種資源以相應已開放公營企業的總產量加 ${storage.publicServiceExtraCapacity} 計算，即使企業目前未營運也計入。`],
-      ['用途', '醫療、教育、媒體存放於公共服務區；國家取得食物或奢侈品企業時，產出的商品存於國家圖版。'],
+      ['用途', '醫療、教育、媒體存放於公共服務區；國家取得食物或奢侈品企業時，產出的商品存於國家圖板。'],
     ], 'state'),
-    storageGroup('勞工生活資源', ['working'], '圖版內建', [
+    storageGroup('勞工生活資源', ['working'], '圖板內建', [
       ['用途', '勞工使用生活資源區存放商品與服務，沒有獨立商業倉庫。合作農場生產的食物可直接使用。'],
     ], 'working'),
   );

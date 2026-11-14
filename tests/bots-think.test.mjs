@@ -52,9 +52,12 @@ test('with a thinking time the AIs act one at a time after a visible delay, and 
     for (const role of ['working', 'capitalist', 'state']) await waiting({ type: 'add-bot', role, strategy: 'minimal' });
 
     await waiting({ type: 'set-bot-think', seconds: 3 }, 400);
+    // 新房間預設 5 秒；0 不在選項裡但 API 仍接受。
+    assert.equal((await request(path, { token: host.token })).waiting.botThinkMax, 5);
     const lobby = await waiting({ type: 'set-bot-think', seconds: 2 });
     assert.equal(lobby.waiting.botThinkMax, 2);
-    assert.deepEqual(lobby.waiting.botThinkChoices, [0, 2, 5, 10, 20, 30]);
+    assert.deepEqual(lobby.waiting.botThinkChoices, [2, 5, 10, 20, 30]);
+    assert.equal((await request(path, { token: host.token })).waiting.botThinkMax, 2);
 
     const view = await request(path, { token: host.token });
     const started = await waiting({ type: 'ready', selectionRevision: view.waiting.selectionRevision });
@@ -62,6 +65,10 @@ test('with a thinking time the AIs act one at a time after a visible delay, and 
     assert.equal(started.turn, 0);
     assert.equal(started.botThink.thinking.role, 'working');
     assert(started.botThink.thinking.delayMs >= 400 && started.botThink.thinking.delayMs <= 2000);
+    // 先計算再等待：運算在開始等待之前就做完，時間算在思考時間裡，不會另外加在後面。
+    assert.equal(typeof started.botThink.thinking.computeMs, 'number');
+    assert(started.botThink.thinking.computeMs <= started.botThink.thinking.delayMs);
+    assert(started.botThink.thinking.elapsedMs >= 0 && started.botThink.thinking.elapsedMs < 1000);
 
     const until = async (condition, limit = 6000) => {
       const begun = Date.now();

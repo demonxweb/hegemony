@@ -1,0 +1,59 @@
+.help-page { max-width: 1100px; --working: #f25b59; --middle: #ffca27; --capitalist: #39a9e4; --state: #c0c3c6; }
+.help-page .catalog-intro a { color: var(--gold); }
+.help-toc { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; margin-bottom: 10px; background: var(--bg, #0e1620); border-bottom: 1px solid var(--line); }
+.help-toc a { padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px; background: #172432; color: var(--ink); font-size: .85rem; text-decoration: none; }
+.help-toc a:hover { border-color: var(--gold); color: var(--gold); }
+.help-section { margin-top: 26px; scroll-margin-top: 56px; line-height: 1.75; }
+.help-section > h2 { margin-bottom: 12px; padding: 6px 10px; border-left: 4px solid var(--component-gold, #ffbe49); background: #2e2924; color: var(--component-gold, #ffbe49); font-size: 1.2rem; }
+.help-section h3 { margin: 16px 0 6px; color: var(--ink); font-size: 1.02rem; }
+.help-section p, .help-section li { color: var(--ink); }
+.help-section p + p, .help-section p + ul, .help-section ul + p { margin-top: 8px; }
+.help-section ul { padding-left: 1.3em; }
+.help-section li + li { margin-top: 4px; }
+.help-section b.working { color: var(--working); }
+.help-section b.middle { color: var(--middle); }
+.help-section b.capitalist { color: var(--capitalist); }
+.help-section b.state { color: var(--state); }
+.help-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 640px) { .help-grid { grid-template-columns: minmax(0, 1fr); } }
+.help-grid > article { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #121e2b; }
+.help-grid > article h4 { margin-bottom: 4px; }
+.help-grid > article.working h4 { color: var(--working); }
+.help-grid > article.middle h4 { color: var(--middle); }
+.help-grid > article.capitalist h4 { color: var(--capitalist); }
+.help-grid > article.state h4 { color: var(--state); }
+.help-phase { margin-bottom: 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: #121e2b; }
+.help-phase h3 { margin-top: 0; color: var(--gold); }
+.help-table-wrap { overflow-x: auto; }
+.help-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.help-table th, .help-table td { padding: 7px 9px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.help-table thead th { background: #1a2a3b; }
+.help-table tbody th { white-space: nowrap; background: #16222f; }
+.help-role { margin-bottom: 8px; border: 1px solid var(--line); border-left: 4px solid var(--state); border-radius: 8px; background: #121e2b; }
+.help-role.working { border-left-color: var(--working); }
+.help-role.middle { border-left-color: var(--middle); }
+.help-role.capitalist { border-left-color: var(--capitalist); }
+.help-role > summary { display: flex; gap: 10px; align-items: baseline; padding: 9px 12px; cursor: pointer; }
+.help-role > summary span { color: var(--muted); font-size: .85rem; }
+.help-action { padding: 8px 14px 10px; border-top: 1px solid var(--line); }
+.help-action h5 { margin-bottom: 3px; color: var(--gold); font-size: .98rem; }
+@media (max-width: 640px) { .help-toc { position: static; } }
+.term { font-weight: 600; white-space: nowrap; }
+.term-icon { width: 1em; height: 1em; margin-right: 2px; vertical-align: -0.15em; }
+.role-working { color: var(--working); }
+.role-middle { color: var(--middle); }
+.role-capitalist { color: var(--capitalist); }
+.role-state { color: var(--state); }
+.res-food { color: #c3d876; }
+.res-luxury { color: #72d7ed; }
+.res-health { color: #ff8a89; }
+.res-education { color: #ffc17b; }
+.res-influence { color: #d7a2f2; }
+.res-money { color: #f0c177; }
+.help-section h2 .term { color: inherit; }
+.help-role.working > summary b { color: var(--working); }
+.help-role.middle > summary b { color: var(--middle); }
+.help-role.capitalist > summary b { color: var(--capitalist); }
+.help-role.state > summary b { color: var(--state); }
+.help-section h3[id] { scroll-margin-top: 56px; }
+.help-subhead { margin: 12px 0 6px; color: var(--gold); font-size: .95rem; }

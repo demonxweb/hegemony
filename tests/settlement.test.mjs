@@ -551,7 +551,7 @@ test('private price changes are free actions and feed purchases and food settlem
   assert.equal(playerView(game, 'middle').match.prices.capitalist.food.price, 12);
   game.turn = 2;
   game.freeUsed = false;
-  assert.throws(() => command('capitalist', { type: 'adjust-prices', prices: { food: 15, luxury: 99 } }), /圖版上的不同售價/);
+  assert.throws(() => command('capitalist', { type: 'adjust-prices', prices: { food: 15, luxury: 99 } }), /圖板上的不同售價/);
   assert.equal(playerView(game, 'capitalist').match.prices.capitalist.food.price, 12);
   command('capitalist', { type: 'adjust-prices', prices: { food: 15, luxury: 5 } });
   assert.equal(game.freeUsed, true);
@@ -773,7 +773,7 @@ test('host adjustment updates cash, living resources, warehouses and public stor
   assert.throws(() => adjust('working', { inventory: { food: 1 } }), /商業倉庫/);
   assert.throws(() => adjust('middle', { storageUnits: { food: 0 } }), /1 以上/);
   assert.throws(() => adjust('middle', { cash: -1 }), /0 以上/);
-  assert.throws(() => adjust('capitalist', { prices: { food: 1 } }), /圖版上的售價/);
+  assert.throws(() => adjust('capitalist', { prices: { food: 1 } }), /圖板上的售價/);
   assert.throws(() => adjust('working', { prices: { food: 15 } }), /只有中產與資本家/);
   assert.throws(() => adjust('nobody', { cash: 1 }), /請選擇要調整的階級/);
 });

@@ -2,6 +2,7 @@ import { availableUnionWorkers, boardHelpButton, boardSurface, companyGear, comp
   track, workerColors, workerFigure } from './boards.js';
 import { attachPieces } from './pieces.js';
 import { catalogActionDetail } from './catalog-action-details.js';
+import { actionHelpByClass, actionHelpDetails, roundPhaseHelp } from './help-content.js';
 
 const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
@@ -14,7 +15,6 @@ const headerRoomActions = document.querySelector('#header-room-actions');
 const headerAccount = document.querySelector('#header-account');
 const headerAccountName = document.querySelector('#header-account-name');
 const returnLobby = document.querySelector('#return-lobby');
-const copyInvite = document.querySelector('#copy-invite');
 const saveRoomButton = document.querySelector('#save-room');
 const loadRoomButton = document.querySelector('#load-room');
 const closeRoom = document.querySelector('#close-room');
@@ -38,13 +38,13 @@ const adjustGameButton = document.querySelector('#adjust-game');
 // Empty labels leave the paragraph in 基本說明.
 const matHelpTopics = {
   '勝利分數軌 (VP)': ['', '', '共同得分', '勞工', '中產', '資本家', '國家', '終局結算'],
-  政治議題: ['', '提案與表決', '政策效果', '政策效果', '政策效果', '政策效果', '政策效果', '政策效果', '政策效果', '計算方式'],
+  政治議題: ['', '提案與表決', '政策效果', '政策效果', '政策效果', '政策效果', '政策效果', '政策效果', '政策效果', '計分方式'],
   輪次: ['', '回合與終局'],
-  稅倍率: ['計算方式', '計算方式', '計算方式'],
+  稅倍率: ['計算方式', '計算方式', '計算方式', '各階級繳的稅', '各階級繳的稅', '各階級繳的稅'],
   投票袋: ['補充方塊', '抽票與回收', '抽票與回收'],
   國家福利: ['', '發放規則', '領取福利', '計分方式'],
-  國家事件: ['', '事件行動', '發放福利', '未處理懲罰'],
-  國庫: ['', '支出與結算', '貸款與 IMF', '計分方式'],
+  國家事件: ['', '處理國家事件', '發放福利', '未處理懲罰'],
+  國庫: ['', '支出與結算', '貸款與 IMF', '貸款與 IMF', '計分方式'],
   對外貿易: ['商務合約', '出口', '進口'],
   公共服務: ['庫存與容量', '醫療與教育', '醫療與教育', '醫療與教育', '媒體影響力'],
   私營企業: ['', '營運條件', ...Array(5).fill('工位承諾'), '無薪資', '機械加成', '機械加成', '機械加成'],
@@ -52,7 +52,7 @@ const matHelpTopics = {
   待業工人: ['取得工人', '', '移民', '指派工人', '建造與雇用'],
   人口軌: ['', '人口變動', '使用規則'],
   繁榮軌: ['', '計分與重設', '計分與重設'],
-  產業工會: ['成立條件', '收益與計分'],
+  產業工會: ['成立條件', '解散條件', '收益與計分'],
   收入: ['', '使用規則'],
   生活資源: ['取得資源', '食物', '醫療', '教育', '奢侈品', '個人影響力'],
   商業倉庫: ['', '資源明細', '資源明細', '資源明細', '資源明細', '計分方式', '倉庫擴充', '倉庫擴充'],
@@ -60,10 +60,9 @@ const matHelpTopics = {
   資本: ['', '計算方式', '計算方式'],
   財富軌: ['', '計算方式', '計算方式'],
   自由貿易區: ['取得貨物', '容量與轉移', '出口', '終局計分'],
-  合法性與永久標記: ['', '永久標記', '計算方式', '計算方式'],
-  公共醫療: ['', '定價與計分'],
-  公共教育: ['', '定價與計分'],
-  貨物倉庫與個人影響力: ['貨物與計分', '個人影響力'],
+  合法性: ['', '永久標記', '計算方式', '計算方式'],
+  公共資源: ['', '定價與計分'],
+  倉庫: ['貨物與計分', '個人影響力'],
   政治綱領: ['', '計算方式'],
   貸款: ['何時借款', '利息', '如何還款', '終局結算'],
   私人手牌: ['', '補牌規則', '使用規則'],
@@ -76,74 +75,17 @@ const matHelpTopics = {
   計分階段: ['', '各階級計分', '下一輪與終局'],
 };
 
-const actionHelpDetails = {
-  propose: '提出法案\n自己須有可用提案標記，且該議題沒有待決法案。選擇議題及相鄰的政策區段，再選表決時機。等到輪末表決不花影響力，立即表決需花 1 個人影響力。',
-  pressure: '施加政治壓力\n選擇此行動並確認，從供應區加入最多 3 枚己方方塊到投票袋。供應區不足 3 枚時，只加入剩餘的方塊。不花金錢或影響力。',
-  assign: '指派工人\n選尚未承諾的己方工人，一次最多 3 人，不花金錢。拖曳到另一家企業符合階級及技能的空工位，或在選單指定。要啟動停工企業，須在同一次行動補齊必要工位。完成指派的工人會進入承諾狀態。',
-  union: '成立產業工會\n勞工可在「指派工人」選一名尚未承諾的待業技術工成立工會。該產業須有至少 4 名其他勞工在營運企業工作，且尚無該產業的工會。可以在同一次行動先把企業人數補到 4 人，再用剩下的一次指派成立工會。不花金錢。',
-  buy: '購買商品與服務\n選一種資源，最多向兩個來源購買，各來源最多買等同人口的份數，且不得超過庫存。選來源、輸入數量，核對總額再確認。按來源的每份價格付款，外國市場只供應食物和奢侈品，進口價已含關稅。中產可把自家倉庫選為來源，免費移入生活資源區，仍算一個來源。',
-  strike: [
-    '發起罷工',
-    '怎麼發起\n勾選 1 或 2 家有勞工在職的資本家、中產或公營企業，再確認。薪資為 L3、有已承諾工人或已放罷工標記的企業不能選。每家限 1 枚罷工標記，須有足夠的標記，不花金錢。',
-    '行動階段的影響\n罷工中的企業不能靠卡牌提前生產。中產仍可用基本行動「加班」，但罷工的勞工員工不參與，不領加班薪資，也不提供額外產量。',
-    '生產階段的影響\n若企業在生產前已加薪到 L3，輪末照常生產與發薪，勞工不會因該企業獲得罷工影響力。仍在營運且薪資為 L1 或 L2 的罷工企業，每家讓勞工得 1 影響力。資本家和公營企業跳過生產及發薪；中產企業保留經營者的基本產量，只扣掉勞工員工的額外產量與薪資。輪末生產後清除罷工標記。',
-    '停工時的標記\n依官方規則，企業在輪中停工時應立即移除罷工標記。線上版目前統一在輪末生產時清除。',
-  ].join('\n'),
-  demonstrate: [
-    '發起示威',
-    '怎麼發起\n勞工待業人數須比可用空工位至少多 2，且場上尚無示威。計算空工位時看工位是否開放給勞工，無須逐一比對技術。例如有 5 名待業勞工、3 個可用工位，就能發起。核對畫面上的人數後確認，不花金錢。',
-    '何時取消\n發起後，若有玩家新建企業、在建造時指派勞工進去，而且指派後待業人數與可用工位的差距已低於 2，示威便取消。取消時不扣分，也不給影響力。',
-    '生產階段的影響\n若示威仍在，線上版會在生產與發薪後、食物需求前，請勞工分配扣分。勞工得 1 影響力，其他階級合計扣除當時的待業勞工人數加上已成立工會數。每個階級最多扣到其部門的空企業格數，國家未開放的公營企業格也算。',
-    '扣分例子\n若結算時有 5 名待業勞工、2 個工會，原本要分配 7 VP。若中產、資本家、國家最多分別只能扣 2、1、3 VP，合計上限是 6 VP，這次就分配 6 VP。確認後移除示威標記。',
-  ].join('\n'),
-  middleBuild: '建造企業\n自家企業未達 8 家時，可從市場選一張企業牌拖進中央圖板的中產部門，支付牌上的建造費。每個必要工位都須指派符合技能且尚未承諾的中產工人。有選用勞工工位時，可指定符合條件的待業勞工。若企業有薪資欄，須選符合最低薪資的級距，再核對建造及工位後確認。',
-  capitalistBuild: '建造企業\n自家企業未達 12 家時，可從市場選一張企業牌拖進中央圖板的資本家部門，支付牌上的建造費。若企業有薪資欄，須選符合最低薪資的級距。可以先不雇人。若要立即雇用，須用同一階級且符合技能的待業工人填滿全部工位。通用工位優先用待業通用工。',
-  sell: '出售企業\n選一間自家且沒有已承諾工人的企業。確認後移除企業，原工人回到待業區。無須付款，收回牌上印的建造費。',
-  export: '對外出口\n勾選現行出口牌上可完成的交易。一次可選多筆不同交易，每筆只能做一次，合計不得超過庫存。沒有額外費用，交出牌上要求的貨物並領取牌上金額。中產用商業倉庫出貨，每筆另得 1 VP。資本家可合併兩處庫存，先扣自由貿易區，再扣商業倉庫。國家只可出口食物與奢侈品。',
-  shift: '加班\n選一家正在營運且必要工位的中產工人都尚未承諾的自家企業。不花金錢，確認後立即生產一次並承諾參與的工人。若選用工位的勞工已承諾，或該企業正在罷工且薪資未達 L3，只計中產工人的產量。',
-  deal: '商業交易\n選一張場上的商務合約，再指定貨物進商業倉庫、自由貿易區或分到兩處。支付牌上的基價。只要有貨進商業倉庫，另付整張合約在現行貿易政策下的關稅。超出容量的貨物會丟棄，交易後棄掉合約，當輪不補牌。',
-  lobby: '遊說\n須有足夠資金。選擇後確認支付 $30，優先從資本支付，取得 3 個人影響力。',
-  campaign: '競選\n公共服務須有媒體影響力。選 1 到 3 份，且不得超過庫存。確認後把所選份數從公共庫存移到國家的個人影響力，不花金錢。',
-  meet: '會晤政黨議員\n國家須有至少 2 個人影響力。選勞工、中產或資本家，確認後交給對方 2 個人影響力，並讓國家對該階級的合法性加 1。',
-  tax: '額外稅\n從合法性最低的階級中選兩席，兩席合法性都須高於 1。確認後向勞工、中產和資本家各徵 $10，國庫共收 $30，被選中的兩席各降 1 合法性。',
-  event: '處理國家事件\n場上須有可處理的事件。選事件及牌面選項，依提示指定受益階級、交付資源或執行指定行動。條件、費用及獎勵依事件牌，確認前可檢查所選方案。',
-  health: '使用醫療\n生活資源區須有等同人口的醫療。確認時消耗這些醫療，繁榮前進並按新格得分，另得 2 VP，新增一名通用工人。通用工供應不足時，依畫面選擇仍有供應的替代技能。',
-  education: '使用教育\n生活資源區須有等同人口的教育。選一名可受訓的己方工人，再選仍有供應且不同於原技能的新技能。工會成員與占用指定技能工位的工人不可選。中產若要改換技術工的技能，該工人須待業。確認後消耗教育，繁榮前進並按新格得分。',
-  luxury: '使用奢侈品\n生活資源區須有等同人口的奢侈品。確認後消耗這些奢侈品，繁榮前進並按新格得分。',
-  swap: '交換工人\n選一名占用通用工位的己方技術工，再配一名尚未承諾的己方待業工人。可填多組，確認後待業工接替工位並承接該工位原工人的承諾狀態，技術工回到待業區。不花金錢。',
-  prices: '調整售價\n在自家國內商品的價格選單中，至少為一項商品選擇不同的允許價格。可一次調整多項，確認後新價格立即生效，不花金錢。',
-  wages: '調整薪資\n選至少一家自己管理且有薪資欄的企業，選擇不同的薪資級距。不能低於現行最低薪資，有已承諾工人的薪資不得調低。加薪會承諾相關工人。確認時不另付調薪費，發薪時按新級距支付。',
-  bonus: '發放獎金\n選一家自家正在營運且有工人的企業。確認支付 $5 給工人所屬階級，該企業的工人進入承諾狀態。',
-  storage: '購買倉庫\n須有尚未使用的倉庫板塊，且自家至少有一家能生產該資源的企業。選一種尚未擴充的資源，確認支付 $20，該資源的商業倉庫容量翻倍。',
-  repay: '償還貸款\n至少有 1 筆貸款且付得起 $50。選還款、核對金額再確認，每次清掉 1 筆。資本家優先用資本支付。',
-  benefits: '領取福利\n自己的福利區須有待領項目。確認後一次免費領完，金錢與資源入帳，投票方塊入袋。國家因此得 1 VP。',
-};
-
-const actionHelpByClass = {
-  主要行動: {
-    勞工: ['propose', 'pressure', 'assign', 'union', 'buy', 'strike', 'demonstrate'],
-    中產: ['propose', 'pressure', 'assign', 'buy', 'middleBuild', 'sell', 'shift', 'export'],
-    資本家: ['propose', 'pressure', 'capitalistBuild', 'sell', 'deal', 'export', 'lobby'],
-    國家: ['propose', 'campaign', 'meet', 'tax', 'export', 'event'],
-  },
-  免費行動: {
-    勞工: ['health', 'education', 'luxury', 'swap', 'repay', 'benefits'],
-    中產: ['health', 'education', 'luxury', 'swap', 'prices', 'wages', 'repay', 'benefits'],
-    資本家: ['prices', 'wages', 'bonus', 'storage', 'repay', 'benefits'],
-    國家: ['wages', 'repay'],
-  },
-};
-
 const matHelpIntroductions = {
-  稅倍率: '稅倍率由稅制、醫療福利及教育福利的現行政策決定。中產與資本家用它計算僱用稅。',
-  投票袋: '投票袋存放勞工、中產及資本家的方塊。抽到的方塊依各階級的立場計入表決票數。',
-  對外貿易: '對外貿易區顯示場上的商務合約、出口交易，以及外國市場的進口價格。',
-  公共服務: '這裡顯示國家供應的醫療、教育及媒體影響力，包括各自的庫存、容量與價格。',
-  產業工會: '勞工可以在各產業成立工會。已成立的工會會在生產和計分階段帶來收益。',
-  生活資源: '勞工與中產在這裡存放自用的食物、醫療和教育等資源，也能查看個人影響力。',
-  自由貿易區: '資本家可將商務合約的食物及奢侈品存放於此，供對外出口。',
-  貨物倉庫與個人影響力: '這裡顯示國家持有的食物、奢侈品與個人影響力。',
-  貸款: '各階級在無法支付強制支出時借款。未還貸款需要付息，也會影響終局結算。',
+  稅倍率: '稅倍率由稅制、醫療福利、教育福利三項政策決定，中產和資本家用它計算僱用稅。',
+  投票袋: '投票袋裡裝著勞工、中產、資本家的方塊。表決時抽出的方塊，會依各階級的立場算成票數。',
+  對外貿易: '這一區顯示場上的商務合約、出口交易，以及外國市場的進口價格。',
+  公共服務: '這一區顯示國家提供的醫療、教育和媒體影響力，包含庫存、容量和價格。',
+  產業工會: '勞工可以在各產業成立工會，已成立的工會會在生產和計分階段帶來好處。',
+  生活資源: '勞工和中產把自己要用的食物、醫療、教育、奢侈品放在這裡，個人影響力也放在這裡。',
+  自由貿易區: '資本家可以把商務合約進來的食物和奢侈品放在這裡，專門用來出口。',
+  倉庫: '這一區顯示國家持有的食物、奢侈品和個人影響力。',
+  公共資源: '這一區顯示國家目前賣醫療和教育的單價，以及賣出後國家能得到的好處。',
+  貸款: '各階級付不起強制支出時就要借款。沒還的貸款要付利息，也會影響終局分數。',
 };
 
 function openMatHelp(title, description) {
@@ -227,34 +169,6 @@ const icon = name => `<img class="icon" src="/assets/icons/${name}.svg" alt="">`
 const resources = { food: '食物', luxury: '奢侈品', health: '醫療', education: '教育', influence: '媒體', any: '通用' };
 const industries = { ...resources, food: '農業' };
 const roundPhases = [['preparation', '準備'], ['action', '行動'], ['production', '生產'], ['elections', '選舉'], ['scoring', '計分']];
-const roundPhaseHelp = {
-  preparation: [
-    '第 2 到第 5 輪開始時，先為新一輪補充手牌、更新市場並處理輪初結算。第 1 輪完成開局設置後直接進入行動階段。',
-    '依畫面提示，由資本家及中產更新各自的企業市場。換上新出口牌，依現行對外貿易政策翻出商務合約，並翻開新的國家事件及政治綱領。各階級保留未用的手牌，再補到 7 張。',
-    '每筆未還貸款支付 $5 利息。勞工繁榮退 1 格，中產退 2 格，最低退到 0。勞工與中產補充工人，再依移民政策加入額外工人。中產須選擇新增技術工的技能，若畫面要求替代技能，也須選完才會進入行動階段。',
-  ],
-  action: [
-    '四個階級依序輪流行動，每席每輪有 5 個回合。',
-    '輪到自己時，選一張手牌打出效果，或棄掉一張手牌執行基本行動。每回合另可選做一次免費行動，可在主要行動前或後執行。同回合已取得的資源可以接著使用。',
-    '完成主要行動和待確認的交易後，按「結束回合」交給下一席。若行動觸發即時表決，先完成表決再回到行動流程。四席都完成各自的第 5 個回合後進入生產階段。',
-  ],
-  production: [
-    '行動回合全部結束後，依序處理企業生產與發薪、食物需求、IMF 和稅款。發薪、生產、食物需求、IMF 與繳稅都會等待對應席位確認。',
-    '每個步驟依國家、資本家、中產、勞工的順序結算。發薪與生產屬於同一步，各階級先發薪，再將企業產出放入對應庫存。罷工可能影響生產及發薪。勞工依工會及罷工取得影響力，若有示威，依畫面分配扣分。',
-    '中產先結算，接著是勞工。各消耗等同人口的食物，先使用自有庫存，再選有貨的國內賣方補足，剩餘缺額由外國市場供應。強制支出需要借款時，先確認借款再完成結算。',
-    '食物結算後檢查國家貸款是否達財政政策的 IMF 門檻。若觸發，先完成相關調整，再按規則繳稅。有待決法案就進入選舉，沒有則直接進入計分。',
-  ],
-  elections: [
-    '本階段處理行動期間留到輪末的法案。沒有待決法案時略過。行動中觸發的即時表決會在當下處理。',
-    '輪末有法案才先補充投票袋，再逐案表決。依畫面選贊成或反對，抽出 5 枚方塊後，各席再決定投入多少個人影響力。每枚抽出的方塊與每份投入的影響力各算 1 票。',
-    '贊成票至少和反對票一樣多就通過。結果視窗顯示各席立場、抽出的方塊、投入的影響力及總票數。等四席確認後，通過的法案才套用，接著處理下一案或進入計分。',
-  ],
-  scoring: [
-    '先處理仍留在場上的國家事件懲罰，再計算各階級本輪獲得的 VP。需要國家指定懲罰對象時，先依畫面選擇。',
-    '勞工每個成立的產業工會得 2 VP。中產的繁榮值低於滿編企業數時，繁榮前進 1 格並按新格得分。資本家把營收轉入資本，按財富軌得分，刷新紀錄每跨一格另得 3 VP。國家把最低兩條合法性軌的數值相加，再加上政治綱領每符合一項的 1 VP，之後重設合法性。',
-    '第 1 到第 4 輪計分後，由房主開始下一輪準備。第 5 輪計分後，依階級結算貸款、政策、現金與庫存等終局分數，再比較最終 VP。',
-  ],
-};
 let meta;
 let accountToken = sessionStorage.getItem(accountKey);
 let account;
@@ -405,20 +319,20 @@ function showLobby() {
   ];
   app.innerHTML = `<div class="lobby">
     <div class="hero"><h1>四個席位，一個國家</h1></div>
-    <section class="panel"><h2>建立／加入房間</h2><form data-room>
-      <label>房間代碼<input name="code" value="${escape(code)}" spellcheck="false"></label>
+    <section class="panel lobby-invitations" data-lobby-invitations ${account.invitations?.length ? '' : 'hidden'}>${lobbyInvitations()}</section>
+    <section class="panel"><h2>${code ? '加入房間' : '建立房間'}</h2><form data-room>
+      <input type="hidden" name="code" value="${escape(code)}">
       <label>房間名稱<input name="roomName" maxlength="60" ${code ? 'readonly' : ''}></label>
       <label class="check" data-test-room ${code ? 'hidden' : ''}><input type="checkbox" name="testMode">建立測試房間</label>
       <button class="primary">${code ? '加入房間' : '建立房間'}</button>
     </form></section>
-    <section class="panel lobby-invitations" data-lobby-invitations ${account.invitations?.length ? '' : 'hidden'}>${lobbyInvitations()}</section>
-    <section class="panel"><h2>我的房間</h2>${roomGroups.map(([title, rooms, empty]) => `<section class="lobby-room-group"><h3>${title}</h3>
+    <div class="lobby-room-panels">${roomGroups.map(([title, rooms, empty]) => `<section class="panel lobby-room-group"><h2>${title}</h2>
       <form data-resume-room>
         <select name="code" aria-label="${title}" required ${rooms.length ? '' : 'disabled'}>
           ${rooms.length ? rooms.map(room => `<option value="${escape(room.code)}">${escape(room.roomName ?? room.code)}${room.roomName && room.roomName !== room.code ? ` · ${escape(room.code)}` : ''} · ${phases[room.phase] ?? '對局中'}${room.round ? ` · 第 ${room.round} 輪` : ''}</option>`).join('') : `<option value="">${empty}</option>`}
         </select>
         <button type="submit" ${rooms.length ? '' : 'disabled'}>加入</button>
-      </form></section>`).join('')}</section>
+      </form></section>`).join('')}</div>
   </div>`;
   if (code) syncLobbyRoomName(app.querySelector('[data-room]'));
 }
@@ -437,6 +351,14 @@ function startingStock(role) {
   return `<p class="muted">${role === 'state' ? '公共服務' : '商業倉庫'} · ${resourcesOnBoard.join('、')}</p>`;
 }
 
+// 摘要裡的人口：每 3 名工人算 1 人口，最少 3、最多 10（只有勞工與中產有）。
+function seatPopulation(role) {
+  if (state.phase === 'lobby' || !['working', 'middle'].includes(role) || !state.economy) return '';
+  const workers = state.economy.workers.filter(worker => worker.role === role).length;
+  const people = state.match?.populations?.[role] ?? Math.min(10, Math.max(3, Math.floor(workers / 3)));
+  return `<span title="工人 ${workers} 名 ÷ 3 取整數 ＝ ${Math.floor(workers / 3)}，人口最少 3、最多 10 ＝ ${people}">${icon('worker')} 人口 ${people}</span>`;
+}
+
 function seatCards() {
   return meta.roles.map(role => {
     const player = state.players[role];
@@ -451,6 +373,7 @@ function seatCards() {
         ${state.phase === 'lobby' ? '' : `<span><span class="seat-stat-icon" aria-hidden="true">🏆</span> VP ${player.vp}</span><span><span class="seat-stat-icon" aria-hidden="true">▤</span> 手牌 ${player.handCount}</span>`}
         <span>${icon('influence')} 影響力 ${player.influence}</span>
         ${state.phase !== 'lobby' && role !== 'state' ? `<span title="投票袋中的方塊">${icon('vote')} 投票 ${state.bag[role] ?? 0}</span>` : ''}
+        ${seatPopulation(role)}
         ${state.phase === 'lobby' ? '' : `<hr class="seat-summary-divider">
           <div class="seat-summary-bills">
             <ul>${bills.length ? bills.map(({ policy, target }) =>
@@ -632,14 +555,6 @@ function companyActionLabel(item, label = item.name) {
 
 function companyOptions(companies, label = item => `${item.name} · $${item.cost}`) {
   return companies.map(item => [item.id, companyActionLabel(item, label(item)), `var(--industry-${item.resource})`]);
-}
-
-function companyCardInfo(item) {
-  const wages = item.wages?.map((amount, index) => `L${index + 1} ${amount}`).join('／');
-  return `<p>建造 $${item.cost} · 基本產量 ${escape(resources[item.resource])} ${item.output}
-    <br>${wages ? `薪資 ${wages}` : '無薪資'}
-    ${item.automated ? ' · 自動化' : ''}${item.machineryBonus ? ` · 機械加成 +${item.machineryBonus}` : ''}
-    ${buildSlots(item).map((slot, index) => `<br>工位 ${index + 1} · ${escape(companySlotDetails(slot, meta.names))}`).join('')}</p>`;
 }
 
 function companyCardChoices(items) {
@@ -1023,7 +938,7 @@ function startBuild(companyId) {
   const item = state.economy.markets[state.role].find(company => company.id === companyId);
   const wage = draft?.type === 'build' ? draft.fields.wage : wageOptions()[0][0];
   draft = item ? { type: 'build', fields: { company: item.id, wage }, staff: buildSlots(item).map(() => null) } : null;
-  announceBoard(item ? '已放置企業預覽，可將工人拖入空工位，再確認建造。' : '');
+  announceBoard(item ? '已選好企業，可在建造企業表單選擇薪資與工人，再確認建造。' : '');
 }
 
 function basicBuildForm(companies) {
@@ -1190,8 +1105,8 @@ function freeActionPanel() {
   if (!state.economy || state.role !== state.currentRole) return '';
   const actions = freeActions();
   return `<section class="panel" id="free-action-options"><h2>${boardHeadingHelp('免費行動',
-    '免費行動是自己回合中可選做的額外行動。每回合最多做一次，可以在主要行動前或後執行。',
-    '從下拉選單選擇一項，填好所需資料，再確認執行。不需要棄手牌，但仍要支付該行動要求的金錢或資源。確認後取得的資源可在同一回合使用。可選項目依階級和目前情況而定。')}</h2>
+    '免費行動是自己回合中可以另外做的行動。每回合最多做一次，主要行動前或後都可以。',
+    '從下拉選單選一項，填好需要的資料，再確認執行。不用棄手牌，但行動要求的錢或資源還是要付。確認後拿到的資源，同一回合就能用。能選哪些項目，依你的階級和目前情況而定。')}</h2>
     ${state.freeUsed ? '<p class="muted">本回合的免費行動已使用。</p>' : ''}
     <select name="free-action" aria-label="選擇免費行動"><option value="">選擇一項免費行動</option>${actions.map(action =>
       actionOption(action, selectedFreeAction, state.freeUsed)).join('')}</select>
@@ -1243,10 +1158,8 @@ function well(label, value, resource, owner, kind, capacity, { showPriceLabel = 
 
 function workerToken(worker, interactive = true, atDestination = false) {
   const label = worker.id === 'specialization-new-worker' ? `勞工 · ${industries[worker.skill]}（新工人）` : `${meta.names[worker.role]} · ${workerLabel(worker, state.economy.companies, atDestination ? '待確認' : undefined)}${worker.committed ? '（承諾）' : ''}`;
-  const item = interactive && pendingBuild();
   const movable = interactive && (acting('assign') && worker.role === state.role && !worker.committed
-    || cardMoveRow(worker.id)
-    || item && buildSlots(item).some((slot, index) => !draft.staff[index] && canStaffBuild(worker, item, slot, index)));
+    || cardMoveRow(worker.id));
   const tag = movable ? 'button' : 'span';
   const union = state.economy.unions.includes(worker.id);
   const skill = worker.skill === 'any' ? '非技術' : resources[worker.skill];
@@ -1320,39 +1233,38 @@ function boardHeadingHelp(title, ...details) {
 
 function commitmentHelp(owner) {
   const methods = {
-    capitalist: '資本家建造企業時若立即雇用，整組新工人會承諾。資本家也可用免費行動提高企業薪資，或對一家有工人的營運企業支付 $5 獎金，讓該企業工人承諾。',
-    middle: '中產建造企業時，新派入的必要工人與立即雇用的勞工會承諾。免費調薪加薪時，承諾的是領薪的勞工員工。用「加班」生產時，參與加班的中產工人及勞工員工也會承諾。',
-    state: '國家開放公營企業後，若選擇用同一階級的待業工人填滿工位，新雇用的工人會承諾。國家也可用免費行動提高公營企業的薪資，讓該企業的工人承諾。',
+    capitalist: '資本家建造企業時，如果立刻雇人，這一整組新工人都會承諾。資本家也可以用免費行動替企業加薪，或對一家有工人的營運企業付 $5 獎金，讓那家企業的工人承諾。',
+    middle: '中產建造企業時，新派進去的必要工人和立刻雇用的勞工都會承諾。免費調薪時加薪，承諾的是領薪水的勞工員工。用「加班」生產時，參加加班的中產工人和勞工員工也會承諾。',
+    state: '國家開放公營企業後，如果選擇用同階級的待業工人填滿工位，新雇用的工人會承諾。國家也可以用免費行動替公營企業加薪，讓那家企業的工人承諾。',
   };
   return [
-    '如何辨認\n承諾是工人的狀態。遊戲圖板上的已承諾工人旁會有 ◆，工人選項也會標示「已承諾」。待確認的指派要等送出確認後才會正式套用。',
-    `如何承諾\n勞工與中產用「指派工人」將自己的工人派進企業，新指派的工人通常會承諾。指定派工或雇用的卡牌效果依牌面及指派規則處理。${methods[owner]}因勞動市場政策提高最低薪資而必須調薪時，工人不因此承諾。`,
-    '承諾期間的限制\n已承諾的工人不能改派到其他企業，企業也不能降低這些工人的薪資。有已承諾工人的私營企業不能用一般「出售企業」行動出售。若移走必要工人會使其他已承諾工人因停工而失業，該指派也不能執行。',
-    '免費行動「交換工人」\n勞工與中產可以把在通用工位工作的己方技術工，與己方待業工人交換，即使該技術工已承諾也可以。接替者沿用原工位的承諾狀態。原技術工回到待業區並解除承諾，同回合仍可用主要行動指派他。',
-    '補人與解除\n資本家企業和公營企業若在補人後同時有已承諾與未承諾的工人，該次補人按交換處理，全員視為未承諾。中產經營者和勞工員工的承諾可分開。一般企業工人的承諾在本輪生產與發薪完成後解除。',
+    '什麼是承諾\n「已承諾」的意思是：這名工人被鎖在目前的工位上，暫時不能改派，企業也不能降他的薪水。圖板上已承諾的工人旁邊有 ◆，工人選項也會標示「已承諾」。還沒送出確認的指派，要等你確認後才會真的生效。',
+    `如何承諾\n勞工和中產用「指派工人」把自己的工人派進企業，新派出去的工人通常就會承諾。指定派工或雇用的卡牌，依牌面和指派規則處理。${methods[owner]}如果是因為勞動市場政策提高最低薪資而被迫調薪，工人不會因此承諾。`,
+    '承諾期間的限制\n已承諾的工人不能改派到別的企業，企業也不能降他們的薪水。有已承諾工人的私營企業，不能用一般的「出售企業」賣掉。如果移走某個必要工人，會讓其他已承諾的工人因為停工而失業，這個指派也不能做。',
+    '免費行動「交換工人」\n勞工和中產可以把佔著通用工位的己方技術工，和己方的待業工人交換，就算這名技術工已經承諾也可以。接替的人沿用原工位的承諾狀態。原本的技術工回到待業區並解除承諾，同一回合還能用主要行動再派他。',
+    '補人與解除\n資本家企業和公營企業補人後，如果同時有已承諾和未承諾的工人，這次補人就當作「交換」，全部人都視為未承諾。中產經營者和勞工員工的承諾分開算。一般企業工人的承諾，在本輪生產和發薪完成後解除。',
   ];
 }
 
 function sector(role, capacity) {
   const firms = state.economy?.companies.filter(item => item.owner === role) ?? [];
   const empty = Math.max(0, capacity - firms.length);
-  const interactive = empty > 0 && acting('build') && state.role === role;
-  const pending = interactive && pendingBuild();
-  return `<section class="board-zone sector sector-${role} ${role}" ${interactive ? dropAttrs('sector', role) : ''}>
+  const pending = acting('build') && state.role === role && pendingBuild();
+  return `<section class="board-zone sector sector-${role} ${role}">
     <h3>${boardHeadingHelp(`私營企業 · ${meta.names[role]}`,
       role === 'capitalist'
-        ? '開局設置\n放置超市、購物中心、學院與診所，起始薪資皆設為 L2。超市配置勞工的農業工與通用工各 1 名。購物中心配置中產的奢侈品工與通用工各 1 名。學院配置勞工的教育工與通用工各 1 名。診所起始空置。企業市場另從洗好的企業牌庫翻開 4 張。'
-        : '開局設置\n放置便利商店與醫師診所，起始薪資皆設為 L2。便利商店配置 1 名中產農業工，醫師診所配置 1 名中產醫療工，兩間的選用勞工工位開局空置。企業市場另從洗好的企業牌庫翻開 3 張。',
-      `這裡放置${meta.names[role]}已建造的企業。右側數字是已建造家數／上限（${capacity} 家）。選擇「建造企業」後，可將市場企業拖到空位並確認。`,
-      '企業卡顯示產能、薪資與工位。實線工位是營運所需，虛線工位為選用。派工時須符合工位標示的階級與技能。',
+        ? '開局設置\n放置超市、購物中心、學院和診所，起始薪資都設為 L2。超市配置勞工的農業工和通用工各 1 名；購物中心配置中產的奢侈品工和通用工各 1 名；學院配置勞工的教育工和通用工各 1 名；診所一開始是空的。企業市場另外從洗好的企業牌庫翻開 4 張。'
+        : '開局設置\n放置便利商店和醫師診所，起始薪資都設為 L2。便利商店配置 1 名中產農業工，醫師診所配置 1 名中產醫療工，兩間的勞工選用工位一開始都是空的。企業市場另外從洗好的企業牌庫翻開 3 張。',
+      `這裡放著${meta.names[role]}已經建造的企業。右邊的數字是「已建造家數／上限」（上限 ${capacity} 家）。選「建造企業」並點選「企業市場」的企業卡後，會在這裡出現預覽，確認後才正式建造。`,
+      '企業卡上有產能、薪資和工位。實線的工位是營運必要的，虛線的是選用的。派工時，工人的階級和技能要符合工位標示。',
       ...commitmentHelp(role),
       role === 'middle'
-        ? '企業卡顯示「無薪資」，表示這家企業只有中產經營工位，沒有領薪的勞工員工工位。中產經營者填滿必要工位後可照常生產，產出入庫，經營者不領這家企業的薪資。若卡上有選用的勞工員工工位，薪資只付給參與生產的勞工員工。'
-        : '企業卡顯示「無薪資」的自動化企業沒有工位，建成後無須派工即可生產，也不必發薪。普通企業即使裝上機械標記，仍須填滿必要工位並依薪資級距發薪。停工的普通企業本輪沒有薪資支出，但卡上的薪資設定仍然保留。',
+        ? '企業卡寫「無薪資」，代表這家企業只有中產經營者的工位，沒有領薪水的勞工員工工位。中產經營者把必要工位填滿就能照常生產，產出入庫，經營者不領這家企業的薪水。如果卡上有選用的勞工員工工位，薪水只付給參與生產的勞工員工。'
+        : '企業卡寫「無薪資」的自動化企業沒有工位，蓋好不用派工就能生產，也不用發薪。一般企業就算裝了機械標記，還是要填滿必要工位，並按薪資級距發薪。停工的一般企業，本輪不用付薪水，但卡上的薪資設定會保留。',
       ...(role === 'capitalist' ? [
-        '取得方式\n輪到資本家時，可透過「科技進步」等行動卡取得機械標記。「科技進步」花 $20 取得 1 枚，或花 $45 取得 2 枚。線上版在卡牌效果中勾選要裝設的企業，再確認支出。',
-        '裝設條件\n取得時立即裝到自己旗下已建成、印有機械加成圖示的企業。每家最多放 1 枚，取得 2 枚時分開裝。未營運的企業也可以裝設。沒有符合條件的企業可放時，該枚標記失去，無法留到以後使用。',
-        '生產效果\n企業營運並生產時，依卡上機械圖示旁的數字增加產量，薪資不因此增加。例如基本產量 4、機械加成 2，裝設後生產 6 份。裝設機械後仍須填滿必要工位才能生產。企業的浮動說明會標示「已裝設」。',
+        '取得方式\n輪到資本家時，可以靠「科技進步」等行動卡拿到機械標記：花 $20 拿 1 枚，或花 $45 拿 2 枚。線上版在卡牌效果裡勾選要裝的企業，再確認支出。',
+        '裝設條件\n拿到之後要立刻裝在自己已建成、印有機械加成圖示的企業上。每家最多放 1 枚；拿 2 枚時要裝在不同企業。沒在營運的企業也能裝。如果沒有符合條件的企業可裝，這枚標記就作廢，不能留到以後。',
+        '生產效果\n企業營運並生產時，會依卡上機械圖示旁的數字增加產量，薪水不會因此增加。例如基本產量 4、機械加成 2，裝好之後生產 6 份。裝了機械還是要填滿必要工位才能生產。企業的浮動說明會標示「已裝設」。',
       ] : []))} <span>${firms.length} / ${capacity}</span></h3>
     <div class="sector-grid">${firms.map(companyTile).join('')}${Array.from({ length: empty }, (_, index) => {
       const number = String(index + firms.length + 1).padStart(2, '0');
@@ -1362,11 +1274,10 @@ function sector(role, capacity) {
           const worker = state.economy.workers.find(candidate => candidate.id === draft.staff[index]);
           const label = `新企業工位 ${index + 1} · ${resources[slot.skill]} · ${slotRoleLabel(slot.role)}（${slot.optional ? '選用' : '必要'}）`;
           return `<div class="company-slot ${worker ? 'staged' : ''}"><button type="button" class="slot-drop${slot.optional ? ' slot-optional' : ''}" aria-label="${escape(label)}"
-            ${worker ? 'disabled' : dropAttrs('build-slot', index)}>${slot.skill === 'any' ? '通' : icon(slot.skill)}${slotRoleIcons(slot.role)}</button>
+            disabled>${slot.skill === 'any' ? '通' : icon(slot.skill)}${slotRoleIcons(slot.role)}</button>
             ${worker ? workerToken(worker, false, true) : ''}</div>`;
         }).join('')}</div><span class="pending-piece">待確認建造</span></div>`;
-      return interactive ? `<button type="button" class="sector-empty" aria-label="建造工位 ${number}" ${dropAttrs('sector', role)}>${number}</button>`
-        : `<div class="sector-empty" aria-hidden="true">${number}</div>`;
+      return `<div class="sector-empty" aria-hidden="true">${number}</div>`;
     }).join('')}</div></section>`;
 }
 
@@ -1379,11 +1290,11 @@ function publicSector() {
   const companies = new Map(opened.map(item => [item.id, item]));
   return `<section class="board-zone sector sector-state state" aria-label="公營企業">
     <h3>${boardHeadingHelp('公營企業',
-      '開局設置\n四人局使用對應人數版本的公營牌。第一列正面放置大學醫院、技術大學與全國公共廣播，起始薪資設為 L2。大學醫院配置 1 名勞工醫療工與 2 名勞工通用工，技術大學配置 1 名中產教育工與 2 名中產通用工。其餘兩列各放醫療、教育、媒體企業各一張，開局朝下。起始財政 1C 開放第一列共 3 家。',
-      '國家經營公營企業並由國庫發薪，產出的醫療、教育及媒體影響力放入公共服務區。',
-      '財政政策（第 1 項）決定開放規模。正面是已開放企業，仍需填滿必要工位才能營運。背面表示尚未開放。',
+      '開局設置\n四人局使用對應人數版本的公營牌。第一列正面朝上放大學醫院、技術大學、全國公共廣播，起始薪資設為 L2。大學醫院配置 1 名勞工醫療工和 2 名勞工通用工；技術大學配置 1 名中產教育工和 2 名中產通用工。其餘兩列各放醫療、教育、媒體企業各一張，開局朝下。起始財政是 1C，開放第一列共 3 家。',
+      '國家經營公營企業，薪水由國庫付。產出的醫療、教育和媒體影響力放進公共服務區。',
+      '財政政策（第 1 項）決定開放幾家。正面朝上是已開放的企業，仍要填滿必要工位才能營運；背面是還沒開放。',
       ...commitmentHelp('state'),
-      '基本版公營企業卡都有薪資級距。企業營運並在生產階段發薪時，由國庫按卡上目前的級距向工人所屬階級支付一次企業薪資。企業未營運，或因罷工而跳過生產時，本輪不發薪，原本的薪資級距仍然保留。')} <span>已開放 ${opened.length} / ${positions.length}</span></h3>
+      '基本版的公營企業卡都有薪資級距。企業在營運、並在生產階段發薪時，由國庫照卡上目前的級距，向工人所屬的階級付一次企業薪水。企業沒營運，或因罷工跳過生產時，本輪不發薪，原本的薪資級距仍保留。')} <span>已開放 ${opened.length} / ${positions.length}</span></h3>
     <div class="sector-grid">${positions.map((position, index) => {
       if (position.face === 'open') return companyTile(companies.get(position.id));
       if (position.face === 'empty') return `<div class="sector-empty" aria-label="公營牌位 ${index + 1} 空置">空置</div>`;
@@ -1395,6 +1306,20 @@ function publicSector() {
     }).join('')}</div></section>`;
 }
 
+// 企業市場獨立成一個區塊（中產、資本家才有）：自己的回合可點選企業卡來建造，
+// 等待別人行動時仍然顯示，方便先規劃。建造的工位與薪資用「建造企業」表單的下拉選單選擇，不再拖曳。
+function marketPanel() {
+  const companies = state.phase === 'action' ? state.economy?.markets[state.role] : null;
+  if (!companies) return '';
+  // 只有在主要行動選了「建造企業」之後，企業卡才能點選；其他時候只是顯示。
+  const pickable = acting('build');
+  const hint = pickable ? '點選企業卡，再在上方「建造企業」表單選擇薪資與工人後確認。'
+    : mainTurn() ? '主要行動選「建造企業」後，可以在這裡點選要建造的企業卡。' : '目前不是你的主要行動，可先看看有哪些企業可建造。';
+  return `<section class="panel market-panel"><h2>企業市場 · ${companies.length} 張</h2>
+    ${hint ? `<p class="muted">${hint}</p>` : ''}<div class="market-rack">
+    ${companies.map(item => marketCompanyCard(item, false, false, pickable)).join('') || '<p class="muted">市場已空</p>'}</div></section>`;
+}
+
 function companyMarket(movable, instruction = '') {
   const { role, economy } = state;
   const companies = economy?.markets[role];
@@ -1404,9 +1329,9 @@ function companyMarket(movable, instruction = '') {
     ${companies.map(item => marketCompanyCard(item, movable)).join('') || '<p class="muted">市場已空</p>'}</div></section>`;
 }
 
-function marketCompanyCard(item, movable = false, selectable = false) {
-  const tag = movable || selectable ? 'button' : 'div';
-  return `<${tag} class="market-card industry-card industry-${item.resource} ${item.owner}" ${movable ? `type="button" ${pieceAttrs('company', item.id, item.name)}` : selectable ? `type="button" data-company-choice="${escape(item.id)}" aria-pressed="false"` : 'tabindex="0"'} ${companyTip(item)}>
+function marketCompanyCard(item, movable = false, selectable = false, pick = false) {
+  const tag = movable || selectable || pick ? 'button' : 'div';
+  return `<${tag} class="market-card industry-card industry-${item.resource} ${item.owner}" ${movable ? `type="button" ${pieceAttrs('company', item.id, item.name)}` : selectable ? `type="button" data-company-choice="${escape(item.id)}" aria-pressed="false"` : pick ? `type="button" data-market-build="${escape(item.id)}" aria-pressed="${draft?.type === 'build' && draft.fields.company === item.id}"` : 'tabindex="0"'} ${companyTip(item)}>
     <strong>${escape(item.name)}${companyGear(item)}</strong><span>${icon(item.resource)} ${industries[item.resource]} ${item.output} · $${item.actualCost ?? item.cost}</span>
     <span class="company-slots">${buildSlots(item).map(slot => `<span class="slot-drop${slot.optional ? ' slot-optional' : ''}" title="${slotRoleLabel(slot.role)}（${slot.optional ? '選用' : '必要'}）">
       ${slot.skill === 'any' ? '通' : icon(slot.skill)}${slotRoleIcons(slot.role)}</span>`).join('')}</span></${tag}>`;
@@ -1414,11 +1339,11 @@ function marketCompanyCard(item, movable = false, selectable = false) {
 
 function boardEvents(events = []) {
   return `<section class="board-events"><h3>${boardHeadingHelp('國家事件',
-    '開局設置\n洗勻事件牌庫，翻開 2 張放到圖板的事件格。若翻到限第 2～5 輪使用的牌，將它洗回牌庫並補翻，直到兩格都是第一輪可用的事件。',
-    '後續每輪準備階段公開兩張事件牌。將滑鼠移到卡牌上，可查看處理條件、各選項的獎勵與未處理懲罰。',
-    '輪到國家時，可用「事件行動」選一張事件，依牌面選擇對象並完成任務。任務可能要求支出金錢或資源、提供福利，或執行指定行動。完成後取得該選項的獎勵，例如提升合法性、取得永久標記或獲得 VP，再棄掉事件牌。',
-    '若事件要求提供福利，資源或金錢會放到指定階級的國家福利區，由該階級用免費行動「領取福利」領走。每次領取讓國家得 1 VP。',
-    '輪末計分時，先對每張留在場上的事件結算未處理懲罰，再計算合法性分數。')}</h3><div class="board-event-slots">${Array.from({ length: 2 }, (_, index) => {
+    '開局設置\n把事件牌庫洗勻，翻開 2 張放在圖板的事件格。如果翻到只能在第 2～5 輪使用的牌，就洗回牌庫重翻，直到兩格都是第一輪可用的事件。',
+    '之後每輪準備階段會公開兩張事件牌。把滑鼠移到卡牌上，可以看處理條件、各選項的獎勵，以及沒處理的懲罰。',
+    '輪到國家時，可以用「處理國家事件」選一張事件，依牌面選對象並完成任務。任務可能要付錢或資源、提供福利，或做指定的行動。完成後拿到那個選項的獎勵，例如提高合法性、拿永久標記或得 VP，然後棄掉事件牌。',
+    '如果事件要求提供福利，錢或資源會放進指定階級的國家福利區，由那個階級用免費行動「領取福利」領走。每次有人領取，國家得 1 VP。',
+    '輪末計分時，先對每張還留在場上的事件結算未處理的懲罰，再計算合法性分數。')}</h3><div class="board-event-slots">${Array.from({ length: 2 }, (_, index) => {
     const event = events[index];
     return event ? `<div class="board-event-card" tabindex="0" ${tipAttrs(event.nameZh,
       [`處理方式 · ${event.taskZh}`, `獎勵 · ${event.rewardZh}`, `未處理懲罰 · ${event.unresolvedPenaltyZh}`])}>${escape(event.nameZh)}</div>`
@@ -1461,15 +1386,15 @@ function tableBoard() {
   const offers = content?.export?.offers ?? match?.exports ?? [];
   const trade = tradeTips(deals, offers);
   const scoreHelp = [
-    '開局設置\n四個階級各將自己的勝利分數標記放在第 0 格，所有玩家都從 0 VP 開始。線上圖板的第 0 格會同時顯示四個階級的顏色。',
-    '勝利分數軌用各階級的顏色標記目前累積的 VP。順著圖板外圈從 0 讀到 99，同一格可以有多個階級的標記。',
-    '每滿 100 VP 繞回 0，軌道只顯示最後兩位數。例如 103 VP 的標記會在第 3 格。完整總分可在「四席摘要」查看。',
-    '共同得分\n法案通過時，提案者得 3 VP。其他贊成者若有抽出至少 1 枚己方方塊，或投入至少 1 影響力，也各得 1 VP。卡牌與事件另依牌面給分。',
-    '勞工\n使用醫療、教育或奢侈品時，繁榮前進一格並取得新格的 VP。使用醫療另得 2 VP。例如從繁榮 3 升到 4，使用醫療共得 4＋2＝6 VP。輪末每個成立的產業工會得 2 VP。\n終局計算政策 1～5 中落在 A 區的數量。符合 0～5 項依序得 0、1、4、8、12、18 VP。剩餘現金每滿 $10 得 1 VP，最多 15 VP。',
-    '中產\n繁榮前進時按新格得分，使用醫療另得 2 VP。每完成一筆出口交易得 1 VP。輪末若繁榮值低於滿編企業數，再前進一格並得分。例如繁榮 3、有 4 家滿編企業，就前進到 4 並得 4 VP。\n終局計算政策 1～5 中落在 B 區的數量。符合 0～5 項依序得 0、1、3、6、10、15 VP。剩餘現金每滿 $15 得 1 VP，另加商業倉庫的庫存分。',
-    '資本家\n輪末把剩餘營收轉入資本，按資本總額對照財富軌得分。每超過歷史最高紀錄一格，額外得 3 VP。例如紀錄在 $50，這輪資本到 $100，基本得 5 VP，跨兩格再得 6 VP，共 11 VP。\n終局計算政策 1～5 中落在 C 區的數量。符合 0～5 項依序得 0、1、4、8、12、18 VP。商業倉庫與自由貿易區的同類資源合併計算庫存分。',
-    '國家\n以 B 區優惠價售出醫療或教育時，每筆得 1 VP。每當其他階級領取國家福利，也得 1 VP。輪末把三條合法性軌中最低兩項相加，再加本輪政治綱領每符合一項的 1 VP。例如合法性為 7、5、4，另符合 2 項綱領，共得 5＋4＋2＝11 VP。\n終局每滿 $30 國庫金錢得 1 VP，另加貨物倉庫和公共服務的庫存分。每滿 3 份公共媒體影響力也得 1 VP。',
-    '終局庫存與貸款\n庫存按種類分開算。食物每滿 2 份得 1 VP，奢侈品、醫療、教育各自每滿 3 份得 1 VP。例如 5 食物、4 醫療和 2 教育，共得 2＋1＋0＝3 VP。\n資本家每筆未還貸款扣 5 VP。其餘階級每筆先以 $55 償還，現金不足時以 $5 為單位盡量償還，每欠 $5 扣 1 VP。現金加分以還款後的餘額計算。',
+    '開局設置\n四個階級的勝利分數標記都放在第 0 格，也就是都從 0 VP 開始。線上圖板的第 0 格會同時顯示四個階級的顏色。',
+    '勝利分數軌用各階級的顏色標記目前累積的 VP。沿著圖板外圈從 0 讀到 99，同一格可以有好幾個階級的標記。',
+    '每滿 100 VP 就繞回 0，軌道只顯示最後兩位數。例如 103 VP 的標記會停在第 3 格。完整總分可以在資訊列的「摘要」查看。',
+    '共同得分\n法案通過時，提案的人得 3 VP。其他贊成的人，只要抽出至少 1 枚己方方塊，或投入至少 1 影響力，也各得 1 VP。卡牌與事件另外依牌面給分。',
+    '勞工\n用醫療、教育或奢侈品時，繁榮前進一格並拿新格的 VP；用醫療另外再得 2 VP。例如繁榮從 3 升到 4，用醫療共得 4＋2＝6 VP。輪末每個成立的產業工會得 2 VP。\n終局看政策 1～5 有幾項落在 A 區：符合 0～5 項，依序得 0、1、4、8、12、18 VP。剩下的現金每滿 $10 得 1 VP，最多 15 VP。',
+    '中產\n繁榮前進時按新格得分，用醫療另外再得 2 VP。每完成一筆出口交易得 1 VP。輪末如果繁榮值低於滿編企業數，再前進一格並得分。例如繁榮 3、有 4 家滿編企業，就前進到 4 並得 4 VP。\n終局看政策 1～5 有幾項落在 B 區：符合 0～5 項，依序得 0、1、3、6、10、15 VP。剩下的現金每滿 $15 得 1 VP，再加上商業倉庫的庫存分。',
+    '資本家\n輪末把剩下的營收轉進資本，按資本總額對照財富軌得分。每超過歷史最高紀錄一格，額外得 3 VP。例如紀錄在 $50，這輪資本到 $100，基本分 5 VP，跨兩格再得 6 VP，共 11 VP。\n終局看政策 1～5 有幾項落在 C 區：符合 0～5 項，依序得 0、1、4、8、12、18 VP。商業倉庫和自由貿易區的同類資源合併計算庫存分。',
+    '國家\n以 B 區優惠價賣出醫療或教育時，每筆得 1 VP。其他階級每領一次國家福利，也得 1 VP。輪末把三條合法性軌中最低的兩項相加，再加上本輪政治綱領每符合一項的 1 VP。例如合法性是 7、5、4，另外符合 2 項綱領，共得 5＋4＋2＝11 VP。\n終局國庫每滿 $30 得 1 VP，再加上貨物倉庫和公共服務的庫存分。每 3 份公共媒體影響力也得 1 VP。',
+    '終局結算\n庫存按種類分開算：食物每 2 份得 1 VP，奢侈品、醫療、教育各自每 3 份得 1 VP。例如 5 食物、4 醫療和 2 教育，共得 2＋1＋0＝3 VP。只算中產和資本家的倉庫（資本家含自由貿易區）和國家的公共庫存；勞工沒有庫存分，勞工與中產「生活資源」區裡的資源不算。\n資本家每筆沒還的貸款扣 5 VP。其他階級每筆先用 $55 還清；現金不夠時，以 $5 為單位盡量還，每欠 $5 扣 1 VP。現金加分以還款後剩下的錢計算。',
   ].join('\n\n');
   return `<section class="main-board" aria-labelledby="main-board-title">
     <h1 id="main-board-title">遊戲圖板</h1>
@@ -1477,36 +1402,39 @@ function tableBoard() {
     <div class="score-help">${boardHelpButton('勝利分數軌 (VP)', scoreHelp, escape)}</div>
     <div class="board-interior">
       <section class="board-zone board-politics"><h3>${boardHeadingHelp('政治議題',
-        '開局設置\n將七項政策的標記分別放在財政 1C、勞動市場 2B、稅制 3A、醫療福利 4B、教育福利 5C、對外貿易 6B、移民 7B。開局時沒有待決法案，提案標記由各階級保管。',
-        '每項政策有 A、B、C 三個區段。金色圓點表示目前採用的政策。虛線框和菱形標出還沒表決的提案。前五項從 A 到 C 代表從社會主義走向新自由主義，後兩項則代表從民族主義走向全球主義。',
-        '提案與表決\n通常只能提案移到相鄰區段，例如 7B 可提案改成 7A 或 7C。同一項已有待決法案時，須先等它結案。提案時可花 1 影響力即時表決，或等輪末選舉。一般表決先表態、再抽 5 枚方塊，最後加上玩家投入的影響力。贊成票至少與反對票一樣多就通過。線上版等四席確認結果後套用新政策。',
-        '財政\n1A 開放 9 家公營企業，IMF 貸款門檻為 2 筆。\n1B 開放 6 家公營企業，IMF 貸款門檻為 2 筆。\n1C 開放 3 家公營企業，IMF 貸款門檻為 1 筆。',
-        '勞動市場\n2A 最低薪資為 L3。\n2B 最低薪資為 L2。\n2C 最低薪資為 L1。\n門檻提高時，低於門檻的薪資須調高。',
-        '稅制\n3A 稅倍率＝3＋2 × 福利修正值總和。\n3B 稅倍率＝2＋福利修正值總和。\n3C 稅倍率固定為 1。\n福利修正值取醫療與教育兩項相加，各自的 A、B、C 區為 2、1、0。例如稅制 3B、醫療 4A、教育 5B，倍率就是 2＋2＋1＝5。',
-        '醫療福利\n4A 每份 $0，每免費提供 3 份，購買階級的合法性加 1。\n4B 每份 $5，每筆交易讓國家得 1 VP。\n4C 每份 $10，按原價收費。',
-        '教育福利\n5A 每份 $0，每免費提供 3 份，購買階級的合法性加 1。\n5B 每份 $5，每筆交易讓國家得 1 VP。\n5C 每份 $10，按原價收費。',
-        '對外貿易\n6A 食物關稅 $10、奢侈品關稅 $6，下輪準備時公開 0 張商務合約。\n6B 食物關稅 $5、奢侈品關稅 $3，下輪準備時公開 1 張商務合約。\n6C 食物與奢侈品關稅皆為 $0，下輪準備時公開 2 張商務合約。',
-        '移民\n7A 下輪準備時，勞工與中產各額外抽 0 張移民牌。\n7B 下輪準備時，勞工與中產各額外抽 1 張移民牌。\n7C 下輪準備時，勞工與中產各額外抽 2 張移民牌。',
-        '計分\n第 1～5 項也影響計分。國家在每輪計分時，現行政策每符合政治綱領一項得 1 VP。終局時，勞工、中產、資本家分別按這五項中落在 A、B、C 區的數量查表得分。')}</h3>${policyDiagram(state, meta, escape, tipAttrs)}</section>
+        '開局設置\n七項政策的標記放在：財政 1C、勞動市場 2B、稅制 3A、醫療福利 4B、教育福利 5C、對外貿易 6B、移民 7B。開局沒有待表決的法案，提案標記由各階級自己保管。',
+        '每項政策有 A、B、C 三個區段，金色圓點是目前採用的區段。虛線框和菱形標出還沒表決的提案。前五項從 A 到 C，是從社會主義走向新自由主義；後兩項是從民族主義走向全球主義。',
+        '提案與表決\n一般只能提案移到相鄰的區段，例如 7B 可以提案改成 7A 或 7C。同一項政策已經有待表決的法案時，要等它結案才能再提。提案時可以花 1 影響力立刻表決，或等輪末選舉。一般表決是先表態，再抽 5 枚方塊，最後加上各階級投入的影響力；贊成票大於或等於反對票就通過。線上版等四個階級確認結果後，才套用新政策。',
+        '財政\n1A：開放 9 家公營企業，IMF 貸款門檻 2 筆。\n1B：開放 6 家公營企業，IMF 貸款門檻 2 筆。\n1C：開放 3 家公營企業，IMF 貸款門檻 1 筆。',
+        '勞動市場\n2A：最低薪資 L3。\n2B：最低薪資 L2。\n2C：最低薪資 L1。\n最低薪資提高時，低於新門檻的薪資要調高。',
+        '稅制\n3A：稅倍率＝3＋2 × 福利修正值總和。\n3B：稅倍率＝2＋福利修正值總和。\n3C：稅倍率固定是 1。\n福利修正值是醫療和教育兩項相加，各自在 A、B、C 區分別算 2、1、0。例如稅制 3B、醫療 4A、教育 5B，倍率是 2＋2＋1＝5。',
+        '醫療福利\n4A：每份 $0，每免費提供 3 份，購買的階級合法性 +1。\n4B：每份 $5，每筆交易讓國家得 1 VP。\n4C：每份 $10，照原價收費。',
+        '教育福利\n5A：每份 $0，每免費提供 3 份，購買的階級合法性 +1。\n5B：每份 $5，每筆交易讓國家得 1 VP。\n5C：每份 $10，照原價收費。',
+        '對外貿易\n6A：食物關稅 $10、奢侈品關稅 $6，下一輪準備時公開 0 張商務合約。\n6B：食物關稅 $5、奢侈品關稅 $3，公開 1 張商務合約。\n6C：食物和奢侈品的關稅都是 $0，公開 2 張商務合約。',
+        '移民\n7A：下一輪準備時，勞工和中產各多抽 0 張移民牌。\n7B：各多抽 1 張。\n7C：各多抽 2 張。',
+        '計分方式\n第 1～5 項也會影響計分。國家每輪計分時，現行政策每符合政治綱領一項，得 1 VP。終局時，勞工、中產、資本家分別看這五項有幾項落在 A、B、C 區，查表得分。')}</h3>${policyDiagram(state, meta, escape, tipAttrs)}</section>
       <div class="board-civic-stack"><section class="board-zone board-civic"><div class="board-metrics"><div><h3>${boardHeadingHelp('輪次',
-        '一局共五輪。每輪依序進行準備、行動、生產、選舉、計分。第一輪跳過準備階段，沒有待決法案時跳過輪末選舉。',
-        '行動階段四席各有五個回合。第五輪計分後，結算貸款和各階級的終局分數。')}</h3>${rounds}</div><div><h3>${boardHeadingHelp('稅倍率',
-        '開局設置\n稅倍率標記放在 5。起始稅制是 3A，醫療福利 4B 的修正值是 1，教育福利 5C 的修正值是 0，所以倍率為 3＋2 ×（1＋0）＝5。',
-        '先看醫療福利和教育福利目前各在哪個區段。A 算 2、B 算 1、C 算 0，再把兩項數字加起來。',
-        '再套用稅制。\n3A 稅倍率＝3＋2 × 福利修正值總和。\n3B 稅倍率＝2＋福利修正值總和。\n3C 稅倍率固定為 1。',
-        '例如稅制為 3B、醫療福利為 4A、教育福利為 5B。福利修正值總和是 2＋1＝3，稅倍率是 2＋3＝5。中產與資本家的僱用稅＝各自的營運企業數 × 稅倍率，因此有 3 家營運企業就繳 3 × 5＝$15。')}</h3>${tax}</div></div>
+        '一局共五輪，每輪依序是準備、行動、生產、選舉、計分。第一輪跳過準備階段；沒有待表決的法案時，輪末選舉也跳過。',
+        '行動階段每個階級有五個回合。第五輪計分後，結算貸款和各階級的終局分數。')}</h3>${rounds}</div><div><h3>${boardHeadingHelp('稅倍率',
+        '開局設置\n稅倍率標記放在 5。起始稅制是 3A，醫療福利 4B 的修正值是 1，教育福利 5C 的修正值是 0，所以倍率是 3＋2 ×（1＋0）＝5。',
+        '先看醫療福利和教育福利目前各在哪個區段：A 算 2、B 算 1、C 算 0，再把兩項加起來。',
+        '再套用稅制。\n3A：稅倍率＝3＋2 × 福利修正值總和。\n3B：稅倍率＝2＋福利修正值總和。\n3C：稅倍率固定是 1。',
+        '例如稅制 3B、醫療 4A、教育 5B：福利修正值總和是 2＋1＝3，稅倍率是 2＋3＝5。中產和資本家的僱用稅，等於各自營運中的企業數 × 稅倍率，所以有 3 家營運企業就繳 3 × 5＝$15。',
+        '各階級繳的稅\n生產階段每個階級都要繳稅，稅款全部存進國庫，國家自己不繳。\n勞工：人口 × 所得稅單價。\n中產：「有中產工人在裡面工作、但不是中產自己開的營運企業」有幾家 × 所得稅單價，再加上自己營運的企業數 × 稅倍率。\n資本家：營運企業數 × 稅倍率（僱用稅），再依營收查企業稅。',
+        '所得稅單價\n看勞動市場和稅制兩項政策：\n勞動市場 2A：稅制 3A 是 $7、3B 是 $6、3C 是 $5。\n勞動市場 2B：3A、3B、3C 都是 $4。\n勞動市場 2C：3A 是 $1、3B 是 $2、3C 是 $3。',
+        '資本家的企業稅\n先繳完僱用稅，再用剩下的營收查表（稅制 3A、3B、3C）：\n營收 $0～4：免稅。\n$5～9：$1、$2、$2。\n$10～24：$5、$5、$4。\n$25～49：$12、$10、$7。\n$50～99：$24、$15、$10。\n$100～199：$40、$30、$20。\n$200～299：$100、$70、$40。\n$300 以上：$160、$120、$60。')}</h3>${tax}</div></div>
         <h3>${boardHeadingHelp('投票袋',
-          '開局設置\n把勞工、中產、資本家的方塊各取 8 枚放入袋中，共 24 枚。其餘方塊留在供應區。國家用個人影響力參與表決。',
-          '補充方塊\n輪末有法案要表決時，先補充一次。\n勞工補人口的一半，向上取整。\n中產取人口與營運企業數中較大者，再除以 2 並向上取整。\n資本家補營運企業數的一半，向上取整。\n例如勞工人口 5、中產人口 4 且有 5 家營運企業、資本家有 4 家營運企業，分別補 3、3、2 枚。',
-          '抽票與回收\n一般表決先表態，再抽 5 枚方塊。每枚按所屬階級的立場算 1 票，投入的影響力也每份算 1 票。抽票途中袋子空了，就按上述方塊公式補兩次再繼續抽。',
-          '結果確定後，抽出的方塊只有落敗方放回投票袋。勝方方塊回到供應區，雙方投入的影響力都會消耗。平票視為贊成方勝出，因此反對方抽出的方塊放回袋中。')}</h3><div class="bag-row">${Object.entries(state.bag).map(([role, count]) => `<span class="${role}">${meta.names[role]} <b>${count}</b></span>`).join('')}</div>
+          '開局設置\n勞工、中產、資本家的方塊各取 8 枚放進袋子，共 24 枚，其餘留在供應區。國家不用方塊，只靠個人影響力參與表決。',
+          '補充方塊\n輪末有法案要表決時，先補一次。\n勞工：補人口的一半，進位。\n中產：人口和營運企業數取較大的，除以 2 後進位。\n資本家：補營運企業數的一半，進位。\n例如勞工人口 5、中產人口 4 且有 5 家營運企業、資本家有 4 家營運企業，分別補 3、3、2 枚。',
+          '抽票與回收\n一般表決是先表態，再抽 5 枚方塊。每枚方塊按它所屬階級的立場算 1 票，投入的影響力每份也算 1 票。抽票時如果袋子空了，就照上面的公式補兩次再繼續抽。',
+          '結果確定後，抽出的方塊只有落敗的一方會放回袋子，勝方的方塊回到供應區，雙方投入的影響力都用掉。平票算贊成方獲勝，所以反對方抽出的方塊會放回袋子。')}</h3><div class="bag-row">${Object.entries(state.bag).map(([role, count]) => `<span class="${role}">${meta.names[role]} <b>${count}</b></span>`).join('')}</div>
         ${boardEvents(content?.events)}
         <h3>${boardHeadingHelp('國家福利',
-          '開局設置\n勞工、中產、資本家的福利區開局時每個福利品項都顯示灰色的 -。國家第一次提供福利時，才把指定的金錢、資源或方塊放入對應階級的區域。',
-          '國家可透過事件或卡牌，將金錢、資源或投票方塊放到勞工、中產或資本家的福利區。主圖板按階級以圖示列出待領福利品項及數量。',
-          '同一階級已有待領福利時，下一次提供通常會用新的福利替換原有內容。部分卡牌效果允許保留並合併。',
-          '輪到自己時，選擇免費行動「領取福利」即可一次領完。金錢與資源交給該階級，投票方塊立即放進投票袋，福利區隨即清空。',
-          '國家每次有人領取福利得 1 VP。例如中產一次領走 $10 和 2 枚投票方塊，國家共得 1 VP。')}</h3><div class="benefit-table-wrap"><table class="benefit-table" aria-label="國家福利">
+          '開局設置\n勞工、中產、資本家的福利區，每個項目一開始都顯示灰色的「-」。國家第一次提供福利時，才把指定的錢、資源或方塊放進那個階級的區域。',
+          '國家可以靠事件或卡牌，把錢、資源或投票方塊放進勞工、中產或資本家的福利區。主圖板會依階級用圖示列出待領的福利項目和數量。',
+          '如果該階級已經有待領福利，下次再提供時，通常會用新的福利換掉原來的內容；部分卡牌允許保留並合併。',
+          '輪到自己時，選免費行動「領取福利」就能一次領完。錢和資源交給該階級，投票方塊馬上放進投票袋，福利區隨即清空。',
+          '每次有人領取福利，國家得 1 VP。例如中產一次領走 $10 和 2 枚投票方塊，國家共得 1 VP。')}</h3><div class="benefit-table-wrap"><table class="benefit-table" aria-label="國家福利">
           <thead><tr><th scope="col" aria-label="階級"></th>${Object.entries(adjustBenefitLabels).map(([key, label]) => {
             const symbol = key === 'cash' ? 'money' : key === 'votes' ? 'vote' : key;
             return `<th scope="col" title="${label}" aria-label="${label}">${icon(symbol)}</th>`;
@@ -1518,16 +1446,17 @@ function tableBoard() {
             }).join('')}</tr>`).join('')}</tbody>
         </table></div></section>
         <section class="board-zone board-treasury"><h3>${boardHeadingHelp('國庫',
-          '開局設置\n從供應區取 $120 放入主圖板的國庫，作為國家的起始資金。國家開局有 0 筆貸款。',
-          '國庫顯示國家目前可支用的金錢。其他階級繳的稅、進口關稅、公共服務銷售收入，以及部分卡牌給的金錢都會存入國庫。',
-          '公營企業薪資、事件支出與借款利息由國庫支付。輪末生產階段先發薪，接著檢查 IMF，最後收稅。規劃支出時，可在「試算」查看預計收入及支出。',
-          '國庫付不起強制支出時，每筆貸款提供 $50。後續準備階段每筆支付 $5 利息。貸款筆數達到財政政策的門檻時，可能觸發 IMF 介入。',
-          '終局結算貸款後，國庫每滿 $30 得 1 VP。例如剩 $95，可得 3 VP。')}</h3><p class="treasury-amount"><strong>$${state.treasury}</strong></p></section></div>
+          '開局設置\n從供應區拿 $120 放進主圖板的國庫，當作國家的起始資金。國家一開始沒有貸款。',
+          '國庫顯示國家目前能花的錢。其他階級繳的稅、進口關稅、公共服務的銷售收入，以及部分卡牌給的錢，都存進國庫。',
+          '公營企業的薪水、事件的支出和借款的利息，都由國庫支付。輪末生產階段先發薪，接著檢查 IMF，最後收稅。想規劃支出時，可以在「試算」看預計的收入和支出。',
+          '國庫付不起強制支出時，每筆貸款提供 $50，之後每次準備階段每筆付 $5 利息。',
+          'IMF 是對國家債務的懲罰。生產階段結束食物結算後，如果國家的貸款筆數達到財政政策的門檻（1A、1B 是 2 筆，1C 是 1 筆），國庫要先用每筆 $55，還掉「貸款數 − 門檻 ＋ 1」筆，讓貸款降到門檻以下。付得起就沒事；付不起，IMF 就會介入：\n1. 取消所有待表決的法案，各提案階級各得 1 點個人影響力。\n2. 政策強制改成 1C、2C、3A、4B、5C、6B、7B，最低薪資降到 L1。\n3. 依新的財政政策調整公營企業的開放數量。\n4. 國庫盡量還清所有貸款，不夠的部分直接勾銷。\n5. 勞工、中產、資本家的合法性都減半（有小數就進位）。',
+          '終局結清貸款後，國庫每滿 $30 得 1 VP。例如剩 $95，可得 3 VP。')}</h3><p class="treasury-amount"><strong>$${state.treasury}</strong></p></section></div>
       <section class="board-zone board-trade"><h3>${boardHeadingHelp('對外貿易',
-        '開局設置\n商務合約牌庫和出口牌庫分開洗勻，各從牌庫頂翻開 1 張。進口從政策 6B 開始，食物每份 $15（基價 $10、關稅 $5），奢侈品每份 $9（基價 $6、關稅 $3）。',
-        '商務合約\n開局將合約牌洗好，翻開 1 張。從第二輪起，每輪準備階段先棄掉場上未使用的合約，再按當時生效的對外貿易政策從牌庫頂翻新牌。6A 不翻、6B 翻 1 張、6C 翻 2 張。政策在輪中改變時，場上的合約繼續保留，但關稅立即按新政策計算。\n資本家選擇「商業交易」，挑一張場上的合約並指定到貨位置。合約的貨物種類、數量和基價固定，完成後該牌棄置，當輪不補牌。\n整批放進自由貿易區可免關稅，區內貨物只供出口。只要有貨進國內倉庫，就要付整張合約在目前政策下的關稅。兩處各有容量，超出的貨物會丟棄。\n例如一張合約基價 $30，對外貿易政策 6B 欄標示關稅 $8。有貨進國內倉庫就付 $38，全部進自由貿易區則付 $30。',
-        '出口\n開局將出口牌洗好，從牌庫頂翻開 1 張。從第二輪起，每輪準備階段棄掉舊出口牌，再從牌庫頂翻開 1 張。完成交易後，出口牌仍留在場上，下一次出口行動可以再按同一張牌選交易。部分卡牌效果可提前更換出口牌。\n中產、資本家或國家選擇「對外出口」，勾選現行出口牌上的交易再確認。每筆必須備足牌上指定數量，確認後交出資源並取得列出的金錢。同一次行動可做多筆不同交易，每筆通常只能做一次。\n中產從商業倉庫出貨，每完成一筆另得 1 VP。資本家可用商業倉庫及自由貿易區的庫存。國家只出口食物與奢侈品。',
-        '進口\n進口區常駐在主圖板。食物基價每份 $10，奢侈品基價每份 $6。畫面的大數字是每份基價加上當前政策的關稅，下面會分別列出基價與關稅。政策變更生效時，進口價會同步更新。\n6A 食物 $10＋$10＝$20，奢侈品 $6＋$6＝$12。\n6B 食物 $10＋$5＝$15，奢侈品 $6＋$3＝$9。\n6C 食物 $10＋$0＝$10，奢侈品 $6＋$0＝$6。\n勞工或中產在「購買商品與服務」選食物或奢侈品，再選「外國市場」、填數量並確認。一般購買一次選一種資源，最多選兩個來源，向每個來源購買的數量不得超過目前人口。\n每份總價＝基價＋對外貿易政策規定的關稅。基價付給供應區，關稅付給國庫。例如 6B 時進口 3 份奢侈品，每份基價 $6、關稅 $3，總共付 3 ×（$6＋$3）＝$27，其中 $9 進國庫。')}</h3><div class="trade-grid">
+        '開局設置\n商務合約牌庫和出口牌庫分開洗勻，各從牌頂翻開 1 張。進口從政策 6B 開始：食物每份 $15（基價 $10＋關稅 $5），奢侈品每份 $9（基價 $6＋關稅 $3）。',
+        '商務合約\n開局把合約牌洗好，翻開 1 張。從第二輪起，每輪準備階段先棄掉場上沒用的合約，再依當時的對外貿易政策從牌頂翻新牌：6A 不翻、6B 翻 1 張、6C 翻 2 張。政策在輪中途改變時，場上的合約繼續保留，但關稅馬上按新政策算。\n資本家選「商業交易」，挑一張場上的合約，再指定貨物放哪裡。合約的貨物種類、數量和基價是固定的，完成後這張牌就棄掉，當輪不補牌。\n整批放進自由貿易區可以免關稅，但區內的貨只能出口。只要有貨進國內倉庫，就要付整張合約在目前政策下的關稅。兩邊各有容量，超過的貨會丟掉。\n例如一張合約基價 $30，對外貿易政策 6B 的關稅是 $8：有貨進國內倉庫就付 $38，全部放進自由貿易區就只付 $30。',
+        '出口\n開局把出口牌洗好，翻開 1 張。從第二輪起，每輪準備階段棄掉舊的出口牌，再翻開 1 張新的。完成交易後，出口牌仍留在場上，下一次出口行動還能照同一張牌選交易。部分卡牌效果可以提早換掉出口牌。\n中產、資本家或國家選「對外出口」，勾選現行出口牌上的交易再確認。每筆交易都要備足牌上指定的數量，確認後交出資源，拿到牌上的錢。同一次行動可以做好幾筆不同的交易，每筆通常只能做一次。\n中產從商業倉庫出貨，每完成一筆另外得 1 VP。資本家可以用商業倉庫和自由貿易區的庫存。國家只能出口食物和奢侈品。',
+        '進口\n進口區一直放在主圖板上。食物基價每份 $10，奢侈品基價每份 $6。畫面上的大數字是「基價＋目前政策的關稅」，下面會分別列出基價和關稅。政策改變生效時，進口價也會一起更新。\n6A：食物 $10＋$10＝$20，奢侈品 $6＋$6＝$12。\n6B：食物 $10＋$5＝$15，奢侈品 $6＋$3＝$9。\n6C：食物 $10＋$0＝$10，奢侈品 $6＋$0＝$6。\n勞工或中產在「購買商品與服務」選食物或奢侈品，再選「外國市場」、填數量並確認。一次只選一種資源，最多選兩個來源，向每個來源買的數量不能超過目前人口。\n每份總價＝基價＋關稅。基價付給供應區，關稅付給國庫。例如 6B 時進口 3 份奢侈品，每份基價 $6、關稅 $3，總共付 3 ×（$6＋$3）＝$27，其中 $9 進國庫。')}</h3><div class="trade-grid">
         ${Array.from({ length: 2 }, (_, index) => dealCard(deals[index], {
           tip: trade.deals, movable: state.role === 'capitalist' && acting('deal'),
         })).join('')}
@@ -1548,12 +1477,12 @@ function tableBoard() {
         }).join('')}</div>
       </div></section>
       <section class="board-zone board-services"><h3>${boardHeadingHelp('公共服務',
-        '開局設置\n從供應區放入 6 份醫療、6 份教育與 4 份媒體影響力。醫療福利從 4B 開始，每份 $5。教育福利從 5C 開始，每份 $10。媒體影響力每份 $10。',
-        '庫存與容量\n每格左邊是目前庫存，右邊是容量，金額是每份售價。容量按資源各自計算，等於 6 加上所有已開放且生產該資源的公營企業標示產能。已開放但停工的企業仍計入容量。例如一間已開放的公營醫院標示產能為 4，且沒有其他已開放的公營醫療企業，醫療容量就是 6＋4＝10。畫面顯示 6／10 時，表示現有 6 份，還能存 4 份。超出容量的資源會丟棄。',
-        '醫療\n由營運中的公營醫院等醫療企業在生產階段產出。勞工或中產可用「購買商品與服務」向國家購買，買到後放入生活資源區。輪到自己時，可用免費行動「使用醫療」，消耗等同人口的份數，提升繁榮一格、按新格得分、另得 2 VP，並新增一名通用工人。',
-        '教育\n由營運中的公營大學等教育企業在生產階段產出。勞工或中產可向國家購買並放入生活資源區。輪到自己時，可用免費行動「使用教育」，消耗等同人口的份數，訓練一名符合條件的己方工人，並提升繁榮一格、按新格得分。',
-        '醫療與教育的價格\n兩者各依對應的福利政策定價。A 區每份 $0，每提供 3 份，國家對購買階級的合法性加 1。B 區每份 $5，每筆優惠交易讓國家得 1 VP。C 區每份 $10。貨款存入國庫。',
-        '媒體影響力\n由營運中的公營媒體企業在生產階段產出。勞工或中產可向國家以每份 $10 購買，轉為自己的個人影響力。國家可在自己的回合選「競選」，將最多 3 份公共媒體影響力轉為自己的個人影響力。個人影響力可用於發起即時表決，或在表決時投入以增加票數。')}</h3><div class="well-row">
+        '開局設置\n從供應區放入 6 份醫療、6 份教育和 4 份媒體影響力。醫療福利從 4B 開始，每份 $5；教育福利從 5C 開始，每份 $10；媒體影響力每份 $10。',
+        '庫存與容量\n每格左邊是目前庫存，右邊是容量，金額是每份售價。容量各資源分開算，等於 6 加上所有已開放、而且生產該資源的公營企業標示的產能，已開放但停工的企業也算。例如一間已開放的公營醫院標示產能 4，沒有其他已開放的公營醫療企業，醫療容量就是 6＋4＝10。畫面顯示 6／10，表示現有 6 份，還能再放 4 份。超過容量的資源會丟掉。',
+        '醫療\n由營運中的公營醫院等醫療企業在生產階段產出。勞工或中產可以用「購買商品與服務」向國家買，買到的放進生活資源。輪到自己時，可以用免費行動「使用醫療」：用掉和人口一樣多的份數，繁榮前進一格並拿新格的分，另外再得 2 VP，並新增一名通用工人。',
+        '教育\n由營運中的公營大學等教育企業在生產階段產出。勞工或中產可以向國家買，放進生活資源。輪到自己時，可以用免費行動「使用教育」：用掉和人口一樣多的份數，訓練一名符合條件的己方工人，並讓繁榮前進一格、拿新格的分。',
+        '醫療與教育的價格\n兩者各依對應的福利政策定價。A 區每份 $0，每提供 3 份，國家對購買階級的合法性 +1。B 區每份 $5，每筆優惠交易讓國家得 1 VP。C 區每份 $10。貨款存進國庫。',
+        '媒體影響力\n由營運中的公營媒體企業在生產階段產出。勞工或中產可以每份 $10 向國家購買，變成自己的個人影響力。國家可以在自己的回合選「競選」，把最多 3 份公共媒體影響力轉成自己的個人影響力。個人影響力可以用來發起即時表決，或在表決時投入來增加票數。')}</h3><div class="well-row">
         ${['health', 'education', 'influence'].map(resource => {
           const media = resource === 'influence';
           return well(media ? '媒體' : resources[resource], publicServices[resource], resource, 'state',
@@ -1562,24 +1491,24 @@ function tableBoard() {
       ${sector('capitalist', 12)}${publicSector()}${sector('middle', 8)}
       <section class="board-zone board-workers"><h3 tabindex="0" ${tipAttrs('待業工人', ['新增或失業的工人會放在這裡。選擇「指派工人」後，可把符合技能的工人移入企業。',
         ...['working', 'middle'].map(role => `${meta.names[role]}待業 ${idle.filter(worker => worker.role === role).length} 人`)])}>${boardHeadingHelp('待業工人',
-        '開局設置\n洗好移民牌庫。勞工先在待業區放 1 名通用工人，中產先放 1 名自選技能工人。兩個階級再各自抽 2 張移民牌，只看自己階級那一側，各放入 2 名對應工人，再把抽過的牌放回牌庫底。開局兩個階級各有 3 名待業工人。',
-        '後續準備階段\n第 2～5 輪，勞工先加入 2 名通用工人，中產先加入 1 名通用工人及 1 名自選技能工人，再依移民政策補人。',
-        '兩個階級使用醫療也可新增通用工人，部分卡牌可增加特定工人。失去工作的工人會回到待業區。待業工人仍計入所屬階級的人口軌。',
-        '移民\n底部顯示生效中的移民政策。準備階段，7A、7B、7C 分別讓勞工與中產各額外抽 0、1、2 張移民牌。兩個階級分開抽牌，只看自己那一側，拿對應工人放入待業區，再把牌放回牌庫底。',
-        '指派工人\n準備階段新增的工人先進待業區。同輪進入行動階段後，輪到自己時可選主要行動「指派工人」，一般一次最多指派 3 名尚未承諾的己方工人。將工人拖到相符工位，再確認行動。技能工位須符合指定技能，通用工位可容納符合階級條件的工人。要啟動停工企業，須在同一次行動補齊必要工位。',
-        '建造與雇用\n資本家和國家可依建造或卡牌效果雇用待業工人，工人仍屬勞工或中產。中產建造企業時，必須補齊自己的必要工位，有選用勞工工位時也可按條件雇用勞工。新派到企業的工人會進入承諾狀態，通常要等本輪生產結算後才可再調動。')} <span>${idle.length}</span>${state.demonstration?.active ? ' · 示威中' : ''}</h3>
-        ${['working', 'middle'].map(role => {
+        '開局設置\n洗好移民牌庫。勞工在待業區先放 1 名通用工人，中產先放 1 名自選技能的工人。兩個階級再各抽 2 張移民牌，只看自己階級那一面，各放入 2 名對應的工人，抽過的牌放回牌庫底。開局兩個階級各有 3 名待業工人。',
+        '取得工人\n第 2～5 輪，勞工先加入 2 名通用工人，中產先加入 1 名通用工人和 1 名自選技能的工人，再依移民政策補人。',
+        '兩個階級用醫療也能新增通用工人，部分卡牌可以增加特定的工人。失去工作的工人會回到待業區。待業工人仍然算在所屬階級的人口軌裡。',
+        '移民\n底部顯示目前生效的移民政策。準備階段，7A、7B、7C 分別讓勞工和中產各多抽 0、1、2 張移民牌。兩個階級各自抽牌，只看自己那一面，拿對應的工人放進待業區，再把牌放回牌庫底。',
+        '指派工人\n準備階段新增的工人會先進待業區。進入行動階段後，輪到自己時可以選主要行動「指派工人」，一次最多派 3 名還沒承諾的己方工人。把工人拖到符合的工位，再確認行動。技能工位要符合指定技能，通用工位可以放符合階級條件的工人。要讓停工的企業重新營運，必須在同一次行動把必要工位補齊。',
+        '建造與雇用\n資本家和國家可以依建造或卡牌效果雇用待業工人，這些工人仍然屬於勞工或中產。中產建造企業時，必須補齊自己的必要工位；有勞工選用工位時，也可以依條件雇用勞工。新派到企業的工人會進入承諾狀態，通常要等本輪生產結算後才能再調動。')} <span>${idle.length}</span>${state.demonstration?.active ? ' · 示威中' : ''}</h3>
+        <div class="worker-pools">${['working', 'middle'].map(role => {
           const target = (acting('assign') && state.role === role || cardMoveForm()?.dataset?.workerRole === role) && moves.length > 0;
           return `<div class="worker-pool-row ${role}"><strong>${meta.names[role]}</strong>
             <div class="worker-pool" ${target ? dropAttrs('unemployed', role) : ''}>
               ${idle.filter(worker => worker.role === role).map(worker => workerToken(worker)).join('')}
               ${target ? `<button type="button" class="idle-drop" ${dropAttrs('unemployed', role)}>撤回待確認指派</button>` : ''}</div></div>`;
-        }).join('')}
+        }).join('')}</div>
         <div class="worker-pool-row"><strong id="immigration-label">移民</strong>
           <div class="immigration-well" tabindex="0" aria-labelledby="immigration-label immigration-policy"
             ${tipAttrs('移民', [`目前政策 7${state.policies[6]}。準備階段，勞工與中產各自新增 ${meta.policyRules.immigration_extra_each_class[state.policies[6]]} 名移民工人。`])}>
             <span id="immigration-policy">政策 7${state.policies[6]}</span></div></div></section>
-      <section class="board-zone cooperative-zone"><h3>${boardHeadingHelp('合作農場', '這裡放置勞工透過行動卡建立的合作農場。填滿必要工位後可在生產階段產出食物，供勞工滿足輪末需求。')} <span>${farms.length} / 2</span></h3><div class="sector-grid">${farms.map(companyTile).join('')}${Array.from({ length: emptyFarms }, (_, index) =>
+      <section class="board-zone cooperative-zone"><h3>${boardHeadingHelp('合作農場', '這裡放勞工靠行動卡建立的合作農場。必要工位填滿後，生產階段會產出食物，讓勞工用來滿足輪末的食物需求。')} <span>${farms.length} / 2</span></h3><div class="sector-grid">${farms.map(companyTile).join('')}${Array.from({ length: emptyFarms }, (_, index) =>
         `<div class="sector-empty" aria-hidden="true">${String(farms.length + index + 1).padStart(2, '0')}</div>`).join('')}</div></section>
     </div></section>`;
 }
@@ -2246,20 +2175,20 @@ function actionPanel(card, inDialog = false) {
     return `<section class="panel"><h2>第 ${state.match.round} 輪計分完成</h2><button type="button" data-open-round-result>查看本輪結算</button>${next}</section>`;
   }
   if (state.phase === 'election') return electionPanel();
-  if (state.currentRole !== state.role) return `<section class="panel"><h2>等待 ${meta.names[state.currentRole]}</h2><p class="muted">${state.mainUsed ? '主要行動已執行，等待結束回合。' : '對方正在選擇主要行動。'}</p><p class="muted" data-ai-thinking="${state.currentRole}"></p></section>`;
+  if (state.currentRole !== state.role) return `<section class="panel"><h2>等待 ${meta.names[state.currentRole]}</h2><p class="muted">${state.mainUsed ? '主要行動已執行，等待結束回合。' : '對方正在選擇主要行動。'}</p><p class="muted" data-ai-thinking="${state.currentRole}"></p></section>${marketPanel()}`;
   const mainActionHelp = boardHeadingHelp('主要行動',
     '輪到自己時，必須完成一項主要行動，才能結束回合。',
-    '選「卡牌效果」會打出所選手牌並執行牌上的效果。選「基本行動」會棄掉所選手牌，改做所選的基本行動，例如購買商品與服務、指派工人或建造企業。可選的基本行動依階級而異。',
-    '先選擇手牌及行動類型，再依畫面填寫對象、數量或拖曳指定物件。提交時會先顯示本次變更，確認後才正式執行。',
-    '每回合只能執行一項主要行動。購買、建造等自願支出須有足夠資金，不能為這筆支出借款。完成後仍可執行本回合尚未使用的免費行動。');
+    '選「卡牌效果」，會打出你選的手牌並執行牌上的效果。選「基本行動」，會棄掉你選的手牌，改做你選的基本行動，例如購買商品與服務、指派工人或建造企業。能選哪些基本行動，依階級而不同。',
+    '先選手牌和行動類型，再依畫面填寫對象、數量，或選擇指定的物件。送出時會先顯示這次的變更，確認後才真正執行。',
+    '每回合只能做一項主要行動。購買、建造這類自願的支出，錢要夠，不能為了它借款。做完之後，還可以做本回合沒用過的免費行動。');
   if (state.mainUsed) return `<section class="panel"><h2>${mainActionHelp}</h2><p class="muted">本回合的主要行動已完成。</p>${state.purchaseReceipt
     ? `<p>已購買${resources[state.purchaseReceipt.resource]}，${purchaseRows(state.purchaseReceipt).map(({ seller, quantity }) =>
       `${sellerName(seller)} ${quantity} 份`).join('、')}，共支付 $${state.purchaseReceipt.cost}。</p>` : ''}
-    ${form('end', '結束回合')}</section>${freeActionPanel()}`;
+    ${form('end', '結束回合')}</section>${marketPanel()}${freeActionPanel()}`;
   if (state.noLegalAction) {
     return `<section class="panel"><h2>無可用行動</h2>
       <p class="muted">目前的手牌與盤面沒有任何可執行的主要行動，可以跳過本回合的主要行動。跳過後仍可使用免費行動並結束回合。</p>
-      ${form('pass', '跳過主要行動')}</section>${freeActionPanel()}`;
+      ${form('pass', '跳過主要行動')}</section>${marketPanel()}${freeActionPanel()}`;
   }
   const actions = basicActions();
   const selected = actions.find(([type, , fields]) => type === selectedAction && fields !== null);
@@ -2273,13 +2202,12 @@ function actionPanel(card, inDialog = false) {
     ? cardDetail + (cardForm || `<p class="muted">${escape(card ? unavailable : '沒有可打出的手牌。')}</p>`)
     : selected?.[2] ?? '';
   const content = fields ? `<div class="basic-action-fields main-action-fields">${fields}</div>` : '';
-  const market = companyMarket(acting('build'), acting('build') ? '把企業拖到中央圖板上自己階級的私營企業，再確認建造。' : '');
   return `<section class="panel action-content" id="main-action-options">
     <h2>${mainActionHelp}</h2>
     <select name="main-action" aria-label="選擇主要行動"><option value="">選擇一項行動</option>
       ${actionOption(['play', '卡牌效果', cardForm || null], selectedAction)}
       <optgroup label="基本行動">${actions.map(action => actionOption(action, selectedAction, !card)).join('')}</optgroup></select>
-    ${selectedAction === 'play' ? content + market : market + content}</section>${freeActionPanel()}`;
+    ${content}</section>${marketPanel()}${freeActionPanel()}`;
 }
 
 function basicActions() {
@@ -2937,10 +2865,10 @@ function syncVoteResultDialog() {
 
 function handBoard(card) {
   return `<section class="panel hand ${state.role}"><div class="desk-heading"><h2>${boardHeadingHelp('私人手牌',
-    '開局設置\n每個階級洗勻自己的行動牌庫，抽 7 張作為起始手牌。',
-    '這裡顯示你目前持有的行動卡。其他玩家只看得到手牌張數。',
-    '第 2 到第 5 輪的準備階段，保留還沒用掉的手牌，再抽牌補到 7 張。牌庫抽空時，將棄牌洗成新的牌庫。',
-    '選好手牌後，在主要行動選單選「卡牌效果」，即可在選單下方查看牌面說明。做主要行動時，可打出這張牌執行效果，或棄掉它來做基本行動。若牌上有政策等使用條件，必須符合條件才能執行牌上效果。')}</h2>
+    '開局設置\n每個階級把自己的行動牌庫洗勻，抽 7 張當起始手牌。',
+    '這裡顯示你手上的行動卡。其他階級只看得到你的手牌張數。',
+    '第 2 到第 5 輪的準備階段，沒用掉的手牌保留，再抽牌補到 7 張。牌庫抽完時，把棄牌洗成新的牌庫。',
+    '選好手牌後，在主要行動選單選「卡牌效果」，就能在選單下方看到牌面說明。做主要行動時，可以打出這張牌執行效果，或棄掉它去做基本行動。如果牌上有政策之類的使用條件，要符合條件才能執行牌上的效果。')}</h2>
     <div class="desk-tools"><span>${state.hand.length} 張</span><button type="button" class="pile-button" ${state.cardPiles ? '' : 'hidden'} data-card-piles
       aria-haspopup="dialog" aria-label="查看手牌庫與已使用的手牌" title="查看手牌庫與已使用的手牌">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10 12 3l9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>
@@ -3083,7 +3011,7 @@ function adjustPriceFields(role) {
       const current = prices[resource]?.price ?? options[1] ?? options[0];
       return adjustSelect(adjustStoredLabels[resource] ?? resources[resource], `price-${resource}`, options, current);
     }).join(''),
-    '選擇此階級可調整的資源售價；下拉選單只列出圖版允許的價格。');
+    '選擇此階級可調整的資源售價；下拉選單只列出圖板允許的價格。');
 }
 
 function adjustLivingFields() {
@@ -3281,8 +3209,7 @@ function acceptsPiece(source, target) {
   if (target.type === 'market') return source.type === 'company' && state.phase === 'market'
     && state.content.marketRole === state.role && !state.content.marketSkillPending;
   switch (source.type) {
-    case 'company': return acting('build') && target.type === 'sector' && target.id === state.role
-      && state.economy.markets[state.role]?.some(item => item.id === source.id);
+    case 'company': return false;
     case 'deal': return acting('deal') && target.type === 'deal';
     case 'export': return acting('export') && target.type === 'export';
     case 'media': return acting('campaign') && target.type === 'campaign' && state.role === 'state';
@@ -3291,13 +3218,6 @@ function acceptsPiece(source, target) {
       return canShop() && purchaseLimit(resource, seller) > 0 && target.type === 'buy' && (!target.id || resource === target.id);
     }
     case 'worker': {
-      if (target.type === 'build-slot') {
-        const item = pendingBuild();
-        const index = Number(target.id);
-        const slot = item && buildSlots(item)[index];
-        const worker = state.economy.workers.find(candidate => candidate.id === source.id);
-        return Boolean(slot && !draft.staff[index] && canStaffBuild(worker, item, slot, index));
-      }
       if (!boardAssignment()) return false;
       if (target.type === 'unemployed') {
         if (cardMoveForm()) return cardWorker(source.id)?.role === target.id
@@ -3350,8 +3270,6 @@ function placePiece(source, target) {
       draft = moves.length || unionWorker ? { type: 'assign', moves, fields: { unionWorker } } : null;
       break;
     }
-    case 'sector': startBuild(source.id); break;
-    case 'build-slot': draft.staff[Number(target.id)] = source.id; break;
     case 'buy': {
       const [seller, resource] = source.id.split(':');
       if (purchaseDraft?.resource !== resource && purchaseDraft?.lines.some(line => line.seller)) {
@@ -3388,7 +3306,7 @@ function placePiece(source, target) {
     }
   }
   announceBoard(draft?.type === 'assign' ? `已排入 ${draft.moves.length} 個工人，請按「確認指派」送出。`
-    : draft?.type === 'build' ? `已安排 ${draft.staff.filter(Boolean).length} 名工人，可繼續拖放、確認或取消建造。`
+    : draft?.type === 'build' ? `已安排 ${draft.staff.filter(Boolean).length} 名工人，可繼續調整、確認或取消建造。`
       : '已填入行動選擇，請在操作區確認。');
   render();
   if (target.type !== 'build-slot' && !['assign', 'market'].includes(draft?.type)) document.querySelector('.action-draft')?.scrollIntoView({ block: 'nearest' });
@@ -3550,10 +3468,9 @@ function botSection(strategies) {
       <label>強度<select name="strategy">${strategies.map(item =>
         `<option value="${escape(item.id)}" title="${escape(item.description)}">${escape(item.name)}</option>`).join('')}</select></label>
       <button type="submit" ${free.length && players.length < 4 ? '' : 'disabled'}>加入 AI</button></form>
-    <form data-waiting-bot-think><label>AI 最長思考時間<select name="seconds">${(state.waiting.botThinkChoices ?? [0]).map(seconds =>
-      `<option value="${seconds}" ${seconds === state.waiting.botThinkMax ? 'selected' : ''}>${seconds === 0 ? '立即行動' : `${seconds} 秒`}</option>`).join('')}</select></label>
-      <button type="submit">設定</button>
-      <small class="muted">AI 會在最長秒數的 0.2～1 倍之間隨機思考，等待時顯示秒數；一定會做到有合法行動為止。</small></form>
+    <form data-waiting-bot-think><label>AI 最長思考時間<select name="seconds">${(state.waiting.botThinkChoices.includes(state.waiting.botThinkMax) ? state.waiting.botThinkChoices : [state.waiting.botThinkMax, ...state.waiting.botThinkChoices]).map(seconds =>
+      `<option value="${seconds}" ${seconds === state.waiting.botThinkMax ? 'selected' : ''}>${seconds === 0 ? '0 秒（舊設定，立即行動）' : `${seconds} 秒`}</option>`).join('')}</select></label>
+      <button type="submit">設定</button></form>
     ${bots.length ? `<ul>${bots.map(bot => `<li><span>${escape(meta.names[bot.role])} · ${escape(strategyName(bot.strategy))}</span>
       <form data-waiting-remove-bot><input type="hidden" name="id" value="${escape(bot.id)}"><button type="submit">移除</button></form></li>`).join('')}</ul>` : '<p class="muted">目前沒有 AI。</p>'}
   </section>`;
@@ -3582,8 +3499,7 @@ function waitingRoom() {
       <option value="">請選擇</option>${meta.roles.map(role =>
       `<option value="${role}" ${role === self.role ? 'selected' : ''}>${escape(meta.names[role])}</option>`).join('')}
     </select></label>
-    ${state.waiting.middleMarket?.length ? `<section><h2>中產起始企業市場</h2>${state.waiting.middleMarket.map(item =>
-      `<details><summary>${escape(item.name)}</summary>${companyCardInfo(item)}</details>`).join('')}</section>` : ''}
+    ${state.waiting.middleMarket?.length ? `<section class="market-board middle"><h2>中產起始企業市場</h2><div class="market-rack">${state.waiting.middleMarket.map(item => marketCompanyCard(item)).join('')}</div></section>` : ''}
     ${state.waiting.skillSelection && self.role === 'middle' ? `<label>開局技術工技能<select data-waiting-skill ${self.ready ? 'disabled' : ''}>
       <option value="">請選擇</option>${skillOptions(products).map(([skill, label, color]) =>
         `<option value="${skill}" style="color:${color}" ${self.skill === skill ? 'selected' : ''}>${escape(label)}</option>`).join('')}</select></label>` : ''}
@@ -3591,7 +3507,7 @@ function waitingRoom() {
       ${self.ready ? '<p role="status">等待其他玩家確認</p>' : ''}
       <button class="primary" ${!self.ready && (!canStart || (state.waiting.skillSelection && self.role === 'middle' && !self.skill)) ? 'disabled' : ''}>${self.ready ? '取消' : '開始'}</button>
     </form>
-    ${state.waiting.strategies ? botSection(state.waiting.strategies) : ''}
+    <div class="waiting-extras">
     ${state.waiting.invitations ? `<section class="waiting-invitations"><h2>邀請玩家</h2>
       <form data-waiting-invite><label>帳號名稱<select name="name" required ${candidates.length ? '' : 'disabled'}>
         <option value="" selected disabled>${candidates.length ? '選擇玩家' : '沒有可邀請的玩家'}</option>
@@ -3600,6 +3516,8 @@ function waitingRoom() {
       ${state.waiting.invitations.length ? `<ul>${state.waiting.invitations.map(invite => `<li><span>${escape(invite.name)} · ${invite.joined ? '已加入' : '待加入'}</span>
         <form data-waiting-revoke><input type="hidden" name="id" value="${escape(invite.id)}"><button type="submit">刪除邀請</button></form></li>`).join('')}</ul>` : '<p class="muted">目前沒有邀請。</p>'}
     </section>` : ''}
+    ${state.waiting.strategies ? botSection(state.waiting.strategies) : ''}
+    </div>
   </section></div>`;
 }
 
@@ -3620,8 +3538,6 @@ function render() {
   closeRoom.hidden = state.role !== state.host;
   adjustGameButton.hidden = !state.testMode || state.role !== state.host || state.phase !== 'action' || Boolean(state.transaction);
   saveRoomButton.hidden = loadRoomButton.hidden = !host || !state.testMode;
-  copyInvite.hidden = state.phase !== 'lobby';
-  copyInvite.textContent = '複製邀請連結';
   if (state.phase === 'lobby') {
     if (state.waiting) {
       app.innerHTML = waitingRoom();
@@ -3840,8 +3756,8 @@ function aiThinkingText() {
   const seconds = ((Date.now() - thinkingStarted) / 1000).toFixed(1);
   const name = meta.names[thinkingInfo.role];
   if (thinkingInfo.stuck) return `${name}（AI）找不到合法行動，持續嘗試中… ${seconds} 秒`;
-  const last = thinkingInfo.stats?.[thinkingInfo.role]?.lastMs;
-  return `${name}（AI）思考中… ${seconds} 秒 / 預計約 ${(thinkingInfo.delayMs / 1000).toFixed(1)} 秒${last == null ? '' : ` · 上一步運算 ${(last / 1000).toFixed(2)} 秒`}`;
+  const compute = thinkingInfo.computeMs;
+  return `${name}（AI）思考中… ${seconds} 秒 / 預計約 ${(thinkingInfo.delayMs / 1000).toFixed(1)} 秒${compute == null ? '' : ` · 其中運算 ${(compute / 1000).toFixed(2)} 秒`}`;
 }
 
 function updateAiThinking() {
@@ -4620,6 +4536,13 @@ app.addEventListener('click', async event => {
     select.dispatchEvent(new Event('change', { bubbles: true }));
     return;
   }
+  const marketPick = event.target.closest('[data-market-build]');
+  if (marketPick) {
+    if (!acting('build')) return;
+    startBuild(marketPick.dataset.marketBuild);
+    render();
+    return;
+  }
   const companyCard = event.target.closest('[data-company-choice]');
   if (companyCard) {
     const { control, available } = companyChoiceControl(companyCard);
@@ -4665,16 +4588,6 @@ app.addEventListener('click', async event => {
     message();
     render();
     return;
-  }
-});
-
-copyInvite.addEventListener('click', async () => {
-  const url = new URL(`/?room=${state.code}`, location.href).href;
-  try {
-    await navigator.clipboard.writeText(url);
-    copyInvite.textContent = '已複製';
-  } catch {
-    message(url);
   }
 });
 
@@ -4737,6 +4650,33 @@ async function restoreRoomSave(code, revision, id) {
     busy = false;
   }
 }
+
+const passwordDialog = document.querySelector('#password-dialog');
+const passwordForm = passwordDialog.querySelector('form');
+const passwordMessage = document.querySelector('#password-message');
+document.querySelector('#player-password').addEventListener('click', () => {
+  if (busy || !accountToken) return;
+  passwordForm.reset();
+  passwordMessage.textContent = '';
+  passwordDialog.showModal();
+});
+passwordDialog.querySelector('[data-cancel-password]').addEventListener('click', () => passwordDialog.close());
+passwordForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = new FormData(passwordForm);
+  const [oldPassword, newPassword] = [form.get('oldPassword'), form.get('newPassword')];
+  if (newPassword !== form.get('confirmPassword')) {
+    passwordMessage.textContent = '兩次輸入的新密碼不一樣。';
+    return;
+  }
+  try {
+    await request('/api/player/password', { oldPassword, newPassword }, { token: accountToken });
+    passwordDialog.close();
+    notice.textContent = '密碼已更新。';
+  } catch (error) {
+    passwordMessage.textContent = error.message;
+  }
+});
 
 document.querySelector('#player-logout').addEventListener('click', () => {
   if (busy) return;
