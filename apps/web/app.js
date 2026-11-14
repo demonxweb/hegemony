@@ -3445,6 +3445,44 @@ app.addEventListener('pointerout', event => {
   if (event.pointerType !== 'touch' && !app.contains(event.relatedTarget)) hideTip();
 });
 app.addEventListener('pointerdown', hideTip);
+// 觸控沒有「滑鼠移上去」，改成長按約 1 秒顯示提示：放開後提示留著、點別處才收起，
+// 長按那一下不會觸發點擊。原本點擊（聚焦）就會顯示提示的元素維持不變。
+let pressTimer = null;
+let pressOrigin = null;
+let pressShown = false;
+const cancelPress = () => {
+  clearTimeout(pressTimer);
+  pressTimer = null;
+  pressOrigin = null;
+};
+app.addEventListener('pointerdown', event => {
+  cancelPress();
+  pressShown = false;
+  if (event.pointerType !== 'touch' || !event.isPrimary) return;
+  const anchor = tipFor(event.target);
+  if (!anchor) return;
+  pressOrigin = { x: event.clientX, y: event.clientY };
+  pressTimer = setTimeout(() => {
+    pressTimer = null;
+    pressShown = true;
+    showTip(anchor);
+  }, 1000);
+});
+app.addEventListener('pointermove', event => {
+  if (pressOrigin && Math.hypot(event.clientX - pressOrigin.x, event.clientY - pressOrigin.y) > 10) cancelPress();
+});
+app.addEventListener('pointerup', cancelPress);
+app.addEventListener('pointercancel', cancelPress);
+app.addEventListener('click', event => {
+  if (!pressShown) return;
+  pressShown = false;
+  event.preventDefault();
+  event.stopPropagation();
+}, true);
+// 長按時不要跳出手機的系統選單
+app.addEventListener('contextmenu', event => {
+  if (tipFor(event.target) && matchMedia('(pointer: coarse)').matches) event.preventDefault();
+});
 app.addEventListener('focusin', event => showTip(tipFor(event.target)));
 app.addEventListener('focusout', hideTip);
 window.addEventListener('scroll', () => { if (tipAnchor) positionTip(); }, { capture: true, passive: true });

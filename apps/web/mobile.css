@@ -193,3 +193,7 @@ body.m-game[data-sheet="chat"] .room-chat .panel { border: 2px solid var(--gold)
   .round-phases li { display: flex; align-items: center; justify-content: center; padding: 4px 0; }
   #mobile-tabs button { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 3px; padding: 4px 0; font-size: .72rem; }
 }
+
+/* 長按提示：提示要蓋在面板、選單之上；可長按的元素不要選取文字或跳出系統選單 */
+.board-tooltip { z-index: 50; }
+[data-tip-title], [data-tip-card] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
