@@ -1,4 +1,7 @@
 import { applyCommand, playerView } from '../engine/game.mjs';
+import { economyView } from '../engine/companies.mjs';
+import { marketPrices } from '../engine/prices.mjs';
+import { agenda, population } from '../engine/rounds.mjs';
 import { defaultCandidates } from './phases.mjs';
 import { pendingActors } from './turn.mjs';
 
@@ -34,6 +37,18 @@ function continuesCleanly(game) {
   return false;
 }
 
+// 只含評估指標需要的欄位的精簡視圖。完整的 playerView 約 3 ms，每個候選行動都算一次太慢；
+// 這裡同樣只用該席位看得到的資訊（自己的數值與公開盤面），不含別人的手牌。
+function lightView(game, role) {
+  const { hand, ...own } = game.players[role];
+  return {
+    players: { [role]: own }, treasury: game.treasury, publicServices: game.publicServices, policies: game.policies, bills: game.bills,
+    bag: game.bag, economy: economyView(game.economy),
+    match: { round: game.match.round, agenda: agenda(game), prices: marketPrices(game),
+      populations: { working: population(game, 'working'), middle: population(game, 'middle') } },
+  };
+}
+
 // AI 只能看到該席位的私人視圖，並可在遊戲複本上試跑命令確認是否合法。
 export function createContext(game, role) {
   const view = playerView(game, role);
@@ -46,6 +61,13 @@ export function createContext(game, role) {
       // 複本帶著自己的亂數狀態，試跑不會影響真實遊戲的抽牌順序。
       const copy = structuredClone(game);
       return attempt(copy, command, as) && continuesCleanly(copy);
+    },
+    // 試跑後回傳新盤面的精簡視圖；不合法則回傳 null。AI 用它比較行動前後的指標。
+    // 只看命令本身的直接效果，不走完後續的強制選擇（那很貴）；選定後 runner 仍會用 tryCommand 完整驗證，
+    // 後續走不完的命令會被跳過，改試下一名。
+    preview(command, as = role) {
+      const copy = structuredClone(game);
+      return attempt(copy, command, as) ? lightView(copy, role) : null;
     },
     // 回傳候選清單中第一個合法的命令；都不合法則回傳 null。
     firstValid(candidates, as = role) {

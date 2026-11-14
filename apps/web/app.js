@@ -2246,7 +2246,7 @@ function actionPanel(card, inDialog = false) {
     return `<section class="panel"><h2>第 ${state.match.round} 輪計分完成</h2><button type="button" data-open-round-result>查看本輪結算</button>${next}</section>`;
   }
   if (state.phase === 'election') return electionPanel();
-  if (state.currentRole !== state.role) return `<section class="panel"><h2>等待 ${meta.names[state.currentRole]}</h2><p class="muted">${state.mainUsed ? '主要行動已執行，等待結束回合。' : '對方正在選擇主要行動。'}</p></section>`;
+  if (state.currentRole !== state.role) return `<section class="panel"><h2>等待 ${meta.names[state.currentRole]}</h2><p class="muted">${state.mainUsed ? '主要行動已執行，等待結束回合。' : '對方正在選擇主要行動。'}</p><p class="muted" data-ai-thinking="${state.currentRole}"></p></section>`;
   const mainActionHelp = boardHeadingHelp('主要行動',
     '輪到自己時，必須完成一項主要行動，才能結束回合。',
     '選「卡牌效果」會打出所選手牌並執行牌上的效果。選「基本行動」會棄掉所選手牌，改做所選的基本行動，例如購買商品與服務、指派工人或建造企業。可選的基本行動依階級而異。',
@@ -3550,6 +3550,10 @@ function botSection(strategies) {
       <label>強度<select name="strategy">${strategies.map(item =>
         `<option value="${escape(item.id)}" title="${escape(item.description)}">${escape(item.name)}</option>`).join('')}</select></label>
       <button type="submit" ${free.length && players.length < 4 ? '' : 'disabled'}>加入 AI</button></form>
+    <form data-waiting-bot-think><label>AI 最長思考時間<select name="seconds">${(state.waiting.botThinkChoices ?? [0]).map(seconds =>
+      `<option value="${seconds}" ${seconds === state.waiting.botThinkMax ? 'selected' : ''}>${seconds === 0 ? '立即行動' : `${seconds} 秒`}</option>`).join('')}</select></label>
+      <button type="submit">設定</button>
+      <small class="muted">AI 會在最長秒數的 0.2～1 倍之間隨機思考，等待時顯示秒數；一定會做到有合法行動為止。</small></form>
     ${bots.length ? `<ul>${bots.map(bot => `<li><span>${escape(meta.names[bot.role])} · ${escape(strategyName(bot.strategy))}</span>
       <form data-waiting-remove-bot><input type="hidden" name="id" value="${escape(bot.id)}"><button type="submit">移除</button></form></li>`).join('')}</ul>` : '<p class="muted">目前沒有 AI。</p>'}
   </section>`;
@@ -3826,6 +3830,36 @@ function syncWageIncome(view) {
 
 wageIncomeDialog.addEventListener('close', () => { wageIncomePending = []; });
 
+// AI 思考時間：伺服器告知哪個 AI 正在思考與已經過多久，這裡每 0.2 秒更新秒數。
+const aiThinkingBanner = document.querySelector('#ai-thinking');
+let thinkingInfo = null;
+let thinkingStarted = 0;
+
+function aiThinkingText() {
+  if (!thinkingInfo) return '';
+  const seconds = ((Date.now() - thinkingStarted) / 1000).toFixed(1);
+  const name = meta.names[thinkingInfo.role];
+  if (thinkingInfo.stuck) return `${name}（AI）找不到合法行動，持續嘗試中… ${seconds} 秒`;
+  const last = thinkingInfo.stats?.[thinkingInfo.role]?.lastMs;
+  return `${name}（AI）思考中… ${seconds} 秒 / 預計約 ${(thinkingInfo.delayMs / 1000).toFixed(1)} 秒${last == null ? '' : ` · 上一步運算 ${(last / 1000).toFixed(2)} 秒`}`;
+}
+
+function updateAiThinking() {
+  const text = aiThinkingText();
+  aiThinkingBanner.hidden = !text;
+  aiThinkingBanner.textContent = text;
+  for (const element of document.querySelectorAll('[data-ai-thinking]')) element.textContent = thinkingInfo?.role === element.dataset.aiThinking ? text : '';
+}
+
+function syncAiThinking(view) {
+  const thinking = view.botThink?.thinking;
+  thinkingInfo = thinking ? { ...thinking, stats: view.botThink.stats } : null;
+  thinkingStarted = thinking ? Date.now() - thinking.elapsedMs : 0;
+  updateAiThinking();
+}
+
+setInterval(updateAiThinking, 200);
+
 // 行動紀錄：等待別人行動時、輪到自己時、資訊列的「記錄」共用同一份資料（view.turnLog）與同一個畫面。
 // 每個回合一段，標明輪數與回合數；每個行動可展開，內容就是該行動確認執行時列出的變化。
 // 最新的一筆預設展開。
@@ -3873,7 +3907,7 @@ function showTurnSummary(view) {
   }
   if (waitingActionsDialog.open || document.querySelector('dialog[open]')) return;
   turnSummaryKey = key;
-  openRecordDialog('summary', '輪到你了 · 上次你行動後各席的行動', turnRecordMarkup(view, entries));
+  openRecordDialog('summary', '輪到你了 · 上次你行動後各席的行動', turnRecordMarkup(view, entries, undefined, true));
 }
 
 // 等待其他玩家行動時，列出這一輪四席輪完一圈的行動。每當有新的內容，只要最新的不是自己的，
@@ -3895,7 +3929,7 @@ function syncWaitingActions(view) {
   if (!waitingActionsDialog.open && document.querySelector('dialog[open]')) return;
   const cycleStart = Math.floor(view.turn / meta.roles.length) * meta.roles.length;
   openRecordDialog('waiting', `第 ${view.match.round} 輪 · 第 ${roomTurnNumber(view.turn)} 回合 · 各席行動`,
-    turnRecordMarkup(view, log.filter(entry => entry.turn >= cycleStart), view.turn));
+    turnRecordMarkup(view, log.filter(entry => entry.turn >= cycleStart), view.turn, true));
 }
 
 function update(next) {
@@ -3925,6 +3959,7 @@ function update(next) {
     render();
     syncWaitingActions(next);
     syncWageIncome(next);
+    syncAiThinking(next);
   }
 }
 
@@ -3952,6 +3987,8 @@ function leaveRoom(code) {
   updateRoomChat(undefined);
   document.querySelector('#card-result-dialog').close();
   waitingActionsDialog.close();
+  thinkingInfo = null;
+  updateAiThinking();
   connection.textContent = '';
   headerRoomCode.hidden = true;
   showLobby();
@@ -4171,6 +4208,10 @@ async function submitGameForm(event) {
       if (revoke && !window.confirm('確定刪除這筆邀請？已加入的玩家也會被移出房間。')) return;
       const input = revoke ? { type: 'revoke-invite', id: fields.get('id') } : { type: 'invite', name: fields.get('name') };
       update(await request(`/api/rooms/${seat.code}/waiting`, input));
+      return;
+    }
+    if (form.hasAttribute('data-waiting-bot-think')) {
+      update(await request(`/api/rooms/${seat.code}/waiting`, { type: 'set-bot-think', seconds: Number(fields.get('seconds')) }));
       return;
     }
     if (form.hasAttribute('data-waiting-add-bot') || form.hasAttribute('data-waiting-remove-bot')) {

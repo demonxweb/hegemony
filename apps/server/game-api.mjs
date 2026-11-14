@@ -10,7 +10,7 @@ import { summarizeAction } from '../../packages/engine/action-summary.mjs';
 import { createPlayerAccounts } from './player-accounts.mjs';
 import { applyRecorded } from '../../packages/engine/turns.mjs';
 import { createRecord, recordCommand, replayRecord } from '../../packages/engine/replay.mjs';
-import { BotStuckError, defaultStrategy, getStrategy, listStrategies, runBots } from '../../packages/bots/index.mjs';
+import { BotStuckError, defaultStrategy, getStrategy, listStrategies, nextBotActor, runBotActor, runBots } from '../../packages/bots/index.mjs';
 
 const turnCommands = ['play', 'assign', 'build', 'sell', 'buy', 'deal', 'export', 'strike', 'event', 'campaign',
   'propose', 'pressure', 'demonstrate', 'extra-shift', 'lobby', 'meet-mps', 'extra-tax', 'wages', 'repay', 'benefits',
@@ -27,15 +27,51 @@ function botSeats(room) {
   return Object.fromEntries(roles.flatMap(role => room.seats[role]?.bot ? [[role, getStrategy(room.seats[role].strategy).id]] : []));
 }
 
+const recordStep = room => ({ actor, command }) => recordCommand(room.record, room.game, actor, command);
+
 // 讓 AI 席位持續行動到輪到真人為止。無法繼續時記錄在日誌，不中斷真人操作。
 function runRoomBots(room) {
   const seats = botSeats(room);
   if (!Object.keys(seats).length) return;
   try {
-    runBots(room.game, seats, { host: room.host, onStep: ({ actor, command }) => recordCommand(room.record, room.game, actor, command) });
+    runBots(room.game, seats, { host: room.host, onStep: recordStep(room) });
   } catch (error) {
     if (!(error instanceof BotStuckError)) throw error;
     room.game.log.push(`AI 無法繼續：${error.message}`);
+  }
+}
+
+// AI 思考時間：房間設定最長秒數（0 = 立即，維持原本的同步行為）。大於 0 時，輪到 AI 不立刻行動，
+// 而是在 0.2～1 倍最長秒數之間隨機等一段時間再行動，玩家看得到「AI 思考中」與秒數，AI 之間也有不同的節奏。
+// 思考時間只是刻意的等待，不限制運算：行動一定會做到有合法行動為止（找不到時 5 秒後重試，不會放棄）。
+export const botThinkChoices = [0, 2, 5, 10, 20, 30];
+
+function planThinking(room) {
+  const seats = botSeats(room);
+  const actor = room.botThinkMax > 0 && Object.keys(seats).length ? nextBotActor(room.game, seats, room.host) : null;
+  if (!actor) {
+    room.thinking = null;
+    return;
+  }
+  if (room.thinking?.role === actor && !room.thinking.stuck) return;
+  room.thinking = { role: actor, since: Date.now(), delayMs: Math.round(room.botThinkMax * 1000 * (0.2 + 0.8 * Math.random())) };
+}
+
+// 思考時間到了：讓這個 AI 做完它的步驟，記下實際運算花的時間，再安排下一個 AI。
+function finishThinking(room) {
+  const started = Date.now();
+  const { role } = room.thinking;
+  try {
+    runBotActor(room.game, botSeats(room), { host: room.host, onStep: recordStep(room) });
+    room.botStats = { ...room.botStats, [role]: { lastMs: Date.now() - started } };
+    room.thinking = null;
+    room.revision++;
+    planThinking(room);
+  } catch (error) {
+    if (!(error instanceof BotStuckError)) throw error;
+    if (!room.thinking?.stuck) room.game.log.push(`AI 找不到合法行動，持續重試：${error.message}`);
+    room.thinking = { role, since: Date.now(), delayMs: 5000, stuck: true };
+    room.revision++;
   }
 }
 
@@ -152,6 +188,7 @@ function roomView(room, role, accounts) {
         middleMarket: room.game.content && players.find(player => player.id === role)?.role === 'middle'
           ? room.game.economy.markets.middle.map(companyDefinition) : undefined,
         strategies: role === host ? listStrategies() : undefined,
+        botThinkMax: room.botThinkMax ?? 0, botThinkChoices,
         players: players.map(({ id, name, role, ready, skill, bot, strategy }) => ({ id, name, role, ready, skill, ...(bot && { bot, strategy }) })) } };
   }
   return {
@@ -188,6 +225,10 @@ function updateWaitingRoom(room, id, input, accounts) {
         unreadyHumans(waiting);
       }
     }
+  } else if (input.type === 'set-bot-think') {
+    if (id !== waiting.host) throw new GameError('只有房主可以設定 AI 思考時間。', 403);
+    requireRule(botThinkChoices.includes(input.seconds), 'AI 最長思考時間只能選 0、2、5、10、20 或 30 秒。');
+    room.botThinkMax = input.seconds;
   } else if (input.type === 'add-bot' || input.type === 'remove-bot') {
     if (id !== waiting.host) throw new GameError('只有房主可以管理 AI。', 403);
     if (input.type === 'add-bot') {
@@ -237,7 +278,8 @@ function updateWaitingRoom(room, id, input, accounts) {
       room.record = createRecord(room.game);
       applyRecorded(room.game, room.host, { type: 'start' }, true);
       recordCommand(room.record, room.game, room.host, { type: 'start' });
-      runRoomBots(room);
+      if (room.botThinkMax > 0) planThinking(room);
+      else runRoomBots(room);
       return player.role;
     }
   } else {
@@ -298,9 +340,38 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
     }
     return passCache.get(key);
   }
+  // AI 思考時間：每個 AI 的計時器。伺服器重啟時從房間存檔接續。
+  const thinkTimers = new Map();
+  function armThinking(room) {
+    clearTimeout(thinkTimers.get(room.code));
+    thinkTimers.delete(room.code);
+    if (!room.thinking) return;
+    const wait = Math.max(0, room.thinking.since + room.thinking.delayMs - Date.now());
+    const timer = setTimeout(() => thinkTick(room.code), wait);
+    timer.unref?.();
+    thinkTimers.set(room.code, timer);
+  }
+  function thinkTick(code) {
+    thinkTimers.delete(code);
+    const room = loadRoom(code);
+    if (!room?.thinking) return;
+    try {
+      finishThinking(room);
+      saveRoom(room);
+    } catch (error) {
+      console.error(error);
+      room.thinking = null;
+    }
+    armThinking(room);
+  }
+  for (const room of listRooms()) if (room.thinking) armThinking(room);
   const view = (room, role) => {
     const stuck = noLegalAction(room, role);
-    return { ...roomView(room, role, accounts), ...(stuck !== undefined && { noLegalAction: stuck }), chat: (room.chat ?? []).slice(-chatLimit) };
+    const think = room.botThinkMax > 0 || room.thinking ? {
+      max: room.botThinkMax ?? 0, stats: room.botStats ?? {},
+      thinking: room.thinking && { role: room.thinking.role, elapsedMs: Date.now() - room.thinking.since, delayMs: room.thinking.delayMs, stuck: Boolean(room.thinking.stuck) },
+    } : undefined;
+    return { ...roomView(room, role, accounts), ...(stuck !== undefined && { noLegalAction: stuck }), ...(think && { botThink: think }), chat: (room.chat ?? []).slice(-chatLimit) };
   };
   const activeSeats = new Map();
   function normalizePublicStorage(room) {
@@ -395,6 +466,8 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
       next.invitationsLocked = room.invitationsLocked || room.game.phase !== 'lobby';
       next.game.testMode = room.game.testMode === true;
       next.name = room.name ?? room.code;
+      next.botThinkMax = room.botThinkMax;
+      next.thinking = null;
       if (next.waiting) {
         next.waiting.selectionRevision = revision;
         next.waiting.players = next.waiting.players.filter(player => !next.invitations?.some(invite => invite.revoked && invite.id === player.accountId));
@@ -413,6 +486,8 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
       const room = readRoom(code);
       if (!room) throw new GameError('找不到房間。', 404);
       if (authenticate(room, request, accounts) !== (room.waiting?.host ?? room.host)) throw new GameError('只有房主可以刪除房間。', 403);
+      clearTimeout(thinkTimers.get(code));
+      thinkTimers.delete(code);
       deleteRoom(code);
       return json(response, 200, { deleted: code });
     }
@@ -450,6 +525,7 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
         const viewer = updateWaitingRoom(room, role, input, accounts);
         room.revision++;
         saveRoom(room);
+        armThinking(room);
         return json(response, 200, view(room, viewer));
       }
       const { id, revision } = input;
@@ -512,9 +588,11 @@ export function createGameApi({ readRoom: loadRoom, saveRoom, deleteRoom, listRo
         changes: summarizeAction(room.game, next.game, role, input, { committed: true }).changes,
       } : null;
       next.processed[key] = cardResult ? { cardResult } : true;
-      runRoomBots(next);
+      if (next.botThinkMax > 0) planThinking(next);
+      else runRoomBots(next);
       next.revision++;
       saveRoom(next);
+      armThinking(next);
       return json(response, 200, { ...view(next, role), ...(cardResult && { cardResult }) });
     }
     if (request.method === 'GET' && !action) {

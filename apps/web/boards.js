@@ -379,6 +379,6 @@ export function playerDiagram(state, role, meta, wells, resources, escape, union
       <section class="mat-zone mat-agenda">${heading('政治綱領', '開局設置\n洗勻政治綱領牌庫，翻開頂部 1 張，放在國家圖版旁讓所有玩家查看。這張牌列出第一輪的五項政策目標。\n\n後續每輪準備階段翻開新的政治綱領。每個代碼標示政策編號及目標區段，例如 3B 代表稅制目標為 B 區。國家可透過提案或卡牌效果推動政策變更。\n\n輪末計分時，逐一核對政策 1 到 5 的生效區段，每符合一項得 1 VP。例如綱領有 1C、3B、5A 三項與現行政策相符，就得 3 VP。這筆分數與合法性得分分開相加。')}
         <p class="agenda-tags">${state.match?.agenda.map((section, index) => `<span style="--policy:${policyColors[index]}">${escape(meta.policies[index])} ${index + 1}${escape(section)}</span>`).join('') ?? '—'}</p></section>`;
   }
-  return `<section class="player-mat ${role}" style="--role:${color}" aria-label="${names[role]}玩家圖板">
-    ${boardSurface(role)}<div class="player-mat-content"><header><h3>${names[role]}玩家圖板</h3><span>${player.vp} VP · <span class="mat-zone-title">貸款 ${economy?.loans[role] ?? 0} ${help('貸款', loanHelp)}</span></span></header>${body}</div></section>`;
+  return `<section class="player-mat ${role}" style="--role:${color}" aria-label="${names[role]}圖板">
+    ${boardSurface(role)}<div class="player-mat-content"><header><h3>${names[role]}圖板</h3><span>${player.vp} VP · <span class="mat-zone-title">貸款 ${economy?.loans[role] ?? 0} ${help('貸款', loanHelp)}</span></span></header>${body}</div></section>`;
 }

@@ -124,7 +124,8 @@ test('a host can fill the other seats with AI of different strengths and play on
     const path = `/api/rooms/${host.code}`;
     const waiting = body => request(`${path}/waiting`, { body, token: host.token });
     const lobby = await request(path, { token: host.token });
-    assert.deepEqual(lobby.waiting.strategies.map(item => item.id).sort(), ['basic', 'minimal']);
+    const ids = lobby.waiting.strategies.map(item => item.id);
+    for (const id of ['minimal', 'basic', 'goal-balanced', 'goal-growth', 'goal-frugal', 'goal-political']) assert(ids.includes(id), id);
 
     await waiting({ type: 'select', role: 'middle' });
     await waiting({ type: 'start-skill', skill: 'food' });

@@ -30,6 +30,7 @@ node scripts/bot-arena.mjs --games 20 --seats working=basic,middle=basic,capital
 ```
 
   目前結果（60 局、同種子配對）：勞工 `basic` 比 `minimal` 多 13.6 分（標準誤 0.7），中產多 1.4 分（標準誤 0.14）。
+- **各 AI 模式的詳細說明**：每種模式都有獨立的說明檔，見 [ai/README.md](ai/README.md)（共同架構、思考時間、新增模式）、[ai/minimal.md](ai/minimal.md)、[ai/basic.md](ai/basic.md)、[ai/goal.md](ai/goal.md)（目標導向的指標、目標、迫切度、評分演算法與風格參數）。
 - **國家無行動可做**：國家在少數盤面（約 3%）沒有任何合法的主要行動。引擎的 `hasLegalMainAction` 會試遍國家所有候選（找到一個合法的就停），確實沒有時才接受 `pass` 命令，視圖會帶 `noLegalAction: true`（依房間版本快取，房主調整後自動重算）。AI 遇到時自動跳過。候選列舉在 `packages/engine/candidates.mjs`，AI 與跳過驗證共用；`tests/pass.test.mjs` 用獨立的暴力搜尋確認這些盤面真的沒有合法行動。
 - **優先議題收回**：打出「優先議題」後若沒有任何事件能處理，原本會永遠卡在選擇畫面（只有「轉移重點」有收回選項）。已比照加入 `cancel-priority`。打出但只能收回的牌，不算「有行動可做」。
 

@@ -10,6 +10,14 @@ import test from 'node:test';
 
 const roles = ['working', 'middle', 'capitalist', 'state'];
 
+// 聊天訊息有伺服器加上的時間戳 at，內容比對時先確認它是數字再去掉。
+function withoutTime(chat) {
+  return chat.map(({ at, ...message }) => {
+    assert.equal(typeof at, 'number');
+    return message;
+  });
+}
+
 test('waiting room starts only after four distinct roles and four current confirmations', async () => {
   const store = await mkdtemp(join(tmpdir(), 'hegemony-waiting-'));
   let server;
@@ -63,7 +71,7 @@ test('waiting room starts only after four distinct roles and four current confir
     await request(path + '/chat', { body: { text: '未登入' }, status: 401 });
     await request(path + '/chat', { body: { text: '   ' }, token: host.token, status: 400 });
     const lobbyChat = await request(path + '/chat', { body: { text: ' 大家好 ' }, token: host.token, status: 201 });
-    assert.deepEqual(lobbyChat.chat, [{ id: 1, role: null, name: accounts[0].name, text: '大家好' }]);
+    assert.deepEqual(withoutTime(lobbyChat.chat), [{ id: 1, role: null, name: accounts[0].name, text: '大家好' }]);
     assert.equal(hostView.presence[hostView.role], true);
     assert.equal(Object.values(hostView.presence).filter(Boolean).length, 1);
     const guestView = await request(path, { token: tokens[1], presence: true });
@@ -97,7 +105,7 @@ test('waiting room starts only after four distinct roles and four current confir
     assert(others.every(view => view.phase === 'lobby'));
     assert.equal((await change(0, ready)).phase, 'action');
     const gameChat = await request(path + '/chat', { body: { text: '開始了' }, token: host.token, status: 201 });
-    assert.deepEqual(gameChat.chat, [...lobbyChat.chat, { id: 2, role: 'working', name: accounts[0].name, text: '開始了' }]);
+    assert.deepEqual(withoutTime(gameChat.chat), [...withoutTime(lobbyChat.chat), { id: 2, role: 'working', name: accounts[0].name, text: '開始了' }]);
     await request(path + '/waiting', { body: revoke, token: host.token, status: 409 });
     assert.deepEqual((await request('/api/player/rooms', { token: extra.token })).invitations, []);
     for (const [index, token] of tokens.entries()) {

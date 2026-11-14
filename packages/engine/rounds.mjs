@@ -299,7 +299,7 @@ export function exportGoods(game, role, ids, allowed, repeats = 1) {
   game.log.push(`${{ middle: '中產', capitalist: '資本家', state: '國家' }[role]}完成 ${ids.length} 筆出口，取得 ${proceeds}。`);
 }
 
-function agenda(game) {
+export function agenda(game) {
   if (game.content?.agenda) return Object.values(catalogCard(game.content.agenda).targets);
   return [...agendas[game.match.round - 1]];
 }
